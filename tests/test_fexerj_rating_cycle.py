@@ -17,12 +17,12 @@ _TURX_DATA = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
 
 _TURX_PLAYERS_CSV = textwrap.dedent("""\
     Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
-    3741;;;Marcio Lima;1800;CLUB A;01/01/1980;M;BRA;50;0;0
-    643;;;Willy Petrenko;1900;CLUB B;01/01/1975;M;BRA;80;0;0
-    1979;;;Marco Coutinho;1700;CLUB C;01/01/1982;M;BRA;60;0;0
-    2831;;;Ernesto Schlobach;1750;CLUB D;01/01/1978;M;BRA;100;0;0
-    3541;;;Claudio Martins;1650;CLUB E;01/01/1985;M;BRA;45;0;0
-    5400;;;Tairon Rodrigues;1600;CLUB F;01/01/1995;M;BRA;20;0;0
+    3741;;;Carlos Mendes;1800;CLUB A;01/01/1980;M;BRA;50;0;0
+    643;;;Roberto Faria;1900;CLUB B;01/01/1975;M;BRA;80;0;0
+    1979;;;Andre Nunes;1700;CLUB C;01/01/1982;M;BRA;60;0;0
+    2831;;;Felipe Borges;1750;CLUB D;01/01/1978;M;BRA;100;0;0
+    3541;;;Lucas Carvalho;1650;CLUB E;01/01/1985;M;BRA;45;0;0
+    5400;;;Bruno Teixeira;1600;CLUB F;01/01/1995;M;BRA;20;0;0
 """)
 
 _TURX_TOURNAMENTS_CSV = textwrap.dedent("""\
