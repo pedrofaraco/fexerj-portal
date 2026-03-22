@@ -11,9 +11,9 @@ BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
 
 RATING_LIST_CSV = textwrap.dedent("""\
     Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
-    1;;; JOSE DA SILVA;1500;CLUBE A;01/01/1990;M;BRA;50;0;0
-    2;36633;;MARIO SOUZA;1800;CLUBE B;15/06/1985;M;BRA;100;0;0
-    3;;;ANA LIMA;1200;CLUBE C;20/03/2000;F;BRA;5;30000;2.5
+    1;;; Pedro Alves;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    2;36633;;Rafael Costa;1800;CLUB B;15/06/1985;M;BRA;100;0;0
+    3;;;Lucia Ferreira;1200;CLUB C;20/03/2000;F;BRA;5;30000;2.5
 """)
 
 

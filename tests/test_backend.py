@@ -7,6 +7,7 @@ import zipfile
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.config import settings
 from backend.main import app
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
@@ -15,12 +16,12 @@ TURX_DATA = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
 # 6 players matching the IDs in round_robin_6players.TURX
 PLAYERS_CSV = textwrap.dedent("""\
     Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
-    3741;;;Marcio Lima;1800;CLUB A;01/01/1980;M;BRA;50;0;0
-    643;;;Willy Petrenko;1900;CLUB B;01/01/1975;M;BRA;80;0;0
-    1979;;;Marco Coutinho;1700;CLUB C;01/01/1982;M;BRA;60;0;0
-    2831;;;Ernesto Schlobach;1750;CLUB D;01/01/1978;M;BRA;100;0;0
-    3541;;;Claudio Martins;1650;CLUB E;01/01/1985;M;BRA;45;0;0
-    5400;;;Tairon Rodrigues;1600;CLUB F;01/01/1995;M;BRA;20;0;0
+    3741;;;Carlos Mendes;1800;CLUB A;01/01/1980;M;BRA;50;0;0
+    643;;;Roberto Faria;1900;CLUB B;01/01/1975;M;BRA;80;0;0
+    1979;;;Andre Nunes;1700;CLUB C;01/01/1982;M;BRA;60;0;0
+    2831;;;Felipe Borges;1750;CLUB D;01/01/1978;M;BRA;100;0;0
+    3541;;;Lucas Carvalho;1650;CLUB E;01/01/1985;M;BRA;45;0;0
+    5400;;;Bruno Teixeira;1600;CLUB F;01/01/1995;M;BRA;20;0;0
 """)
 
 TOURNAMENTS_CSV = textwrap.dedent("""\
@@ -28,7 +29,7 @@ TOURNAMENTS_CSV = textwrap.dedent("""\
     1;99999;Test RR Tournament;2025-01-01;RR;0;1
 """)
 
-VALID_AUTH = ("fexerj", "changeme")
+VALID_AUTH = (settings.portal_user, settings.portal_password)
 
 client = TestClient(app)
 
@@ -58,11 +59,11 @@ class TestAuth:
         assert response.status_code == 401
 
     def test_wrong_password_returns_401(self):
-        response = _post_run(auth=("fexerj", "wrong"))
+        response = _post_run(auth=(settings.portal_user, "wrong"))
         assert response.status_code == 401
 
     def test_wrong_username_returns_401(self):
-        response = _post_run(auth=("wrong", "changeme"))
+        response = _post_run(auth=("wrong", settings.portal_password))
         assert response.status_code == 401
 
     def test_valid_credentials_accepted(self):
@@ -108,6 +109,11 @@ class TestRunSuccess:
             content = zf.read("Audit_of_Tournament_1.csv").decode()
         assert content.splitlines()[0].startswith("Id_Fexerj")
 
+    def test_bom_encoded_csv_is_accepted(self):
+        """utf-8-sig BOM prefix (common in Windows-exported CSVs) must be handled."""
+        response = _post_run(players="\ufeff" + PLAYERS_CSV)
+        assert response.status_code == 200
+
     def test_two_tournaments_zip_has_four_files(self):
         tournaments_csv = textwrap.dedent("""\
             Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
@@ -146,6 +152,11 @@ class TestRunValidation:
     def test_out_of_range_first_returns_422(self):
         # first=99 but only tournament 1 exists → no output files
         response = _post_run(first=99, count=1)
+        assert response.status_code == 422
+
+    def test_invalid_tournament_type_returns_422(self):
+        invalid_tournaments = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
+        response = _post_run(tournaments=invalid_tournaments)
         assert response.status_code == 422
 
     def test_player_missing_id_returns_422(self):

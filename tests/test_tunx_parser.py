@@ -56,9 +56,9 @@ class TestReadField:
 
     def test_reads_at_nonzero_offset(self):
         prefix = b'\xff\xff'
-        data = prefix + utf16_field("Jose")
+        data = prefix + utf16_field("Hugo")
         text, offset = read_field(data, 2)
-        assert text == "Jose"
+        assert text == "Hugo"
         assert offset == 2 + 2 + 8  # prefix + char_count + 4 chars * 2 bytes
 
 
@@ -144,12 +144,12 @@ class TestFindNextRecord:
         return utf16_field(first) + utf16_field(last)
 
     def test_finds_valid_two_field_record(self):
-        data = self.make_two_fields("Jose", "Silva")
+        data = self.make_two_fields("Tiago", "Rocha")
         assert find_next_record(data, 0, len(data)) == 0
 
     def test_skips_single_field_entry(self):
         single = utf16_field("NAT") + utf16_field("")
-        two_field = self.make_two_fields("Jose", "Silva")
+        two_field = self.make_two_fields("Tiago", "Rocha")
         data = single + two_field
         assert find_next_record(data, 0, len(data)) == len(single)
 
@@ -159,7 +159,7 @@ class TestFindNextRecord:
 
     def test_skips_nonprintable_bytes(self):
         garbage = b'\xFF\xFF\x00\x00'
-        valid = self.make_two_fields("Ana", "Lima")
+        valid = self.make_two_fields("Clara", "Melo")
         data = garbage + valid
         assert find_next_record(data, 0, len(data)) == len(garbage)
 
@@ -192,21 +192,21 @@ class TestParseBioSection:
         return BIO_MARKER + player_bytes + PAIRING_MARKER
 
     def test_normal_record_parsed(self):
-        data = self._wrap(make_player_bytes('Jose', 'Silva', 'J. Jose', '', '1234', 'Clube', 'BRA'))
+        data = self._wrap(make_player_bytes('Tiago', 'Rocha', 'T. Rocha', '', '1234', 'Club', 'BRA'))
         bio = parse_bio_section(data)
         assert len(bio) == 1
         assert bio[1]['fexerj_id'] == '1234'
-        assert bio[1]['name'] == 'Silva, Jose'
+        assert bio[1]['name'] == 'Rocha, Tiago'
 
     def test_asterisk_prefix_record_parsed(self):
-        data = self._wrap(make_player_bytes('Leandro', 'Vieira', 'L. Leandro', '', '5523', 'Clube', 'BRA', asterisk_prefix=True))
+        data = self._wrap(make_player_bytes('Hugo', 'Viana', 'H. Viana', '', '5523', 'Club', 'BRA', asterisk_prefix=True))
         bio = parse_bio_section(data)
         assert len(bio) == 1
         assert bio[1]['fexerj_id'] == '5523'
 
     def test_asterisk_and_normal_records_both_parsed(self):
-        player1 = make_player_bytes('Ivan', 'Frolov', 'F. Ivan', '', '5221', 'Cmun', 'RUS')
-        player2 = make_player_bytes('Leandro', 'Vieira', 'L. Leandro', '', '5523', 'Cfcsn', 'BRA', asterisk_prefix=True)
+        player1 = make_player_bytes('Sergio', 'Pinto', 'S. Pinto', '', '5221', 'Club', 'BRA')
+        player2 = make_player_bytes('Hugo', 'Viana', 'H. Viana', '', '5523', 'Club', 'BRA', asterisk_prefix=True)
         data = self._wrap(player1 + player2)
         bio = parse_bio_section(data)
         assert len(bio) == 2
