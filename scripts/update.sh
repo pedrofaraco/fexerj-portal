@@ -21,6 +21,7 @@ info "Pulling latest code from master..."
 git pull origin master
 
 info "Updating Python dependencies..."
+# shellcheck source=/dev/null
 source .venv/bin/activate
 pip install --quiet -r requirements.txt
 
