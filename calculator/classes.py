@@ -54,7 +54,7 @@ _K_STARTING_NUM_GAMES = [(30, 0),  # grampo
 
 class FexerjRatingCycle:
     def __init__(self, tournaments_csv: str, first_item: int, items_to_process: int,
-                 initial_rating_csv: str, binary_files: dict):
+                 initial_rating_csv: str, binary_files: dict[str, bytes]):
         """
         Args:
             tournaments_csv: Content of tournaments.csv as a string.
@@ -72,7 +72,7 @@ class FexerjRatingCycle:
         self.cbx_to_fexerj = {}
         self.binary_files = binary_files
 
-    def run_cycle(self) -> dict:
+    def run_cycle(self) -> dict[str, str]:
         """Run the rating cycle and return all output files.
 
         Returns:
@@ -122,7 +122,7 @@ class FexerjRatingCycle:
 
         return output_files
 
-    def get_rating_list(self, rating_csv: str):
+    def get_rating_list(self, rating_csv: str) -> None:
         reader = csv.reader(io.StringIO(rating_csv), delimiter=_CSV_DELIMITER)
         next(reader, None)  # Skip the headers
         for row in reader:
