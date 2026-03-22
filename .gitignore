@@ -1,8 +1,9 @@
 # macOS
 .DS_Store
 
-# Claude Code internals
-.claude/
+# Frontend
+frontend/node_modules/
+frontend/dist/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
