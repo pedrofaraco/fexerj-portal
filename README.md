@@ -10,7 +10,7 @@ Web portal for the FEXERJ chess community — rating lists, player database, and
 ## Tech Stack
 
 - **Backend**: FastAPI (Python)
-- **Frontend**: React
+- **Frontend**: React + Vite + Tailwind CSS
 - **Auth**: HTTP Basic auth, credentials via environment variables
 - **Hosting**: AWS EC2 + Nginx + HTTPS
 
@@ -19,10 +19,13 @@ Web portal for the FEXERJ chess community — rating lists, player database, and
 ```
 backend/      # FastAPI application and configuration
 calculator/   # Rating calculator library
-tests/        # Test suite (pytest)
+frontend/     # React frontend (Vite)
+tests/        # Backend test suite (pytest)
 ```
 
 ## Development Setup
+
+**Backend**
 
 ```bash
 python -m venv .venv
@@ -31,11 +34,28 @@ pip install -r requirements-dev.txt
 pytest tests/
 ```
 
-## Running Locally
+**Frontend**
 
 ```bash
-uvicorn backend.main:app --reload
+cd frontend
+npm install
+npm test
 ```
+
+## Running Locally
+
+Run both servers simultaneously (two terminal tabs):
+
+```bash
+# Backend
+source .venv/bin/activate
+uvicorn backend.main:app --reload
+
+# Frontend
+cd frontend && npm run dev
+```
+
+Then open `http://localhost:5173`. The frontend proxies `/run` to the backend automatically.
 
 Credentials are configured via environment variables:
 
