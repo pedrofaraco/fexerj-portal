@@ -1,24 +1,34 @@
 """FEXERJ Portal FastAPI application.
 
-Exposes two authenticated endpoints:
+Exposes authenticated endpoints:
 
+- ``GET  /health``   — unauthenticated health check for uptime monitoring.
+- ``GET  /me``       — validate credentials without performing any action.
 - ``POST /validate`` — validates the input files and returns a JSON list of
   errors without running the calculation.
-- ``POST /run`` — validates inputs, runs the FEXERJ rating cycle, and returns
-  a zip archive containing one rating-list CSV and one audit CSV per processed
-  tournament.
+- ``POST /run``      — validates inputs, runs the FEXERJ rating cycle, and
+  returns a zip archive containing one rating-list CSV and one audit CSV per
+  processed tournament.
 """
 import io
+import logging
 import secrets
 import zipfile
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from calculator import FexerjRatingCycle
 from backend.config import settings
 from backend.validator import validate_inputs
+from calculator import FexerjRatingCycle
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Portal FEXERJ")
 # auto_error=False prevents FastAPI from sending WWW-Authenticate: Basic on
@@ -43,6 +53,15 @@ def require_auth(credentials: HTTPBasicCredentials | None = Depends(_security)) 
         )
 
 
+@app.get("/health")
+async def health() -> dict:
+    """Unauthenticated health check for uptime monitoring.
+
+    Returns ``{"status": "ok"}`` whenever the service is running.
+    """
+    return {"status": "ok"}
+
+
 @app.get("/me")
 async def me(_: None = Depends(require_auth)) -> dict:
     """Validate credentials without performing any action.
@@ -55,11 +74,11 @@ async def me(_: None = Depends(require_auth)) -> dict:
 
 @app.post("/validate")
 async def validate(
+    first: Annotated[int, Form(ge=1, description="First tournament number to process (1-based)")],
+    count: Annotated[int, Form(ge=1, description="Number of tournaments to process")],
     players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
     tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
     binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
-    first: int = Form(..., description="First tournament number to process (1-based)"),
-    count: int = Form(..., description="Number of tournaments to process"),
     _: None = Depends(require_auth),
 ) -> dict:
     """Validate input files without running the rating cycle.
@@ -68,23 +87,25 @@ async def validate(
     valid.  The HTTP status is always 200 when the endpoint itself succeeds —
     the ``errors`` list carries validation results.
     """
+    logger.info("POST /validate — first=%d count=%d files=%d", first, count, len(binary_files))
     players_content = (await players_csv.read()).decode("utf-8-sig")
     tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
     binary_files_dict: dict[str, bytes] = {
-        f.filename: await f.read() for f in binary_files
+        f.filename: await f.read() for f in binary_files if f.filename is not None
     }
 
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
+    logger.info("POST /validate — %d error(s) found", len(errors))
     return {"errors": errors}
 
 
 @app.post("/run")
 async def run(
+    first: Annotated[int, Form(ge=1, description="First tournament number to process (1-based)")],
+    count: Annotated[int, Form(ge=1, description="Number of tournaments to process")],
     players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
     tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
     binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
-    first: int = Form(..., description="First tournament number to process (1-based)"),
-    count: int = Form(..., description="Number of tournaments to process"),
     _: None = Depends(require_auth),
 ) -> StreamingResponse:
     """Run a FEXERJ rating cycle and return results as a zip archive.
@@ -92,11 +113,12 @@ async def run(
     The returned zip contains ``RatingList_after_N.csv`` and
     ``Audit_of_Tournament_N.csv`` for each processed tournament.
     """
+    logger.info("POST /run — first=%d count=%d files=%d", first, count, len(binary_files))
     players_content = (await players_csv.read()).decode("utf-8-sig")
     tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
 
     binary_files_dict: dict[str, bytes] = {
-        f.filename: await f.read() for f in binary_files
+        f.filename: await f.read() for f in binary_files if f.filename is not None
     }
 
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
@@ -116,13 +138,19 @@ async def run(
         )
         output_files = cycle.run_cycle()
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        logger.error("Erro no ciclo de rating: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Erro ao processar ciclo de rating: {e}",
+        ) from e
 
     if not output_files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Nenhum torneio encontrado no intervalo primeiro={first}, quantidade={count}.",
         )
+
+    logger.info("POST /run — ciclo concluído, %d arquivo(s) gerados", len(output_files))
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:

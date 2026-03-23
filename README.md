@@ -55,7 +55,7 @@ uvicorn backend.main:app --reload
 cd frontend && npm run dev
 ```
 
-Then open `http://localhost:5173`. The frontend proxies `/me`, `/validate`, and `/run` to the backend automatically.
+Then open `http://localhost:5173`. The frontend proxies `/health`, `/me`, `/validate`, and `/run` to the backend automatically.
 
 Credentials are configured via environment variables:
 
@@ -113,6 +113,18 @@ bash scripts/update.sh
 
 This pulls the latest code, updates dependencies, rebuilds the frontend, and restarts the service.
 
+### Rollback
+
+If `update.sh` fails at any step it automatically reverts to the previous commit, reinstalls dependencies, rebuilds the frontend, and restarts the service. No manual intervention is needed in most cases.
+
+To roll back manually to a specific commit:
+
+```bash
+cd fexerj-portal
+git checkout <commit-hash> -- .
+bash scripts/update.sh
+```
+
 ### Changing Credentials
 
 Edit `/etc/fexerj-portal.env` on the server and restart the backend:
@@ -121,6 +133,17 @@ Edit `/etc/fexerj-portal.env` on the server and restart the backend:
 sudo nano /etc/fexerj-portal.env
 sudo systemctl restart fexerj-portal
 ```
+
+## API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | None | Unauthenticated health check for uptime monitoring |
+| GET | `/me` | Required | Validate credentials — returns `{"ok": true}` |
+| POST | `/validate` | Required | Validate input files, returns `{"errors": [...]}` |
+| POST | `/run` | Required | Run rating cycle, returns zip archive |
+
+`first` and `count` form parameters on `/validate` and `/run` must be integers ≥ 1.
 
 ## Branch Strategy
 

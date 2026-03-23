@@ -2,13 +2,17 @@
 import csv
 import io
 import pathlib
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from calculator.classes import (
-    Tournament, TournamentPlayer, FexerjPlayer, CalcRule,
-    _MAX_NUM_GAMES_TEMP_RATING, _AUDIT_FILE_HEADER,
-    SwissSingleTournament, RoundRobinTournament, SwissTeamTournament,
+    _AUDIT_FILE_HEADER,
+    _MAX_NUM_GAMES_TEMP_RATING,
+    CalcRule,
+    FexerjPlayer,
+    Tournament,
+    TournamentPlayer,
 )
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
@@ -198,7 +202,7 @@ class TestWriteTournamentAudit:
             1: _make_calculated_tp(t, fexerj_id=101),
             2: _make_calculated_tp(t, fexerj_id=102),
         }
-        lines = [l for l in t.write_tournament_audit().splitlines() if l]
+        lines = [row for row in t.write_tournament_audit().splitlines() if row]
         assert len(lines) == 3  # header + 2 players
 
     def test_correct_number_of_fields_per_line(self):

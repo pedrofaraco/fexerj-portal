@@ -2,8 +2,6 @@
 import pathlib
 import textwrap
 
-import pytest
-
 from backend.validator import validate_inputs
 
 BINARY_DIR = pathlib.Path(__file__).parent / "binary"

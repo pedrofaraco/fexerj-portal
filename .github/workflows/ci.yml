@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, develop, feature/**]
+    branches: [master, develop, feature/**, refactor/**, chore/**]
   pull_request:
     branches: [master, develop]
 
@@ -20,8 +20,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: pytest tests/ -v
+
+  lint-python:
+    name: Python linting and type checking
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check backend/ tests/
+
+      - name: Type check with mypy
+        run: mypy backend/
 
   lint-scripts:
     name: Shell script linting

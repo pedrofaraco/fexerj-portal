@@ -1,9 +1,9 @@
 """Unit tests for TournamentPlayer pure-logic methods."""
 import math
+
 import pytest
 
-from calculator.classes import TournamentPlayer, CalcRule, _MAX_NUM_GAMES_TEMP_RATING
-
+from calculator.classes import _MAX_NUM_GAMES_TEMP_RATING, CalcRule
 
 # ---------------------------------------------------------------------------
 # resolve_id

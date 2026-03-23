@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from calculator.classes import FexerjPlayer, TournamentPlayer, Tournament
+from calculator.classes import FexerjPlayer, Tournament, TournamentPlayer
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
 

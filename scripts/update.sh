@@ -6,6 +6,9 @@
 #
 # Run from the repository root on the server whenever a new version
 # has been merged into the master branch.
+#
+# If any step fails the script automatically rolls back to the previous
+# working commit and restarts the service.
 
 set -euo pipefail
 
@@ -16,6 +19,29 @@ info()  { echo "[INFO]  $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
 
 cd "${REPO_DIR}"
+
+# ── Rollback ──────────────────────────────────────────────────────────────────
+
+PREVIOUS_COMMIT="$(git rev-parse HEAD)"
+
+rollback() {
+    info "Update failed — rolling back to ${PREVIOUS_COMMIT}..."
+    git checkout "${PREVIOUS_COMMIT}" -- .
+    # shellcheck source=/dev/null
+    source .venv/bin/activate
+    pip install --quiet -r requirements.txt
+    cd "${REPO_DIR}/frontend"
+    npm ci --silent
+    npm run build
+    cd "${REPO_DIR}"
+    sudo systemctl restart "${SERVICE_NAME}"
+    sudo systemctl reload nginx
+    info "Rollback complete. Previous version restored."
+}
+
+trap rollback ERR
+
+# ── Update ────────────────────────────────────────────────────────────────────
 
 info "Pulling latest code from master..."
 git pull origin master

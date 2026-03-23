@@ -27,11 +27,22 @@ require_root() {
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
 read_domain() {
+    if [[ -f "${NGINX_SITE}" ]]; then
+        DOMAIN=$(grep -oP '(?<=server_name )[^\s;]+' "${NGINX_SITE}" | head -1)
+        info "Nginx config already exists for domain '${DOMAIN}', skipping domain prompt."
+        return
+    fi
     read -rp "Domain name (e.g. fexerj.pedrofaraco.com): " DOMAIN
     [[ -n "$DOMAIN" ]] || error "Domain name is required."
 }
 
 read_credentials() {
+    if [[ -f "${ENV_FILE}" ]]; then
+        info "Credentials file ${ENV_FILE} already exists, skipping credential prompt."
+        # shellcheck source=/dev/null
+        source "${ENV_FILE}"
+        return
+    fi
     read -rp "Portal username: " PORTAL_USER
     [[ -n "$PORTAL_USER" ]] || error "Username is required."
     read -rsp "Portal password: " PORTAL_PASSWORD
@@ -158,6 +169,10 @@ EOF
 }
 
 setup_https() {
+    if certbot certificates 2>/dev/null | grep -q "Domains: ${DOMAIN}"; then
+        info "HTTPS certificate already exists for ${DOMAIN}, skipping."
+        return
+    fi
     info "Requesting HTTPS certificate for ${DOMAIN}..."
     certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --register-unsafely-without-email
     info "HTTPS enabled."
