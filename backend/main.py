@@ -74,11 +74,11 @@ async def me(_: None = Depends(require_auth)) -> dict:
 
 @app.post("/validate")
 async def validate(
+    first: Annotated[int, Form(ge=1, description="First tournament number to process (1-based)")],
+    count: Annotated[int, Form(ge=1, description="Number of tournaments to process")],
     players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
     tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
     binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
-    first: Annotated[int, Form(ge=1, description="First tournament number to process (1-based)")] = ...,
-    count: Annotated[int, Form(ge=1, description="Number of tournaments to process")] = ...,
     _: None = Depends(require_auth),
 ) -> dict:
     """Validate input files without running the rating cycle.
@@ -91,7 +91,7 @@ async def validate(
     players_content = (await players_csv.read()).decode("utf-8-sig")
     tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
     binary_files_dict: dict[str, bytes] = {
-        f.filename: await f.read() for f in binary_files
+        f.filename: await f.read() for f in binary_files if f.filename is not None
     }
 
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
@@ -101,11 +101,11 @@ async def validate(
 
 @app.post("/run")
 async def run(
+    first: Annotated[int, Form(ge=1, description="First tournament number to process (1-based)")],
+    count: Annotated[int, Form(ge=1, description="Number of tournaments to process")],
     players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
     tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
     binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
-    first: Annotated[int, Form(ge=1, description="First tournament number to process (1-based)")] = ...,
-    count: Annotated[int, Form(ge=1, description="Number of tournaments to process")] = ...,
     _: None = Depends(require_auth),
 ) -> StreamingResponse:
     """Run a FEXERJ rating cycle and return results as a zip archive.
@@ -118,7 +118,7 @@ async def run(
     tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
 
     binary_files_dict: dict[str, bytes] = {
-        f.filename: await f.read() for f in binary_files
+        f.filename: await f.read() for f in binary_files if f.filename is not None
     }
 
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
@@ -142,7 +142,7 @@ async def run(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Erro ao processar ciclo de rating: {e}",
-        )
+        ) from e
 
     if not output_files:
         raise HTTPException(

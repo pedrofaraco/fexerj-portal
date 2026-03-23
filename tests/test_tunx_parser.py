@@ -2,21 +2,22 @@
 import pathlib
 import struct
 import warnings
+
 import pytest
 
 from calculator.tunx_parser import (
-    read_field,
-    skip_null,
-    is_printable_utf16,
-    skip_to_binary_block,
+    BIO_MARKER,
+    BYE_SNR,
+    PAIRING_MARKER,
     find_next_record,
+    is_printable_utf16,
     parse_bio_section,
-    validate,
     parse_tunx,
     parse_tunx_from_bytes,
-    BIO_MARKER,
-    PAIRING_MARKER,
-    BYE_SNR,
+    read_field,
+    skip_null,
+    skip_to_binary_block,
+    validate,
 )
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
@@ -199,7 +200,8 @@ class TestParseBioSection:
         assert bio[1]['name'] == 'Rocha, Tiago'
 
     def test_asterisk_prefix_record_parsed(self):
-        data = self._wrap(make_player_bytes('Hugo', 'Viana', 'H. Viana', '', '5523', 'Club', 'BRA', asterisk_prefix=True))
+        player = make_player_bytes('Hugo', 'Viana', 'H. Viana', '', '5523', 'Club', 'BRA', asterisk_prefix=True)
+        data = self._wrap(player)
         bio = parse_bio_section(data)
         assert len(bio) == 1
         assert bio[1]['fexerj_id'] == '5523'

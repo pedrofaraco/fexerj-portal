@@ -1,9 +1,10 @@
 """Unit and integration tests for FexerjRatingCycle."""
 import pathlib
 import textwrap
+
 import pytest
 
-from calculator.classes import FexerjRatingCycle, FexerjPlayer, TournamentType
+from calculator.classes import FexerjPlayer, FexerjRatingCycle, TournamentType
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
 
@@ -161,7 +162,7 @@ class TestRunCycle:
             _TURX_TOURNAMENTS_CSV, 1, 1, _TURX_PLAYERS_CSV, _TURX_BINARY_FILES
         )
         output = cycle.run_cycle()
-        lines = [l for l in output["RatingList_after_1.csv"].splitlines() if l]
+        lines = [row for row in output["RatingList_after_1.csv"].splitlines() if row]
         assert len(lines) == 7  # header + 6 players
 
     def test_audit_output_has_header(self):
@@ -177,7 +178,7 @@ class TestRunCycle:
             _TURX_TOURNAMENTS_CSV, 1, 1, _TURX_PLAYERS_CSV, _TURX_BINARY_FILES
         )
         output = cycle.run_cycle()
-        lines = [l for l in output["Audit_of_Tournament_1.csv"].splitlines() if l]
+        lines = [row for row in output["Audit_of_Tournament_1.csv"].splitlines() if row]
         assert len(lines) == 7  # header + 6 players
 
     def test_ratings_change_after_cycle(self):
@@ -188,7 +189,7 @@ class TestRunCycle:
         output = cycle.run_cycle()
         # Parse output ratings
         lines = output["RatingList_after_1.csv"].splitlines()[1:]
-        new_ratings = {int(l.split(';')[0]): int(l.split(';')[4]) for l in lines if l}
+        new_ratings = {int(row.split(';')[0]): int(row.split(';')[4]) for row in lines if row}
         original_ratings = {3741: 1800, 643: 1900, 1979: 1700, 2831: 1750, 3541: 1650, 5400: 1600}
         changed = sum(1 for pid, new_r in new_ratings.items() if new_r != original_ratings[pid])
         assert changed > 0

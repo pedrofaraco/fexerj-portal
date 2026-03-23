@@ -4,7 +4,6 @@ import pathlib
 import textwrap
 import zipfile
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.config import settings

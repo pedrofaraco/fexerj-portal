@@ -1,5 +1,5 @@
 """Unit tests for calculator.name_utils."""
-from calculator.name_utils import normalize_name, name_similarity
+from calculator.name_utils import name_similarity, normalize_name
 
 _NAME_SIMILARITY_ACCEPT_THRESHOLD = 85
 _NAME_SIMILARITY_WARN_THRESHOLD = 60
