@@ -14,7 +14,7 @@ _PLAYERS_HEADER = (
     "Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;"
     "TotalNumGames;SumOpponRating;TotalPoints"
 )
-_TOURNAMENTS_HEADER = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj"
+_TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj"
 _VALID_TYPES = {"SS", "RR", "ST"}
 _TYPE_TO_EXT = {"SS": "TUNX", "RR": "TURX", "ST": "TUMX"}
 
@@ -186,15 +186,15 @@ def _validate_tournaments_csv(content: str) -> list[str]:
         id_    = row[0].strip()
         cbx_id = row[1].strip()
         name   = row[2].strip()
-        # Date (col 3) is optional — no check needed
+        # EndDate (col 3) is optional — no check needed
         type_  = row[4].strip()
         is_irt = row[5].strip()
         is_fex = row[6].strip()
 
         # Required non-empty fields
         for value, field in [
-            (id_,    "Id"),
-            (cbx_id, "CbxId"),
+            (id_,    "Ord"),
+            (cbx_id, "CrId"),
             (name,   "Name"),
             (type_,  "Type"),
             (is_irt, "IsIrt"),

@@ -26,7 +26,7 @@ _TURX_PLAYERS_CSV = textwrap.dedent("""\
 """)
 
 _TURX_TOURNAMENTS_CSV = textwrap.dedent("""\
-    Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+    Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
     1;99999;Test RR Tournament;2025-01-01;RR;0;1
 """)
 
@@ -124,7 +124,7 @@ class TestTournamentType:
 
     def test_invalid_type_in_run_cycle_includes_tournament_number(self):
         tournaments_csv = (
-            "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n"
+            "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n"
             "42;12345;Test Tournament;2025-01-01;XX;0;1\n"
         )
         ratings_csv = (
@@ -196,7 +196,7 @@ class TestRunCycle:
     def test_out_of_range_tournament_skipped(self):
         """Tournaments outside first/count range must not appear in output."""
         tournaments_csv = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Tournament 1;2025-01-01;RR;0;1
             2;88888;Tournament 2;2025-02-01;RR;0;1
         """)
@@ -219,7 +219,7 @@ class TestRunCycle:
     def test_two_tournament_chain(self):
         """Run two tournaments in sequence; the second reads from the first's output."""
         tournaments_csv = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Tournament 1;2025-01-01;RR;0;1
             2;99999;Tournament 2;2025-02-01;RR;0;1
         """)
