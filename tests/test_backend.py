@@ -1,4 +1,4 @@
-"""Tests for the FastAPI backend (/validate and /run endpoints)."""
+"""Tests for the FastAPI backend (/health, /me, /validate, and /run endpoints)."""
 import io
 import pathlib
 import textwrap
@@ -65,6 +65,25 @@ def _post_run(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
 
 
 # ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+
+class TestHealthEndpoint:
+    def test_health_returns_200(self):
+        response = client.get("/health")
+        assert response.status_code == 200
+
+    def test_health_returns_ok_status(self):
+        response = client.get("/health")
+        assert response.json() == {"status": "ok"}
+
+    def test_health_does_not_require_auth(self):
+        """Health endpoint must be publicly accessible for uptime monitoring."""
+        response = client.get("/health")
+        assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
 # Validate endpoint
 # ---------------------------------------------------------------------------
 
@@ -116,6 +135,23 @@ class TestValidateEndpoint:
     def test_run_with_invalid_files_returns_422(self):
         """Confirms /run enforces validation internally and cannot be bypassed."""
         response = _post_run(binary_filename="wrong_name.TURX")
+        assert response.status_code == 422
+
+    def test_first_zero_returns_422(self):
+        """first=0 is out of bounds — tournaments are 1-based."""
+        response = _post_validate(first=0)
+        assert response.status_code == 422
+
+    def test_first_negative_returns_422(self):
+        response = _post_validate(first=-1)
+        assert response.status_code == 422
+
+    def test_count_zero_returns_422(self):
+        response = _post_validate(count=0)
+        assert response.status_code == 422
+
+    def test_count_negative_returns_422(self):
+        response = _post_validate(count=-1)
         assert response.status_code == 422
 
 
@@ -227,6 +263,16 @@ class TestRunValidation:
     def test_invalid_tournament_type_returns_422(self):
         invalid_tournaments = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
         response = _post_run(tournaments=invalid_tournaments)
+        assert response.status_code == 422
+
+    def test_run_first_zero_returns_422(self):
+        """first=0 is invalid on /run — must be >= 1."""
+        response = _post_run(first=0)
+        assert response.status_code == 422
+
+    def test_run_count_zero_returns_422(self):
+        """count=0 is invalid on /run — must be >= 1."""
+        response = _post_run(count=0)
         assert response.status_code == 422
 
     def test_player_missing_id_returns_422(self):

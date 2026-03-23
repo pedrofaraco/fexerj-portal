@@ -8,6 +8,10 @@ means the inputs are valid.
 import csv
 import io
 
+# BIO_MARKER and PAIRING_MARKER are imported explicitly so the validator can
+# produce specific Portuguese error messages before attempting to parse.  The
+# parser raises English ValueErrors for the same conditions, but we prefer to
+# surface them here with translated, user-friendly wording.
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER, parse_bio_section
 
 _PLAYERS_HEADER = (
