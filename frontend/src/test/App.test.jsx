@@ -1,0 +1,292 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import App from '../App'
+
+// ---------------------------------------------------------------------------
+// Fetch mock helpers
+// ---------------------------------------------------------------------------
+
+function mockFetch({ validateErrors = [], runResponse = null, loginOk = true } = {}) {
+  global.fetch = vi.fn((url) => {
+    if (url === '/me') {
+      return Promise.resolve({
+        ok: loginOk,
+        status: loginOk ? 200 : 401,
+        json: () => Promise.resolve(loginOk ? { ok: true } : {}),
+      })
+    }
+    if (url === '/validate') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ errors: validateErrors }),
+      })
+    }
+    // /run — use the provided response or hang forever by default
+    return runResponse ?? new Promise(() => {})
+  })
+}
+
+// ---------------------------------------------------------------------------
+// File helpers
+// ---------------------------------------------------------------------------
+
+function csvFile(name) {
+  return new File(['id;name\n1;test'], name, { type: 'text/csv' })
+}
+
+function binaryFile(name) {
+  return new File([new Uint8Array([0x00, 0x01])], name, { type: 'application/octet-stream' })
+}
+
+// ---------------------------------------------------------------------------
+// Interaction helpers
+// ---------------------------------------------------------------------------
+
+async function login(user) {
+  mockFetch()
+  await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
+  await user.type(screen.getByLabelText(/senha/i), 'changeme')
+  await user.click(screen.getByRole('button', { name: /entrar/i }))
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument()
+  )
+}
+
+async function uploadAllFiles(user) {
+  await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+  await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+  await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeEnabled()
+  )
+}
+
+function submitRunForm() {
+  fireEvent.submit(screen.getByRole('button', { name: /^executar$/i }).closest('form'))
+}
+
+// ---------------------------------------------------------------------------
+// Login page
+// ---------------------------------------------------------------------------
+
+describe('LoginPage', () => {
+  it('renders the login form', () => {
+    render(<App />)
+    expect(screen.getByLabelText(/usuário/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/senha/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+  })
+
+  it('shows the run page after successful login', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument()
+  })
+
+  it('shows error message on wrong credentials', async () => {
+    mockFetch({ loginOk: false })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'wrong')
+    await user.type(screen.getByLabelText(/senha/i), 'wrong')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByText(/usuário ou senha incorretos/i)).toBeInTheDocument()
+    )
+  })
+
+  it('stays on login page after wrong credentials', async () => {
+    mockFetch({ loginOk: false })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'wrong')
+    await user.type(screen.getByLabelText(/senha/i), 'wrong')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    )
+    expect(screen.queryByRole('heading', { name: /execução do ciclo de rating/i })).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Run page
+// ---------------------------------------------------------------------------
+
+describe('RunPage', () => {
+  let user
+
+  beforeEach(async () => {
+    user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetch() // /validate returns no errors; /run hangs by default
+  })
+
+  it('renders all upload fields and inputs', () => {
+    expect(screen.getByLabelText(/lista de jogadores/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/arquivo de torneios/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/arquivos binários/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/primeiro torneio/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/quantidade/i)).toBeInTheDocument()
+  })
+
+  it('run button is disabled when no files are selected', () => {
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+  })
+
+  it('run button is enabled when all required fields are filled and validation passes', async () => {
+    await uploadAllFiles(user)
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeEnabled()
+  })
+
+  it('shows "Executando…" while the request is in flight', async () => {
+    await uploadAllFiles(user)
+
+    // Override fetch so /run never resolves after validation has already passed
+    global.fetch = vi.fn(() => new Promise(() => {}))
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /executando/i })).toBeDisabled()
+    )
+  })
+
+  it('displays the error message on a 422 response', async () => {
+    await uploadAllFiles(user)
+
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve({ detail: 'Binary file not found' }),
+      })
+    )
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByText('Binary file not found')).toBeInTheDocument()
+    )
+  })
+
+  it('returns to the login page on a 401 response', async () => {
+    await uploadAllFiles(user)
+
+    global.fetch = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) })
+    )
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    )
+  })
+
+  it('sign out button returns to the login page', async () => {
+    await user.click(screen.getByRole('button', { name: /sair/i }))
+    expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Help section
+// ---------------------------------------------------------------------------
+
+describe('HelpSection', () => {
+  beforeEach(async () => {
+    mockFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+  })
+
+  it('is collapsed by default', () => {
+    expect(screen.queryByText(/preparar os arquivos/i)).not.toBeInTheDocument()
+  })
+
+  it('expands when the toggle button is clicked', async () => {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /como usar/i }))
+    expect(screen.getByText(/preparar os arquivos/i)).toBeInTheDocument()
+  })
+
+  it('collapses again when the toggle button is clicked a second time', async () => {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /como usar/i }))
+    await user.click(screen.getByRole('button', { name: /como usar/i }))
+    expect(screen.queryByText(/preparar os arquivos/i)).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Validation UX
+// ---------------------------------------------------------------------------
+
+describe('Validation', () => {
+  let user
+
+  beforeEach(async () => {
+    user = userEvent.setup()
+    render(<App />)
+    await login(user)
+  })
+
+  it('shows "Validando arquivos…" while validation is in flight', async () => {
+    global.fetch = vi.fn(() => new Promise(() => {})) // /validate never resolves
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() =>
+      expect(screen.getByText(/validando arquivos/i)).toBeInTheDocument()
+    )
+  })
+
+  it('shows "Arquivos validados com sucesso." when validation returns no errors', async () => {
+    mockFetch()
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() =>
+      expect(screen.getByText(/arquivos validados com sucesso/i)).toBeInTheDocument()
+    )
+  })
+
+  it('shows validation errors and keeps run button disabled', async () => {
+    mockFetch({ validateErrors: ['players.csv row 2: Id_No is required'] })
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() =>
+      expect(screen.getByText('players.csv row 2: Id_No is required')).toBeInTheDocument()
+    )
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+  })
+
+  it('shows multiple validation errors as a list', async () => {
+    mockFetch({
+      validateErrors: [
+        'players.csv row 2: Id_No is required',
+        'tournaments.csv row 2: Type is required',
+      ],
+    })
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() =>
+      expect(screen.getByText('players.csv row 2: Id_No is required')).toBeInTheDocument()
+    )
+    expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+  })
+})
