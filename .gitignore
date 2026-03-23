@@ -198,6 +198,9 @@ cython_debug/
 # Claude Code
 .claude/
 
+# Launch config (contains personal AWS resource IDs)
+scripts/launch.conf
+
 # Ruff stuff:
 .ruff_cache/
 
