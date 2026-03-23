@@ -1,0 +1,38 @@
+# launch.conf — Configuration for scripts/launch.sh and scripts/terminate.sh
+#
+# Copy this file to scripts/launch.conf and fill in your values.
+# launch.conf is gitignored and never committed.
+#
+# Production uses the master branch; UAT uses the develop branch.
+# SSM parameters must be stored under /fexerj/prod/* and /fexerj/uat/*
+# (see CONTRIBUTING.md for the full one-time setup instructions).
+
+# ── Common values (shared between environments) ───────────────────────────────
+
+# Find your Ubuntu 24.04 LTS AMI with:
+#   aws ec2 describe-images \
+#     --region <your-region> \
+#     --owners 099720109477 \
+#     --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
+#     --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
+#     --output text
+
+# ── Production (master branch) ────────────────────────────────────────────────
+
+PROD_REGION="us-east-1"
+PROD_AMI_ID="ami-xxxxxxxxxxxxxxxxx"
+PROD_INSTANCE_TYPE="t3.micro"
+PROD_KEY_NAME="your-key-pair"
+PROD_SECURITY_GROUP="sg-xxxxxxxxxxxxxxxxx"
+PROD_ELASTIC_IP_ALLOC="eipalloc-xxxxxxxxxxxxxxxxx"
+PROD_IAM_PROFILE="fexerj-ec2-role"
+
+# ── UAT (develop branch) ──────────────────────────────────────────────────────
+
+UAT_REGION="us-east-1"
+UAT_AMI_ID="ami-xxxxxxxxxxxxxxxxx"
+UAT_INSTANCE_TYPE="t3.micro"
+UAT_KEY_NAME="your-key-pair"
+UAT_SECURITY_GROUP="sg-xxxxxxxxxxxxxxxxx"
+UAT_ELASTIC_IP_ALLOC="eipalloc-xxxxxxxxxxxxxxxxx"
+UAT_IAM_PROFILE="fexerj-ec2-role"
