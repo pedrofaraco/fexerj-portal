@@ -87,7 +87,7 @@ class TestValidateEndpoint:
         assert response.status_code == 200
         errors = response.json()["errors"]
         assert len(errors) > 0
-        assert any("missing" in e.lower() for e in errors)
+        assert any("não encontrado" in e for e in errors)
 
     def test_invalid_tournament_type_returns_error_list(self):
         invalid = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
@@ -111,7 +111,7 @@ class TestValidateEndpoint:
         )
         assert response.status_code == 200
         errors = response.json()["errors"]
-        assert any("FEXERJ ID" in e for e in errors)
+        assert any("ID FEXERJ" in e for e in errors)
 
     def test_run_with_invalid_files_returns_422(self):
         """Confirms /run enforces validation internally and cannot be bypassed."""
@@ -245,4 +245,4 @@ class TestRunValidation:
             auth=VALID_AUTH,
         )
         assert response.status_code == 422
-        assert "FEXERJ ID" in response.json()["detail"]
+        assert "ID FEXERJ" in response.json()["detail"]
