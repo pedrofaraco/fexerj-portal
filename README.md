@@ -2,10 +2,10 @@
 
 Web portal for the FEXERJ chess community — rating lists, player database, and staff tools.
 
-## Features (planned)
+## Features
 
-- **Rating Cycle Runner** *(in progress)* — upload tournament files, validate inputs, and download updated rating lists
-- Public rating lists and player database *(future)*
+- **Rating Cycle Runner** — Portuguese-language staff interface to upload tournament files, validate inputs, and download updated rating lists as a zip archive
+- Public rating lists and player database *(planned)*
 
 ## Tech Stack
 
@@ -55,7 +55,7 @@ uvicorn backend.main:app --reload
 cd frontend && npm run dev
 ```
 
-Then open `http://localhost:5173`. The frontend proxies `/validate` and `/run` to the backend automatically.
+Then open `http://localhost:5173`. The frontend proxies `/me`, `/validate`, and `/run` to the backend automatically.
 
 Credentials are configured via environment variables:
 
@@ -65,6 +65,26 @@ export PORTAL_PASSWORD=yourpassword
 ```
 
 A `.env` file in the project root is also supported.
+
+## Input File Formats
+
+**players.csv** — semicolon-delimited, UTF-8 (BOM accepted):
+
+```
+Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+```
+
+Required fields: `Id_No`, `Name`, `Rtg_Nat`, `TotalNumGames`, `SumOpponRating`, `TotalPoints`. No duplicate `Id_No` or `Id_CBX` (among non-empty values).
+
+**tournaments.csv** — semicolon-delimited, UTF-8 (BOM accepted):
+
+```
+Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+```
+
+`Ord` = order number, `CrId` = Chess Results ID, `EndDate` is optional. `Type` must be `SS`, `RR`, or `ST`. `IsIrt` and `IsFexerj` must be `0` or `1`.
+
+**Binary files** — one file per tournament, named `<Ord>-<CrId>.<Ext>` where `Ext` is `TUNX` (SS), `TURX` (RR), or `TUMX` (ST). Every player in the BIO section must have a FEXERJ ID.
 
 ## Deployment
 
