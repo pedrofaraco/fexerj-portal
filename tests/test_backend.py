@@ -1,4 +1,4 @@
-"""Tests for the FastAPI backend (/run endpoint)."""
+"""Tests for the FastAPI backend (/validate and /run endpoints)."""
 import io
 import pathlib
 import textwrap
@@ -34,6 +34,21 @@ VALID_AUTH = (settings.portal_user, settings.portal_password)
 client = TestClient(app)
 
 
+def _post_validate(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
+                   binary_filename="1-99999.TURX", binary_data=TURX_DATA,
+                   first=1, count=1, auth=VALID_AUTH):
+    return client.post(
+        "/validate",
+        data={"first": first, "count": count},
+        files=[
+            ("players_csv",     ("players.csv",      players.encode(),     "text/csv")),
+            ("tournaments_csv", ("tournaments.csv",   tournaments.encode(), "text/csv")),
+            ("binary_files",    (binary_filename,     binary_data,          "application/octet-stream")),
+        ],
+        auth=auth,
+    )
+
+
 def _post_run(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
               binary_filename="1-99999.TURX", binary_data=TURX_DATA,
               first=1, count=1, auth=VALID_AUTH):
@@ -47,6 +62,61 @@ def _post_run(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
         ],
         auth=auth,
     )
+
+
+# ---------------------------------------------------------------------------
+# Validate endpoint
+# ---------------------------------------------------------------------------
+
+class TestValidateEndpoint:
+    def test_valid_files_return_empty_errors(self):
+        response = _post_validate()
+        assert response.status_code == 200
+        assert response.json() == {"errors": []}
+
+    def test_no_credentials_returns_401(self):
+        response = client.post("/validate")
+        assert response.status_code == 401
+
+    def test_wrong_password_returns_401(self):
+        response = _post_validate(auth=(settings.portal_user, "wrong"))
+        assert response.status_code == 401
+
+    def test_missing_binary_file_returns_error_list(self):
+        response = _post_validate(binary_filename="wrong_name.TURX")
+        assert response.status_code == 200
+        errors = response.json()["errors"]
+        assert len(errors) > 0
+        assert any("missing" in e.lower() for e in errors)
+
+    def test_invalid_tournament_type_returns_error_list(self):
+        invalid = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
+        response = _post_validate(tournaments=invalid)
+        assert response.status_code == 200
+        errors = response.json()["errors"]
+        assert any("XX" in e for e in errors)
+
+    def test_binary_file_with_missing_player_id_returns_error_list(self):
+        tunx_data = (BINARY_DIR / "swiss_system_18players.TUNX").read_bytes()
+        tournaments = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;12345;T1;2025-01-01;SS;0;1\n"
+        response = client.post(
+            "/validate",
+            data={"first": 1, "count": 1},
+            files=[
+                ("players_csv",     ("players.csv",    PLAYERS_CSV.encode(), "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", tournaments.encode(), "text/csv")),
+                ("binary_files",    ("1-12345.TUNX",   tunx_data, "application/octet-stream")),
+            ],
+            auth=VALID_AUTH,
+        )
+        assert response.status_code == 200
+        errors = response.json()["errors"]
+        assert any("FEXERJ ID" in e for e in errors)
+
+    def test_run_with_invalid_files_returns_422(self):
+        """Confirms /run enforces validation internally and cannot be bypassed."""
+        response = _post_run(binary_filename="wrong_name.TURX")
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------

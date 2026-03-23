@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const INITIAL_FORM = {
   playersCsv: null,
@@ -13,6 +13,8 @@ export default function App() {
   const [form, setForm] = useState(INITIAL_FORM)
   const [status, setStatus] = useState('idle') // idle | loading | error
   const [errorMessage, setErrorMessage] = useState('')
+  const [validationErrors, setValidationErrors] = useState([])
+  const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done
 
   function handleLogin(e) {
     e.preventDefault()
@@ -28,7 +30,53 @@ export default function App() {
     setForm(INITIAL_FORM)
     setStatus('idle')
     setErrorMessage('')
+    setValidationErrors([])
+    setValidationStatus('idle')
   }
+
+  useEffect(() => {
+    if (!credentials || !form.playersCsv || !form.tournamentsCsv || form.binaryFiles.length === 0) {
+      setValidationErrors([])
+      setValidationStatus('idle')
+      return
+    }
+
+    let cancelled = false
+    setValidationStatus('checking')
+    setValidationErrors([])
+
+    const body = new FormData()
+    body.append('players_csv', form.playersCsv)
+    body.append('tournaments_csv', form.tournamentsCsv)
+    for (const file of form.binaryFiles) body.append('binary_files', file)
+    body.append('first', form.first)
+    body.append('count', form.count)
+
+    fetch('/validate', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
+      },
+      body,
+    })
+      .then(res => {
+        if (cancelled) return null
+        if (res.status === 401) { setCredentials(null); return null }
+        return res.ok ? res.json() : null
+      })
+      .then(json => {
+        if (cancelled || !json) return
+        setValidationErrors(json.errors ?? [])
+        setValidationStatus('done')
+      })
+      .catch(() => {
+        if (cancelled) return
+        // On network error during validation, allow the user to try running anyway
+        setValidationStatus('done')
+      })
+
+    return () => { cancelled = true }
+  }, [form.playersCsv, form.tournamentsCsv, form.binaryFiles, form.first, form.count, credentials])
 
   async function handleRun(e) {
     e.preventDefault()
@@ -90,6 +138,8 @@ export default function App() {
       setForm={setForm}
       status={status}
       errorMessage={errorMessage}
+      validationErrors={validationErrors}
+      validationStatus={validationStatus}
       onRun={handleRun}
       onLogout={handleLogout}
     />
@@ -129,13 +179,15 @@ function LoginPage({ onLogin }) {
 // Run page
 // ---------------------------------------------------------------------------
 
-function RunPage({ form, setForm, status, errorMessage, onRun, onLogout }) {
+function RunPage({ form, setForm, status, errorMessage, validationErrors, validationStatus, onRun, onLogout }) {
   const isReady =
     form.playersCsv &&
     form.tournamentsCsv &&
     form.binaryFiles.length > 0 &&
     Number(form.first) >= 1 &&
-    Number(form.count) >= 1
+    Number(form.count) >= 1 &&
+    validationStatus === 'done' &&
+    validationErrors.length === 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -210,6 +262,23 @@ function RunPage({ form, setForm, status, errorMessage, onRun, onLogout }) {
               />
             </Field>
           </div>
+
+          {validationStatus === 'checking' && (
+            <p className="text-sm text-gray-500">Validating files…</p>
+          )}
+
+          {validationStatus === 'done' && validationErrors.length > 0 && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <p className="font-medium mb-1">Please fix the following errors before running:</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                {validationErrors.map((err, i) => <li key={i}>{err}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {validationStatus === 'done' && validationErrors.length === 0 && (
+            <p className="text-sm text-green-600">Files look good.</p>
+          )}
 
           {status === 'error' && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

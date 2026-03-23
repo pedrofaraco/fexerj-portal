@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/run': 'http://localhost:8000',
+      '/validate': 'http://localhost:8000',
     },
   },
   test: {
