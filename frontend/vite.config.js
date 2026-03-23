@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
+      '/me': 'http://localhost:8000',
       '/run': 'http://localhost:8000',
       '/validate': 'http://localhost:8000',
     },
