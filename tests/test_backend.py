@@ -63,6 +63,13 @@ def _post_run(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
     )
 
 
+def _parse_csv_from_zip(zip_bytes, filename):
+    """Return data rows (header excluded) as semicolon-split lists."""
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        content = zf.read(filename).decode()
+    return [line.split(';') for line in content.splitlines()[1:] if line]
+
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
@@ -177,6 +184,28 @@ class TestAuth:
 
 
 # ---------------------------------------------------------------------------
+# /me endpoint
+# ---------------------------------------------------------------------------
+
+class TestMeEndpoint:
+    def test_returns_200_with_valid_auth(self):
+        response = client.get("/me", auth=VALID_AUTH)
+        assert response.status_code == 200
+
+    def test_returns_ok_true_body(self):
+        response = client.get("/me", auth=VALID_AUTH)
+        assert response.json() == {"ok": True}
+
+    def test_returns_401_without_credentials(self):
+        response = client.get("/me")
+        assert response.status_code == 401
+
+    def test_returns_401_with_wrong_password(self):
+        response = client.get("/me", auth=(settings.portal_user, "wrong"))
+        assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # Successful run
 # ---------------------------------------------------------------------------
 
@@ -243,6 +272,48 @@ class TestRunSuccess:
         assert "RatingList_after_2.csv" in names
         assert "Audit_of_Tournament_1.csv" in names
         assert "Audit_of_Tournament_2.csv" in names
+
+
+# ---------------------------------------------------------------------------
+# Rating value verification (end-to-end)
+# ---------------------------------------------------------------------------
+
+class TestRunRatingValues:
+    """Verify computed rating values through the full HTTP stack."""
+
+    def test_rating_list_has_all_players(self):
+        """All 6 round-robin players must appear in the output rating list."""
+        response = _post_run()
+        rows = _parse_csv_from_zip(response.content, "RatingList_after_1.csv")
+        assert len(rows) == 6
+
+    def test_all_new_ratings_in_valid_range(self):
+        """Every new rating must be a plausible integer (100 – 3500)."""
+        response = _post_run()
+        rows = _parse_csv_from_zip(response.content, "RatingList_after_1.csv")
+        for row in rows:
+            new_rtg = int(row[4])  # Rtg_Nat column
+            assert 100 <= new_rtg <= 3500
+
+    def test_audit_each_player_played_at_least_one_game(self):
+        """Every player in a round-robin must have at least one valid rated game (N >= 1)."""
+        response = _post_run()
+        rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv")
+        for row in rows:
+            assert int(row[7]) >= 1  # N column: valid games in this tournament
+
+    def test_new_total_games_exceeds_prior_for_active_players(self):
+        """Players with valid games must have a higher game count in the output rating list."""
+        response = _post_run()
+        audit_rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv")
+        rl_rows = _parse_csv_from_zip(response.content, "RatingList_after_1.csv")
+        new_games_by_id = {int(row[0]): int(row[9]) for row in rl_rows}  # Id_No → TotalNumGames
+        for row in audit_rows:
+            pid = int(row[0])         # Id_Fexerj
+            n_valid = int(row[7])     # N: valid games in tournament
+            ind_before = int(row[4])  # Ind: total games before
+            if n_valid > 0:
+                assert new_games_by_id[pid] > ind_before
 
 
 # ---------------------------------------------------------------------------
