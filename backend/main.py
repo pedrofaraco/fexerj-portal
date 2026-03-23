@@ -1,9 +1,12 @@
 """FEXERJ Portal FastAPI application.
 
-Exposes a single ``POST /run`` endpoint that accepts a players CSV, a
-tournaments CSV, and one or more Swiss Manager binary files, then runs the
-FEXERJ rating cycle and returns a zip archive containing one rating-list CSV
-and one audit CSV per processed tournament.
+Exposes two authenticated endpoints:
+
+- ``POST /validate`` — validates the input files and returns a JSON list of
+  errors without running the calculation.
+- ``POST /run`` — validates inputs, runs the FEXERJ rating cycle, and returns
+  a zip archive containing one rating-list CSV and one audit CSV per processed
+  tournament.
 """
 import io
 import secrets
@@ -15,6 +18,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from calculator import FexerjRatingCycle
 from backend.config import settings
+from backend.validator import validate_inputs
 
 app = FastAPI(title="FEXERJ Portal")
 _security = HTTPBasic()
@@ -34,6 +38,31 @@ def require_auth(credentials: HTTPBasicCredentials = Depends(_security)) -> None
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
+
+
+@app.post("/validate")
+async def validate(
+    players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
+    tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
+    binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
+    first: int = Form(..., description="First tournament number to process (1-based)"),
+    count: int = Form(..., description="Number of tournaments to process"),
+    _: None = Depends(require_auth),
+) -> dict:
+    """Validate input files without running the rating cycle.
+
+    Returns ``{"errors": [...]}`` where the list is empty when all inputs are
+    valid.  The HTTP status is always 200 when the endpoint itself succeeds —
+    the ``errors`` list carries validation results.
+    """
+    players_content = (await players_csv.read()).decode("utf-8-sig")
+    tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
+    binary_files_dict: dict[str, bytes] = {
+        f.filename: await f.read() for f in binary_files
+    }
+
+    errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
+    return {"errors": errors}
 
 
 @app.post("/run")
@@ -56,6 +85,13 @@ async def run(
     binary_files_dict: dict[str, bytes] = {
         f.filename: await f.read() for f in binary_files
     }
+
+    errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
+    if errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=errors[0],
+        )
 
     try:
         cycle = FexerjRatingCycle(

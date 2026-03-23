@@ -4,7 +4,7 @@ Web portal for the FEXERJ chess community — rating lists, player database, and
 
 ## Features (planned)
 
-- **Rating Cycle Runner** *(in progress)* — upload tournament files and download updated rating lists
+- **Rating Cycle Runner** *(in progress)* — upload tournament files, validate inputs, and download updated rating lists
 - Public rating lists and player database *(future)*
 
 ## Tech Stack
@@ -17,10 +17,10 @@ Web portal for the FEXERJ chess community — rating lists, player database, and
 ## Project Structure
 
 ```
-backend/      # FastAPI application and configuration
+backend/      # FastAPI application, configuration, and input validator
 calculator/   # Rating calculator library
 frontend/     # React frontend (Vite)
-tests/        # Backend test suite (pytest)
+tests/        # Backend and validator test suite (pytest)
 ```
 
 ## Development Setup
@@ -55,7 +55,7 @@ uvicorn backend.main:app --reload
 cd frontend && npm run dev
 ```
 
-Then open `http://localhost:5173`. The frontend proxies `/run` to the backend automatically.
+Then open `http://localhost:5173`. The frontend proxies `/validate` and `/run` to the backend automatically.
 
 Credentials are configured via environment variables:
 
