@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '../App'
+import ErrorBoundary from '../ErrorBoundary'
 
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
@@ -288,5 +289,35 @@ describe('Validation', () => {
       expect(screen.getByText('players.csv row 2: Id_No is required')).toBeInTheDocument()
     )
     expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ErrorBoundary
+// ---------------------------------------------------------------------------
+
+function ThrowingComponent() {
+  throw new Error('test error')
+}
+
+describe('ErrorBoundary', () => {
+  it('renders children when there is no error', () => {
+    render(<ErrorBoundary><p>conteúdo</p></ErrorBoundary>)
+    expect(screen.getByText('conteúdo')).toBeInTheDocument()
+  })
+
+  it('shows the fallback UI when a child throws', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<ErrorBoundary><ThrowingComponent /></ErrorBoundary>)
+    expect(screen.getByText(/algo deu errado/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /recarregar/i })).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  it('does not render children when a child throws', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<ErrorBoundary><ThrowingComponent /><p>nunca renderizado</p></ErrorBoundary>)
+    expect(screen.queryByText('nunca renderizado')).not.toBeInTheDocument()
+    spy.mockRestore()
   })
 })
