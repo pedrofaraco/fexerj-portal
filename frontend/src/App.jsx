@@ -15,14 +15,29 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('')
   const [validationErrors, setValidationErrors] = useState([])
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done
+  const [loginStatus, setLoginStatus] = useState('idle') // idle | loading | error
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault()
     const data = new FormData(e.target)
-    setCredentials({
+    const creds = {
       username: data.get('username'),
       password: data.get('password'),
-    })
+    }
+    setLoginStatus('loading')
+    try {
+      const res = await fetch('/me', {
+        headers: { Authorization: 'Basic ' + btoa(`${creds.username}:${creds.password}`) },
+      })
+      if (res.status === 401) {
+        setLoginStatus('error')
+        return
+      }
+      setLoginStatus('idle')
+      setCredentials(creds)
+    } catch {
+      setLoginStatus('error')
+    }
   }
 
   function handleLogout() {
@@ -32,6 +47,7 @@ export default function App() {
     setErrorMessage('')
     setValidationErrors([])
     setValidationStatus('idle')
+    setLoginStatus('idle')
   }
 
   useEffect(() => {
@@ -129,7 +145,7 @@ export default function App() {
   }
 
   if (!credentials) {
-    return <LoginPage onLogin={handleLogin} />
+    return <LoginPage onLogin={handleLogin} loginStatus={loginStatus} />
   }
 
   return (
@@ -150,7 +166,7 @@ export default function App() {
 // Login page
 // ---------------------------------------------------------------------------
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, loginStatus }) {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
@@ -166,8 +182,16 @@ function LoginPage({ onLogin }) {
             <input name="password" type="password" required className="input" />
           </Field>
 
-          <button type="submit" className="btn-primary mt-2">
-            Entrar
+          {loginStatus === 'error' && (
+            <p className="text-sm text-red-600">Usuário ou senha incorretos.</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loginStatus === 'loading'}
+            className="btn-primary mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loginStatus === 'loading' ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
       </div>

@@ -20,12 +20,16 @@ from calculator import FexerjRatingCycle
 from backend.config import settings
 from backend.validator import validate_inputs
 
-app = FastAPI(title="FEXERJ Portal")
-_security = HTTPBasic()
+app = FastAPI(title="Portal FEXERJ")
+# auto_error=False prevents FastAPI from sending WWW-Authenticate: Basic on
+# 401 responses, which would cause browsers to show their native auth dialog.
+_security = HTTPBasic(auto_error=False)
 
 
-def require_auth(credentials: HTTPBasicCredentials = Depends(_security)) -> None:
+def require_auth(credentials: HTTPBasicCredentials | None = Depends(_security)) -> None:
     """FastAPI dependency that enforces HTTP Basic authentication."""
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais obrigatórias")
     user_ok = secrets.compare_digest(
         credentials.username.encode(), settings.portal_user.encode()
     )
@@ -35,9 +39,18 @@ def require_auth(credentials: HTTPBasicCredentials = Depends(_security)) -> None
     if not (user_ok and pass_ok):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
+            detail="Usuário ou senha incorretos",
         )
+
+
+@app.get("/me")
+async def me(_: None = Depends(require_auth)) -> dict:
+    """Validate credentials without performing any action.
+
+    Returns ``{"ok": true}`` when credentials are valid, or 401 otherwise.
+    Used by the frontend to authenticate on login before showing the main screen.
+    """
+    return {"ok": True}
 
 
 @app.post("/validate")
@@ -108,7 +121,7 @@ async def run(
     if not output_files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No tournaments found in range first={first}, count={count}.",
+            detail=f"Nenhum torneio encontrado no intervalo primeiro={first}, quantidade={count}.",
         )
 
     zip_buffer = io.BytesIO()

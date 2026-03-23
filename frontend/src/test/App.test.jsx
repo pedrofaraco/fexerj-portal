@@ -7,8 +7,15 @@ import App from '../App'
 // Fetch mock helpers
 // ---------------------------------------------------------------------------
 
-function mockFetch({ validateErrors = [], runResponse = null } = {}) {
+function mockFetch({ validateErrors = [], runResponse = null, loginOk = true } = {}) {
   global.fetch = vi.fn((url) => {
+    if (url === '/me') {
+      return Promise.resolve({
+        ok: loginOk,
+        status: loginOk ? 200 : 401,
+        json: () => Promise.resolve(loginOk ? { ok: true } : {}),
+      })
+    }
     if (url === '/validate') {
       return Promise.resolve({
         ok: true,
@@ -38,9 +45,13 @@ function binaryFile(name) {
 // ---------------------------------------------------------------------------
 
 async function login(user) {
+  mockFetch()
   await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
   await user.type(screen.getByLabelText(/senha/i), 'changeme')
   await user.click(screen.getByRole('button', { name: /entrar/i }))
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument()
+  )
 }
 
 async function uploadAllFiles(user) {
@@ -68,11 +79,36 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
   })
 
-  it('shows the run page after login', async () => {
+  it('shows the run page after successful login', async () => {
     const user = userEvent.setup()
     render(<App />)
     await login(user)
     expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument()
+  })
+
+  it('shows error message on wrong credentials', async () => {
+    mockFetch({ loginOk: false })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'wrong')
+    await user.type(screen.getByLabelText(/senha/i), 'wrong')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByText(/usuário ou senha incorretos/i)).toBeInTheDocument()
+    )
+  })
+
+  it('stays on login page after wrong credentials', async () => {
+    mockFetch({ loginOk: false })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'wrong')
+    await user.type(screen.getByLabelText(/senha/i), 'wrong')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    )
+    expect(screen.queryByRole('heading', { name: /execução do ciclo de rating/i })).not.toBeInTheDocument()
   })
 })
 
@@ -84,10 +120,10 @@ describe('RunPage', () => {
   let user
 
   beforeEach(async () => {
-    mockFetch() // /validate returns no errors; /run hangs by default
     user = userEvent.setup()
     render(<App />)
     await login(user)
+    mockFetch() // /validate returns no errors; /run hangs by default
   })
 
   it('renders all upload fields and inputs', () => {
