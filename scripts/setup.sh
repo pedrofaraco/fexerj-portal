@@ -27,6 +27,10 @@ require_root() {
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
 read_domain() {
+    if [[ -n "${DOMAIN:-}" ]]; then
+        info "Using DOMAIN from environment: ${DOMAIN}"
+        return
+    fi
     if [[ -f "${NGINX_SITE}" ]]; then
         DOMAIN=$(grep -oP '(?<=server_name )[^\s;]+' "${NGINX_SITE}" | head -1)
         info "Nginx config already exists for domain '${DOMAIN}', skipping domain prompt."
@@ -37,6 +41,10 @@ read_domain() {
 }
 
 read_credentials() {
+    if [[ -n "${PORTAL_USER:-}" && -n "${PORTAL_PASSWORD:-}" ]]; then
+        info "Using credentials from environment."
+        return
+    fi
     if [[ -f "${ENV_FILE}" ]]; then
         info "Credentials file ${ENV_FILE} already exists, skipping credential prompt."
         # shellcheck source=/dev/null
