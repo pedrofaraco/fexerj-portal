@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
 
 const INITIAL_FORM = {
   playersCsv: null,
@@ -199,6 +200,11 @@ function LoginPage({ onLogin, loginStatus }) {
   )
 }
 
+LoginPage.propTypes = {
+  onLogin: PropTypes.func.isRequired,
+  loginStatus: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
+}
+
 // ---------------------------------------------------------------------------
 // Run page
 // ---------------------------------------------------------------------------
@@ -325,6 +331,23 @@ function RunPage({ form, setForm, status, errorMessage, validationErrors, valida
   )
 }
 
+RunPage.propTypes = {
+  form: PropTypes.shape({
+    playersCsv: PropTypes.object,
+    tournamentsCsv: PropTypes.object,
+    binaryFiles: PropTypes.array.isRequired,
+    first: PropTypes.string.isRequired,
+    count: PropTypes.string.isRequired,
+  }).isRequired,
+  setForm: PropTypes.func.isRequired,
+  status: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
+  errorMessage: PropTypes.string.isRequired,
+  validationErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  validationStatus: PropTypes.oneOf(['idle', 'checking', 'done']).isRequired,
+  onRun: PropTypes.func.isRequired,
+  onLogout: PropTypes.func.isRequired,
+}
+
 // ---------------------------------------------------------------------------
 // Help section
 // ---------------------------------------------------------------------------
@@ -392,6 +415,11 @@ function Section({ title, children }) {
   )
 }
 
+Section.propTypes = {
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+}
+
 // ---------------------------------------------------------------------------
 // Shared components
 // ---------------------------------------------------------------------------
@@ -404,4 +432,11 @@ function Field({ label, hint, className = '', children }) {
       {children}
     </label>
   )
+}
+
+Field.propTypes = {
+  label: PropTypes.string.isRequired,
+  hint: PropTypes.string,
+  className: PropTypes.string,
+  children: PropTypes.node.isRequired,
 }
