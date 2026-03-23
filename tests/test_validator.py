@@ -17,7 +17,7 @@ _VALID_PLAYERS = textwrap.dedent("""\
 """)
 
 _VALID_TOURNAMENTS = textwrap.dedent("""\
-    Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+    Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
     1;99999;Test Tournament;2025-01-01;RR;0;1
 """)
 
@@ -161,7 +161,7 @@ class TestTournamentsCSVValidation:
 
     def test_invalid_type_returns_error(self):
         bad = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Test;;XX;0;1
         """)
         errors = _validate(tournaments=bad)
@@ -169,7 +169,7 @@ class TestTournamentsCSVValidation:
 
     def test_is_irt_not_zero_or_one_returns_error(self):
         bad = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Test;;RR;2;1
         """)
         errors = _validate(tournaments=bad)
@@ -177,7 +177,7 @@ class TestTournamentsCSVValidation:
 
     def test_is_fexerj_not_zero_or_one_returns_error(self):
         bad = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Test;;RR;0;2
         """)
         errors = _validate(tournaments=bad)
@@ -185,14 +185,14 @@ class TestTournamentsCSVValidation:
 
     def test_date_may_be_empty(self):
         csv = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Test;;RR;0;1
         """)
         assert _validate(tournaments=csv) == []
 
     def test_missing_required_name_returns_error(self):
         bad = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;;2025-01-01;RR;0;1
         """)
         errors = _validate(tournaments=bad)
@@ -200,11 +200,11 @@ class TestTournamentsCSVValidation:
 
     def test_missing_required_cbx_id_returns_error(self):
         bad = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;;Test;2025-01-01;RR;0;1
         """)
         errors = _validate(tournaments=bad)
-        assert any("CbxId is required" in e for e in errors)
+        assert any("CrId is required" in e for e in errors)
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +231,7 @@ class TestBinaryFileValidation:
 
     def test_file_with_missing_fexerj_id_returns_error(self):
         tournaments = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;12345;Test;;SS;0;1
         """)
         errors = _validate(
@@ -243,7 +243,7 @@ class TestBinaryFileValidation:
     def test_only_validates_files_in_range(self):
         """Tournaments outside [first, first+count) must not require binary files."""
         tournaments = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Tournament 1;;RR;0;1
             2;99999;Tournament 2;;RR;0;1
         """)

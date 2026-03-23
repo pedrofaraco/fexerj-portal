@@ -25,7 +25,7 @@ PLAYERS_CSV = textwrap.dedent("""\
 """)
 
 TOURNAMENTS_CSV = textwrap.dedent("""\
-    Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+    Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
     1;99999;Test RR Tournament;2025-01-01;RR;0;1
 """)
 
@@ -90,7 +90,7 @@ class TestValidateEndpoint:
         assert any("missing" in e.lower() for e in errors)
 
     def test_invalid_tournament_type_returns_error_list(self):
-        invalid = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
+        invalid = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
         response = _post_validate(tournaments=invalid)
         assert response.status_code == 200
         errors = response.json()["errors"]
@@ -98,7 +98,7 @@ class TestValidateEndpoint:
 
     def test_binary_file_with_missing_player_id_returns_error_list(self):
         tunx_data = (BINARY_DIR / "swiss_system_18players.TUNX").read_bytes()
-        tournaments = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;12345;T1;2025-01-01;SS;0;1\n"
+        tournaments = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;12345;T1;2025-01-01;SS;0;1\n"
         response = client.post(
             "/validate",
             data={"first": 1, "count": 1},
@@ -186,7 +186,7 @@ class TestRunSuccess:
 
     def test_two_tournaments_zip_has_four_files(self):
         tournaments_csv = textwrap.dedent("""\
-            Id;CbxId;Name;Date;Type;IsIrt;IsFexerj
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
             1;99999;Tournament 1;2025-01-01;RR;0;1
             2;99999;Tournament 2;2025-02-01;RR;0;1
         """)
@@ -225,7 +225,7 @@ class TestRunValidation:
         assert response.status_code == 422
 
     def test_invalid_tournament_type_returns_422(self):
-        invalid_tournaments = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
+        invalid_tournaments = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;99999;T1;2025-01-01;XX;0;1\n"
         response = _post_run(tournaments=invalid_tournaments)
         assert response.status_code == 422
 
@@ -233,7 +233,7 @@ class TestRunValidation:
         tunx_data = (BINARY_DIR / 'swiss_system_18players.TUNX').read_bytes()
         # Minimal players CSV — doesn't need real players since it will
         # fail before looking them up (resolve_id raises on missing ID)
-        tournaments_csv = "Id;CbxId;Name;Date;Type;IsIrt;IsFexerj\n1;12345;T1;2025-01-01;SS;0;1\n"
+        tournaments_csv = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;12345;T1;2025-01-01;SS;0;1\n"
         response = client.post(
             "/run",
             data={"first": 1, "count": 1},
