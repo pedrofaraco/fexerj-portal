@@ -154,7 +154,7 @@ function LoginPage({ onLogin }) {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">FEXERJ Portal</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Portal FEXERJ</h1>
         <p className="text-sm text-gray-500 mb-6">Acesso restrito à equipe</p>
 
         <form onSubmit={onLogin} className="flex flex-col gap-4">
@@ -192,7 +192,7 @@ function RunPage({ form, setForm, status, errorMessage, validationErrors, valida
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">FEXERJ Portal</h1>
+        <h1 className="text-lg font-semibold text-gray-900">Portal FEXERJ</h1>
         <button
           onClick={onLogout}
           className="text-sm text-gray-500 hover:text-gray-800 transition-colors"

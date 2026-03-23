@@ -56,11 +56,11 @@ def _validate_players_csv(content: str) -> list[str]:
     lines = content.splitlines()
 
     if not lines or not any(lines):
-        return ["players.csv: file is empty"]
+        return ["players.csv: arquivo vazio"]
 
     if lines[0].strip() != _PLAYERS_HEADER:
         errors.append(
-            f"players.csv: invalid header — expected '{_PLAYERS_HEADER}'"
+            f"players.csv: cabeçalho inválido — esperado '{_PLAYERS_HEADER}'"
         )
         return errors
 
@@ -76,7 +76,7 @@ def _validate_players_csv(content: str) -> list[str]:
 
         if len(row) != 12:
             errors.append(
-                f"players.csv row {row_num}: expected 12 columns, got {len(row)}"
+                f"players.csv linha {row_num}: esperadas 12 colunas, encontradas {len(row)}"
             )
             continue
 
@@ -98,45 +98,45 @@ def _validate_players_csv(content: str) -> list[str]:
             (total_points, "TotalPoints"),
         ]:
             if not value:
-                errors.append(f"players.csv row {row_num}: {field} is required")
+                errors.append(f"players.csv linha {row_num}: {field} é obrigatório")
 
         # Type checks (only when non-empty to avoid duplicate errors)
         if id_no:
             try:
                 int(id_no)
             except ValueError:
-                errors.append(f"players.csv row {row_num}: Id_No must be a valid integer")
+                errors.append(f"players.csv linha {row_num}: Id_No deve ser um número inteiro")
 
         if rtg_nat:
             try:
                 int(rtg_nat)
             except ValueError:
-                errors.append(f"players.csv row {row_num}: Rtg_Nat must be a valid integer")
+                errors.append(f"players.csv linha {row_num}: Rtg_Nat deve ser um número inteiro")
 
         if total_games:
             try:
                 int(total_games)
             except ValueError:
-                errors.append(f"players.csv row {row_num}: TotalNumGames must be a valid integer")
+                errors.append(f"players.csv linha {row_num}: TotalNumGames deve ser um número inteiro")
 
         if sum_oppon:
             try:
                 int(sum_oppon)
             except ValueError:
-                errors.append(f"players.csv row {row_num}: SumOpponRating must be a valid integer")
+                errors.append(f"players.csv linha {row_num}: SumOpponRating deve ser um número inteiro")
 
         if total_points:
             try:
                 float(total_points)
             except ValueError:
-                errors.append(f"players.csv row {row_num}: TotalPoints must be a valid number")
+                errors.append(f"players.csv linha {row_num}: TotalPoints deve ser um número válido")
 
         # Uniqueness
         if id_no:
             if id_no in id_no_seen:
                 errors.append(
-                    f"players.csv: duplicate Id_No: {id_no} "
-                    f"(rows {id_no_seen[id_no]} and {row_num})"
+                    f"players.csv: Id_No duplicado: {id_no} "
+                    f"(linhas {id_no_seen[id_no]} e {row_num})"
                 )
             else:
                 id_no_seen[id_no] = row_num
@@ -144,8 +144,8 @@ def _validate_players_csv(content: str) -> list[str]:
         if id_cbx:
             if id_cbx in id_cbx_seen:
                 errors.append(
-                    f"players.csv: duplicate Id_CBX: {id_cbx} "
-                    f"(rows {id_cbx_seen[id_cbx]} and {row_num})"
+                    f"players.csv: Id_CBX duplicado: {id_cbx} "
+                    f"(linhas {id_cbx_seen[id_cbx]} e {row_num})"
                 )
             else:
                 id_cbx_seen[id_cbx] = row_num
@@ -162,11 +162,11 @@ def _validate_tournaments_csv(content: str) -> list[str]:
     lines = content.splitlines()
 
     if not lines or not any(lines):
-        return ["tournaments.csv: file is empty"]
+        return ["tournaments.csv: arquivo vazio"]
 
     if lines[0].strip() != _TOURNAMENTS_HEADER:
         errors.append(
-            f"tournaments.csv: invalid header — expected '{_TOURNAMENTS_HEADER}'"
+            f"tournaments.csv: cabeçalho inválido — esperado '{_TOURNAMENTS_HEADER}'"
         )
         return errors
 
@@ -179,7 +179,7 @@ def _validate_tournaments_csv(content: str) -> list[str]:
 
         if len(row) != 7:
             errors.append(
-                f"tournaments.csv row {row_num}: expected 7 columns, got {len(row)}"
+                f"tournaments.csv linha {row_num}: esperadas 7 colunas, encontradas {len(row)}"
             )
             continue
 
@@ -201,19 +201,19 @@ def _validate_tournaments_csv(content: str) -> list[str]:
             (is_fex, "IsFexerj"),
         ]:
             if not value:
-                errors.append(f"tournaments.csv row {row_num}: {field} is required")
+                errors.append(f"tournaments.csv linha {row_num}: {field} é obrigatório")
 
         if type_ and type_ not in _VALID_TYPES:
             errors.append(
-                f"tournaments.csv row {row_num}: Type '{type_}' is not valid; "
-                f"must be SS, RR, or ST"
+                f"tournaments.csv linha {row_num}: Type '{type_}' inválido; "
+                f"deve ser SS, RR ou ST"
             )
 
         if is_irt and is_irt not in {"0", "1"}:
-            errors.append(f"tournaments.csv row {row_num}: IsIrt must be 0 or 1")
+            errors.append(f"tournaments.csv linha {row_num}: IsIrt deve ser 0 ou 1")
 
         if is_fex and is_fex not in {"0", "1"}:
-            errors.append(f"tournaments.csv row {row_num}: IsFexerj must be 0 or 1")
+            errors.append(f"tournaments.csv linha {row_num}: IsFexerj deve ser 0 ou 1")
 
     return errors
 
@@ -253,7 +253,7 @@ def _validate_binary_files(
         filename = f"{row[0].strip()}-{cbx_id}.{ext}"
 
         if filename not in binary_files:
-            errors.append(f"Binary file '{filename}' is missing")
+            errors.append(f"Arquivo binário '{filename}' não encontrado")
             continue
 
         errors.extend(_validate_binary_content(filename, binary_files[filename]))
@@ -265,24 +265,24 @@ def _validate_binary_content(filename: str, data: bytes) -> list[str]:
     errors: list[str] = []
 
     if BIO_MARKER not in data:
-        errors.append(f"{filename}: missing BIO marker — unsupported file format")
+        errors.append(f"{filename}: marcador BIO ausente — formato de arquivo não suportado")
         return errors
 
     if PAIRING_MARKER not in data:
-        errors.append(f"{filename}: missing PAIRING marker — unsupported file format")
+        errors.append(f"{filename}: marcador PAIRING ausente — formato de arquivo não suportado")
         return errors
 
     bio = parse_bio_section(data)
 
     if not bio:
-        errors.append(f"{filename}: no players found in BIO section")
+        errors.append(f"{filename}: nenhum jogador encontrado na seção BIO")
         return errors
 
     for snr, info in bio.items():
         if not info.get("fexerj_id"):
             errors.append(
-                f"{filename}: player '{info['name']}' (starting rank {snr}) "
-                f"has no FEXERJ ID"
+                f"{filename}: jogador '{info['name']}' (posição inicial {snr}) "
+                f"não possui ID FEXERJ"
             )
 
     return errors
