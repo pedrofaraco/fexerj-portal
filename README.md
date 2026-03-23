@@ -113,6 +113,18 @@ bash scripts/update.sh
 
 This pulls the latest code, updates dependencies, rebuilds the frontend, and restarts the service.
 
+### Rollback
+
+If `update.sh` fails at any step it automatically reverts to the previous commit, reinstalls dependencies, rebuilds the frontend, and restarts the service. No manual intervention is needed in most cases.
+
+To roll back manually to a specific commit:
+
+```bash
+cd fexerj-portal
+git checkout <commit-hash> -- .
+bash scripts/update.sh
+```
+
 ### Changing Credentials
 
 Edit `/etc/fexerj-portal.env` on the server and restart the backend:
