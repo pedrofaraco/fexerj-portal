@@ -10,6 +10,8 @@ set -euo pipefail
 ENV="${1:-}"
 [[ "$ENV" == "prod" || "$ENV" == "uat" ]] || { echo "[ERROR] Usage: $0 <prod|uat>" >&2; exit 1; }
 
+export AWS_PROFILE="fexerj"
+
 CONFIG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/launch.conf"
 STATE_FILE="/tmp/fexerj-${ENV}-instance-id"
 

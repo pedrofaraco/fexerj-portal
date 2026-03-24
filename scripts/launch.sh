@@ -23,6 +23,8 @@ set -euo pipefail
 ENV="${1:-}"
 [[ "$ENV" == "prod" || "$ENV" == "uat" ]] || { echo "[ERROR] Usage: $0 <prod|uat>" >&2; exit 1; }
 
+export AWS_PROFILE="fexerj"
+
 CONFIG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/launch.conf"
 STATE_FILE="/tmp/fexerj-${ENV}-instance-id"
 
@@ -39,20 +41,20 @@ if [[ "$ENV" == "prod" ]]; then
     REGION="${PROD_REGION:?launch.conf is missing PROD_REGION}"
     AMI_ID="${PROD_AMI_ID:?launch.conf is missing PROD_AMI_ID}"
     INSTANCE_TYPE="${PROD_INSTANCE_TYPE:?launch.conf is missing PROD_INSTANCE_TYPE}"
-    KEY_NAME="${PROD_KEY_NAME:?launch.conf is missing PROD_KEY_NAME}"
     SECURITY_GROUP="${PROD_SECURITY_GROUP:?launch.conf is missing PROD_SECURITY_GROUP}"
     ELASTIC_IP_ALLOC="${PROD_ELASTIC_IP_ALLOC:?launch.conf is missing PROD_ELASTIC_IP_ALLOC}"
     IAM_PROFILE="${PROD_IAM_PROFILE:?launch.conf is missing PROD_IAM_PROFILE}"
+    DOMAIN="${PROD_DOMAIN:?launch.conf is missing PROD_DOMAIN}"
     BRANCH="master"
     SSM_PREFIX="/fexerj/prod"
 else
     REGION="${UAT_REGION:?launch.conf is missing UAT_REGION}"
     AMI_ID="${UAT_AMI_ID:?launch.conf is missing UAT_AMI_ID}"
     INSTANCE_TYPE="${UAT_INSTANCE_TYPE:?launch.conf is missing UAT_INSTANCE_TYPE}"
-    KEY_NAME="${UAT_KEY_NAME:?launch.conf is missing UAT_KEY_NAME}"
     SECURITY_GROUP="${UAT_SECURITY_GROUP:?launch.conf is missing UAT_SECURITY_GROUP}"
     ELASTIC_IP_ALLOC="${UAT_ELASTIC_IP_ALLOC:?launch.conf is missing UAT_ELASTIC_IP_ALLOC}"
     IAM_PROFILE="${UAT_IAM_PROFILE:?launch.conf is missing UAT_IAM_PROFILE}"
+    DOMAIN="${UAT_DOMAIN:?launch.conf is missing UAT_DOMAIN}"
     BRANCH="develop"
     SSM_PREFIX="/fexerj/uat"
 fi
@@ -95,7 +97,6 @@ INSTANCE_ID=$(aws ec2 run-instances \
     --region "$REGION" \
     --image-id "$AMI_ID" \
     --instance-type "$INSTANCE_TYPE" \
-    --key-name "$KEY_NAME" \
     --security-group-ids "$SECURITY_GROUP" \
     --iam-instance-profile Name="$IAM_PROFILE" \
     --user-data "$USER_DATA" \
@@ -115,10 +116,6 @@ aws ec2 associate-address \
     --instance-id "$INSTANCE_ID" \
     --allocation-id "$ELASTIC_IP_ALLOC" \
     --output text > /dev/null
-
-DOMAIN=$(aws ssm get-parameter \
-    --region "$REGION" --name "${SSM_PREFIX}/domain" \
-    --query Parameter.Value --output text)
 
 echo ""
 echo "Instance is running. Setup is happening in the background (~8 min)."
