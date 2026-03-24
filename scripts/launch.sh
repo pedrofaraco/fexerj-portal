@@ -99,6 +99,43 @@ bash scripts/setup.sh
 USERDATA
 )
 
+# ── Guard: check for already-running instance ─────────────────────────────────
+
+if [[ -f "$STATE_FILE" ]]; then
+    EXISTING_ID=$(cat "$STATE_FILE")
+    EXISTING_STATE=$(aws ec2 describe-instances \
+        --region "$REGION" \
+        --instance-ids "$EXISTING_ID" \
+        --query 'Reservations[0].Instances[0].State.Name' \
+        --output text 2>/dev/null || echo "not-found")
+
+    if [[ "$EXISTING_STATE" != "terminated" && "$EXISTING_STATE" != "not-found" ]]; then
+        echo ""
+        echo "[WARN]  A ${ENV} instance is already running: ${EXISTING_ID} (${EXISTING_STATE})"
+        echo ""
+        echo "  [1] Abort"
+        echo "  [2] Terminate it and launch a new one"
+        echo ""
+        read -rp "Choose [1/2]: " CHOICE
+        case "$CHOICE" in
+            2)
+                info "Terminating ${EXISTING_ID}..."
+                aws ec2 terminate-instances --region "$REGION" --instance-ids "$EXISTING_ID" --output text > /dev/null
+                info "Waiting for termination..."
+                aws ec2 wait instance-terminated --region "$REGION" --instance-ids "$EXISTING_ID"
+                rm -f "$STATE_FILE"
+                info "Terminated. Launching new instance..."
+                ;;
+            *)
+                info "Aborted."
+                exit 0
+                ;;
+        esac
+    else
+        rm -f "$STATE_FILE"
+    fi
+fi
+
 # ── Launch ────────────────────────────────────────────────────────────────────
 
 info "Launching EC2 instance (${INSTANCE_TYPE})..."
