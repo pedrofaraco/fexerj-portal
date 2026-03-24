@@ -67,7 +67,15 @@ USER_DATA=$(cat <<USERDATA
 #!/bin/bash
 set -euo pipefail
 
-REGION=\$(curl -sf http://169.254.169.254/latest/meta-data/placement/region)
+apt-get update -q
+apt-get install -y -q unzip curl
+
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install
+rm -rf /tmp/awscliv2.zip /tmp/aws
+
+REGION="${REGION}"
 SSM_PREFIX="${SSM_PREFIX}"
 
 DOMAIN=\$(aws ssm get-parameter \
@@ -85,6 +93,7 @@ PORTAL_PASSWORD=\$(aws ssm get-parameter \
 export DOMAIN PORTAL_USER PORTAL_PASSWORD
 
 git clone --branch "${BRANCH}" https://github.com/pedrofaraco/fexerj-portal.git /home/ubuntu/fexerj-portal
+chown -R ubuntu:ubuntu /home/ubuntu/fexerj-portal
 cd /home/ubuntu/fexerj-portal
 bash scripts/setup.sh
 USERDATA
@@ -118,8 +127,30 @@ aws ec2 associate-address \
     --output text > /dev/null
 
 echo ""
-echo "Instance is running. Setup is happening in the background (~8 min)."
-echo "Portal will be live at: https://${DOMAIN}"
+info "Instance is running. Waiting for portal to be live at https://${DOMAIN} ..."
 echo ""
+
+TIMEOUT=900
+ELAPSED=0
+INTERVAL=15
+START_TIME=$SECONDS
+
+while [[ $ELAPSED -lt $TIMEOUT ]]; do
+    if curl -sf --max-time 5 "https://${DOMAIN}" -o /dev/null 2>/dev/null; then
+        ELAPSED=$(( SECONDS - START_TIME ))
+        printf "\r"
+        info "Portal is live at https://${DOMAIN} (took $((ELAPSED / 60))min$((ELAPSED % 60))s)"
+        echo ""
+        echo "When done, destroy the instance:"
+        echo "  bash scripts/terminate.sh ${ENV}"
+        exit 0
+    fi
+    ELAPSED=$(( SECONDS - START_TIME ))
+    printf "\r[INFO]  Still setting up... %dmin%02ds elapsed" $(( ELAPSED / 60 )) $(( ELAPSED % 60 ))
+    sleep $INTERVAL
+done
+
+echo ""
+echo "[WARN]  Portal did not respond within 15 minutes. Check the EC2 console."
 echo "When done, destroy the instance:"
-echo "  bash scripts/terminate.sh ${ENV}   # destroys this instance"
+echo "  bash scripts/terminate.sh ${ENV}"
