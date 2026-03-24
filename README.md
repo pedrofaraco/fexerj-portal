@@ -88,6 +88,37 @@ Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
 
 ## Deployment
 
+### On-Demand Launch (recommended)
+
+Rather than keeping a server running continuously, the portal can be launched on demand from a laptop, used, and then terminated. You pay only for the time the instance is running.
+
+**One-time setup** — see `CONTRIBUTING.md` for full details:
+
+1. Allocate an Elastic IP and point your domain A record to it
+2. Store credentials and domain in AWS SSM Parameter Store under a path prefix of your choice
+3. Create an IAM role for the EC2 instance with SSM read access
+4. Create a security group allowing inbound ports 80 and 443
+5. Copy `scripts/launch.conf.example` to `scripts/launch.conf` and fill in your values (`launch.conf` is gitignored and never committed)
+6. Configure an AWS CLI profile with permissions to launch and terminate EC2 instances
+
+**Launch the portal:**
+
+```bash
+bash scripts/launch.sh prod   # production (master branch)
+bash scripts/launch.sh uat    # UAT (develop branch)
+```
+
+The script launches a fresh EC2 instance, attaches the Elastic IP, and polls until the portal is live — typically under 10 minutes. It prints elapsed time and the URL when ready.
+
+**Terminate when done:**
+
+```bash
+bash scripts/terminate.sh prod
+bash scripts/terminate.sh uat
+```
+
+The instance is destroyed. The Elastic IP remains allocated so the domain keeps resolving correctly for the next launch.
+
 ### Initial Server Setup
 
 On a fresh Ubuntu 24.04 instance, clone the repository and run the setup script:
