@@ -4,8 +4,10 @@ import pathlib
 import textwrap
 import zipfile
 
+import pytest
 from fastapi.testclient import TestClient
 
+import backend.main as main_module
 from backend.config import settings
 from backend.main import app
 
@@ -31,6 +33,12 @@ TOURNAMENTS_CSV = textwrap.dedent("""\
 VALID_AUTH = (settings.portal_user, settings.portal_password)
 
 client = TestClient(app)
+
+
+@pytest.fixture
+def upload_limit_1_mib(monkeypatch):
+    """Temporarily cap POST /validate and /run body size to 1 MiB for 413 tests."""
+    monkeypatch.setattr(main_module.settings, "portal_max_upload_megabytes", 1)
 
 
 def _post_validate(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
@@ -92,6 +100,40 @@ class TestHealthEndpoint:
 # ---------------------------------------------------------------------------
 # Validate endpoint
 # ---------------------------------------------------------------------------
+
+class TestUploadBodyLimit:
+    def test_validate_returns_413_when_content_length_exceeds_limit(self, upload_limit_1_mib):
+        limit = main_module.settings.portal_max_upload_bytes
+        response = client.post(
+            "/validate",
+            data={"first": "1", "count": "1"},
+            files=[
+                ("players_csv", ("players.csv", PLAYERS_CSV.encode(), "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", TOURNAMENTS_CSV.encode(), "text/csv")),
+                ("binary_files", ("1-99999.TURX", TURX_DATA, "application/octet-stream")),
+            ],
+            headers={"Content-Length": str(limit + 1)},
+            auth=VALID_AUTH,
+        )
+        assert response.status_code == 413
+        assert "MiB" in response.json()["detail"]
+
+    def test_run_returns_413_when_content_length_exceeds_limit(self, upload_limit_1_mib):
+        limit = main_module.settings.portal_max_upload_bytes
+        response = client.post(
+            "/run",
+            data={"first": "1", "count": "1"},
+            files=[
+                ("players_csv", ("players.csv", PLAYERS_CSV.encode(), "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", TOURNAMENTS_CSV.encode(), "text/csv")),
+                ("binary_files", ("1-99999.TURX", TURX_DATA, "application/octet-stream")),
+            ],
+            headers={"Content-Length": str(limit + 1)},
+            auth=VALID_AUTH,
+        )
+        assert response.status_code == 413
+        assert "limite" in response.json()["detail"].lower()
+
 
 class TestValidateEndpoint:
     def test_valid_files_return_empty_errors(self):

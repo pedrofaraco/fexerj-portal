@@ -66,6 +66,8 @@ export PORTAL_PASSWORD=yourpassword
 
 A `.env` file in the project root is also supported.
 
+**Upload size:** `PORTAL_MAX_UPLOAD_MEGABYTES` (optional, default **100**, allowed range **1–2048**) sets the maximum total body size in mebibytes for `POST /validate` and `POST /run`. The server checks the `Content-Length` header; if it is absent, this limit is not applied at the middleware layer (use a reverse proxy limit in production as well).
+
 ## Input File Formats
 
 **players.csv** — semicolon-delimited, UTF-8 (BOM accepted):
@@ -177,6 +179,8 @@ sudo systemctl restart fexerj-portal
 `first` and `count` form parameters on `/validate` and `/run` must be integers ≥ 1.
 
 On **`POST /run`**, **HTTP 422** responses use a JSON `detail` field: file validation failures return **`detail` as a list of strings** (the same messages as `/validate`’s `errors`). Invalid form fields or missing files may instead return FastAPI’s structured validation entries (objects with a `msg` field).
+
+**413 Payload Too Large** — **`POST /validate`** and **`POST /run`** return this when the `Content-Length` header exceeds `PORTAL_MAX_UPLOAD_MEGABYTES` (see above).
 
 ## Branch Strategy
 

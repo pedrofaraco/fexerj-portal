@@ -19,6 +19,8 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from backend.config import settings
 from backend.validator import validate_inputs
@@ -34,6 +36,42 @@ app = FastAPI(title="Portal FEXERJ")
 # auto_error=False prevents FastAPI from sending WWW-Authenticate: Basic on
 # 401 responses, which would cause browsers to show their native auth dialog.
 _security = HTTPBasic(auto_error=False)
+
+_UPLOAD_PATHS = frozenset({"/validate", "/run"})
+
+
+@app.middleware("http")
+async def limit_upload_body(request: Request, call_next):
+    """Reject oversized multipart uploads before the body is fully parsed."""
+    if request.method != "POST" or request.url.path not in _UPLOAD_PATHS:
+        return await call_next(request)
+    max_bytes = settings.portal_max_upload_bytes
+    cl = request.headers.get("content-length")
+    if cl is None:
+        return await call_next(request)
+    try:
+        content_length = int(cl)
+    except ValueError:
+        logger.warning("Invalid Content-Length on %s: %r", request.url.path, cl)
+        return await call_next(request)
+    if content_length > max_bytes:
+        mib = settings.portal_max_upload_megabytes
+        logger.warning(
+            "Rejected %s: Content-Length %d exceeds limit %d bytes",
+            request.url.path,
+            content_length,
+            max_bytes,
+        )
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": (
+                    f"Corpo da requisição excede o limite permitido ({mib} MiB). "
+                    "Reduza o tamanho dos arquivos ou peça ao administrador para aumentar o limite."
+                )
+            },
+        )
+    return await call_next(request)
 
 
 def require_auth(credentials: HTTPBasicCredentials | None = Depends(_security)) -> None:
