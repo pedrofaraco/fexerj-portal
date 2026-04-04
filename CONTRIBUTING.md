@@ -38,11 +38,18 @@ npm test
 
 ```bash
 source .venv/bin/activate
-ruff check .
+ruff check backend/ tests/
 mypy backend/
 ```
 
-These same checks run automatically on every push via GitHub Actions.
+**Frontend** (from `frontend/`):
+
+```bash
+npm run lint
+npm run build
+```
+
+These same checks run automatically on every push via GitHub Actions (Python lint/typecheck, shellcheck, and frontend lint, test, and production build).
 
 ## Branch Strategy
 
@@ -72,6 +79,6 @@ Keep the summary under 72 characters. Use the body for context when needed.
 1. Branch off `develop` and make your changes.
 2. Ensure all tests pass locally before opening a PR.
 3. Open a PR targeting `develop`.
-4. A passing CI run (lint + type check + tests) is required before merging.
+4. A passing CI run (Python and shell linting, type check, tests, and frontend lint/build) is required before merging.
 5. Squash-merge into `develop`; the branch is deleted after merge.
 6. Periodically, `develop` is merged into `master` to deploy to production.
