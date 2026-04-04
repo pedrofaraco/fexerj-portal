@@ -2,7 +2,7 @@
 import pathlib
 import textwrap
 
-from backend.validator import validate_inputs
+from backend.validator import _validate_binary_files, validate_inputs
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 BINARY_DIR = pathlib.Path(__file__).parent / "binary"
@@ -155,6 +155,15 @@ class TestPlayersCSVValidation:
         # Optional fields being empty should not produce errors
         assert not any(f in " ".join(errors) for f in ["Id_CBX", "Title", "ClubName", "Birthday", "Sex", "Fed"])
 
+    def test_blank_row_between_data_rows_is_skipped(self):
+        csv = textwrap.dedent("""\
+            Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+            1;;;Player One;1500;;01/01/1990;M;BRA;50;0;0
+
+            2;;;Player Two;1600;;01/01/1991;M;BRA;60;0;0
+        """)
+        assert _validate(players=csv) == []
+
 
 # ---------------------------------------------------------------------------
 # Tournaments CSV
@@ -237,6 +246,24 @@ class TestTournamentsCSVValidation:
         errors = _validate(tournaments=bad)
         assert any("esperadas 7 colunas" in e for e in errors)
 
+    def test_blank_row_between_data_rows_is_skipped(self):
+        csv = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            1;99999;T1;;RR;0;1
+
+            2;99999;T2;;RR;0;1
+        """)
+        errors = _validate(
+            tournaments=csv,
+            binaries={
+                "1-99999.TURX": TURX_DATA,
+                "2-99999.TURX": TURX_DATA,
+            },
+            first=1,
+            count=2,
+        )
+        assert errors == []
+
 
 # ---------------------------------------------------------------------------
 # Binary files
@@ -291,6 +318,40 @@ class TestBinaryFileValidation:
             count=1,
         )
         assert errors == []
+
+    def test_non_numeric_ord_row_is_skipped_in_binary_pass(self):
+        """Ord must parse as int for binary checks; non-numeric Ord rows are ignored."""
+        tournaments = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            alpha;99999;Ignored;;RR;0;1
+            1;99999;Kept;;RR;0;1
+        """)
+        assert _validate(tournaments=tournaments, binaries={"1-99999.TURX": TURX_DATA}) == []
+
+
+# ---------------------------------------------------------------------------
+# _validate_binary_files (direct)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBinaryFilesDirect:
+    """Exercises branches not reachable through validate_inputs alone."""
+
+    def test_skips_row_with_fewer_than_five_columns(self):
+        tournaments = (
+            "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n"
+            "1;9;T;;RR;0;1\n"
+            "a;b;c;d\n"
+        )
+        assert _validate_binary_files(tournaments, {"1-9.TURX": TURX_DATA}, 1, 1) == []
+
+    def test_skips_row_with_unknown_type_without_error(self):
+        """Type not in SS/RR/ST: binary pass continues (tournament CSV would normally flag this)."""
+        tournaments = (
+            "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n"
+            "1;9;T;;ZZ;0;1\n"
+        )
+        assert _validate_binary_files(tournaments, {}, 1, 1) == []
 
 
 # ---------------------------------------------------------------------------
