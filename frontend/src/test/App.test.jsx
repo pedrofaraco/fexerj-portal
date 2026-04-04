@@ -9,7 +9,7 @@ import ErrorBoundary from '../ErrorBoundary'
 // ---------------------------------------------------------------------------
 
 function mockFetch({ validateErrors = [], runResponse = null, loginOk = true } = {}) {
-  global.fetch = vi.fn((url) => {
+  globalThis.fetch = vi.fn((url) => {
     if (url === '/me') {
       return Promise.resolve({
         ok: loginOk,
@@ -148,7 +148,7 @@ describe('RunPage', () => {
     await uploadAllFiles(user)
 
     // Override fetch so /run never resolves after validation has already passed
-    global.fetch = vi.fn(() => new Promise(() => {}))
+    globalThis.fetch = vi.fn(() => new Promise(() => {}))
     submitRunForm()
 
     await waitFor(() =>
@@ -159,7 +159,7 @@ describe('RunPage', () => {
   it('displays the error message on a 422 response', async () => {
     await uploadAllFiles(user)
 
-    global.fetch = vi.fn(() =>
+    globalThis.fetch = vi.fn(() =>
       Promise.resolve({
         ok: false,
         status: 422,
@@ -177,7 +177,7 @@ describe('RunPage', () => {
   it('returns to the login page on a 401 response', async () => {
     await uploadAllFiles(user)
 
-    global.fetch = vi.fn(() =>
+    globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) })
     )
 
@@ -238,7 +238,7 @@ describe('Validation', () => {
   })
 
   it('shows "Validando arquivos…" while validation is in flight', async () => {
-    global.fetch = vi.fn(() => new Promise(() => {})) // /validate never resolves
+    globalThis.fetch = vi.fn(() => new Promise(() => {})) // /validate never resolves
 
     await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
     await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
@@ -289,6 +289,87 @@ describe('Validation', () => {
       expect(screen.getByText('players.csv row 2: Id_No is required')).toBeInTheDocument()
     )
     expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+  })
+
+  it('shows request error when validate returns non-OK and keeps run disabled', async () => {
+    globalThis.fetch = vi.fn((url) => {
+      if (url === '/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+        })
+      }
+      if (url === '/validate') {
+        return Promise.resolve({ ok: false, status: 502 })
+      }
+      return new Promise(() => {})
+    })
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/resposta HTTP 502/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/validando arquivos/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/arquivos validados com sucesso/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+  })
+
+  it('shows request error when validate request fails (network)', async () => {
+    globalThis.fetch = vi.fn((url) => {
+      if (url === '/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+        })
+      }
+      if (url === '/validate') {
+        return Promise.reject(new Error('network'))
+      }
+      return new Promise(() => {})
+    })
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/não foi possível conectar ao servidor para validar/i)).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+  })
+
+  it('shows request error when validate returns invalid JSON', async () => {
+    globalThis.fetch = vi.fn((url) => {
+      if (url === '/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+        })
+      }
+      if (url === '/validate') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.reject(new SyntaxError('invalid json')),
+        })
+      }
+      return new Promise(() => {})
+    })
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/resposta inválida do servidor ao validar/i)).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
   })
 })
 

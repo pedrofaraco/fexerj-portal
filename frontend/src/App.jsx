@@ -15,7 +15,8 @@ export default function App() {
   const [status, setStatus] = useState('idle') // idle | loading | error
   const [errorMessage, setErrorMessage] = useState('')
   const [validationErrors, setValidationErrors] = useState([])
-  const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done
+  const [validationRequestError, setValidationRequestError] = useState('')
+  const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
   const [loginStatus, setLoginStatus] = useState('idle') // idle | loading | error
 
   async function handleLogin(e) {
@@ -47,20 +48,30 @@ export default function App() {
     setStatus('idle')
     setErrorMessage('')
     setValidationErrors([])
+    setValidationRequestError('')
     setValidationStatus('idle')
     setLoginStatus('idle')
   }
 
   useEffect(() => {
     if (!credentials || !form.playersCsv || !form.tournamentsCsv || form.binaryFiles.length === 0) {
-      setValidationErrors([])
-      setValidationStatus('idle')
-      return
+      let resetCancelled = false
+      queueMicrotask(() => {
+        if (resetCancelled) return
+        setValidationErrors([])
+        setValidationRequestError('')
+        setValidationStatus('idle')
+      })
+      return () => { resetCancelled = true }
     }
 
     let cancelled = false
-    setValidationStatus('checking')
-    setValidationErrors([])
+    queueMicrotask(() => {
+      if (cancelled) return
+      setValidationStatus('checking')
+      setValidationErrors([])
+      setValidationRequestError('')
+    })
 
     const body = new FormData()
     body.append('players_csv', form.playersCsv)
@@ -69,28 +80,50 @@ export default function App() {
     body.append('first', form.first)
     body.append('count', form.count)
 
-    fetch('/validate', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
-      },
-      body,
-    })
-      .then(res => {
-        if (cancelled) return null
-        if (res.status === 401) { setCredentials(null); return null }
-        return res.ok ? res.json() : null
-      })
-      .then(json => {
-        if (cancelled || !json) return
-        setValidationErrors(json.errors ?? [])
-        setValidationStatus('done')
-      })
-      .catch(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/validate', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
+          },
+          body,
+        })
         if (cancelled) return
-        // On network error during validation, allow the user to try running anyway
+        if (res.status === 401) {
+          setCredentials(null)
+          return
+        }
+        if (!res.ok) {
+          setValidationErrors([])
+          setValidationRequestError(
+            `Não foi possível validar os arquivos (resposta HTTP ${res.status}). Tente novamente.`,
+          )
+          setValidationStatus('failed')
+          return
+        }
+        let data
+        try {
+          data = await res.json()
+        } catch {
+          if (cancelled) return
+          setValidationErrors([])
+          setValidationRequestError('Resposta inválida do servidor ao validar. Tente novamente.')
+          setValidationStatus('failed')
+          return
+        }
+        if (cancelled) return
+        setValidationErrors(data.errors ?? [])
         setValidationStatus('done')
-      })
+      } catch {
+        if (cancelled) return
+        setValidationErrors([])
+        setValidationRequestError(
+          'Não foi possível conectar ao servidor para validar. Verifique sua conexão e tente novamente.',
+        )
+        setValidationStatus('failed')
+      }
+    })()
 
     return () => { cancelled = true }
   }, [form.playersCsv, form.tournamentsCsv, form.binaryFiles, form.first, form.count, credentials])
@@ -156,6 +189,7 @@ export default function App() {
       status={status}
       errorMessage={errorMessage}
       validationErrors={validationErrors}
+      validationRequestError={validationRequestError}
       validationStatus={validationStatus}
       onRun={handleRun}
       onLogout={handleLogout}
@@ -209,7 +243,7 @@ LoginPage.propTypes = {
 // Run page
 // ---------------------------------------------------------------------------
 
-function RunPage({ form, setForm, status, errorMessage, validationErrors, validationStatus, onRun, onLogout }) {
+function RunPage({ form, setForm, status, errorMessage, validationErrors, validationRequestError, validationStatus, onRun, onLogout }) {
   const isReady =
     form.playersCsv &&
     form.tournamentsCsv &&
@@ -299,6 +333,13 @@ function RunPage({ form, setForm, status, errorMessage, validationErrors, valida
             <p className="text-sm text-gray-500">Validando arquivos…</p>
           )}
 
+          {validationStatus === 'failed' && validationRequestError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <p className="font-medium mb-1">Não foi possível validar os arquivos</p>
+              <p>{validationRequestError}</p>
+            </div>
+          )}
+
           {validationStatus === 'done' && validationErrors.length > 0 && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
               <p className="font-medium mb-1">Corrija os erros abaixo antes de executar:</p>
@@ -343,7 +384,8 @@ RunPage.propTypes = {
   status: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
   errorMessage: PropTypes.string.isRequired,
   validationErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
-  validationStatus: PropTypes.oneOf(['idle', 'checking', 'done']).isRequired,
+  validationRequestError: PropTypes.string.isRequired,
+  validationStatus: PropTypes.oneOf(['idle', 'checking', 'done', 'failed']).isRequired,
   onRun: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
 }
