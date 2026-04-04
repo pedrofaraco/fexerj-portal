@@ -345,6 +345,20 @@ class TestRunValidation:
         response = _post_run(count=0)
         assert response.status_code == 422
 
+    def test_run_validation_returns_list_of_all_errors(self):
+        """POST /run uses the same error list as validation — not only the first message."""
+        players = textwrap.dedent("""\
+            Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+            100;;; ;1800;CLUB A;01/01/1980;M;BRA;50;0;0
+            200;;; ;1900;CLUB B;01/01/1975;M;BRA;80;0;0
+        """)
+        response = _post_run(players=players)
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert isinstance(detail, list)
+        assert len(detail) >= 2
+        assert all(isinstance(e, str) for e in detail)
+
     def test_player_missing_id_returns_422(self):
         tunx_data = (BINARY_DIR / 'swiss_system_18players.TUNX').read_bytes()
         # Minimal players CSV — doesn't need real players since it will
@@ -361,4 +375,6 @@ class TestRunValidation:
             auth=VALID_AUTH,
         )
         assert response.status_code == 422
-        assert "ID FEXERJ" in response.json()["detail"]
+        detail = response.json()["detail"]
+        assert isinstance(detail, list)
+        assert any("ID FEXERJ" in e for e in detail)
