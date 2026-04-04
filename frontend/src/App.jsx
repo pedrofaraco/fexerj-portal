@@ -13,7 +13,7 @@ export default function App() {
   const [credentials, setCredentials] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
   const [status, setStatus] = useState('idle') // idle | loading | error
-  const [errorMessage, setErrorMessage] = useState('')
+  const [runErrors, setRunErrors] = useState([])
   const [validationErrors, setValidationErrors] = useState([])
   const [validationRequestError, setValidationRequestError] = useState('')
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
@@ -46,7 +46,7 @@ export default function App() {
     setCredentials(null)
     setForm(INITIAL_FORM)
     setStatus('idle')
-    setErrorMessage('')
+    setRunErrors([])
     setValidationErrors([])
     setValidationRequestError('')
     setValidationStatus('idle')
@@ -131,7 +131,7 @@ export default function App() {
   async function handleRun(e) {
     e.preventDefault()
     setStatus('loading')
-    setErrorMessage('')
+    setRunErrors([])
 
     const body = new FormData()
     body.append('players_csv', form.playersCsv)
@@ -159,7 +159,22 @@ export default function App() {
 
       if (!response.ok) {
         const json = await response.json().catch(() => ({}))
-        setErrorMessage(json.detail ?? `Unexpected error (HTTP ${response.status})`)
+        const detail = json.detail
+        let messages
+        if (typeof detail === 'string' && detail.trim()) {
+          messages = [detail]
+        } else if (Array.isArray(detail) && detail.length > 0) {
+          if (detail.every(x => typeof x === 'string')) {
+            messages = detail
+          } else if (detail.every(x => x && typeof x === 'object' && typeof x.msg === 'string')) {
+            messages = detail.map(x => x.msg)
+          } else {
+            messages = detail.map(x => (typeof x === 'string' ? x : JSON.stringify(x)))
+          }
+        } else {
+          messages = [`Erro inesperado (HTTP ${response.status})`]
+        }
+        setRunErrors(messages)
         setStatus('error')
         return
       }
@@ -173,7 +188,7 @@ export default function App() {
       URL.revokeObjectURL(url)
       setStatus('idle')
     } catch {
-      setErrorMessage('Não foi possível conectar ao servidor. Verifique sua conexão.')
+      setRunErrors(['Não foi possível conectar ao servidor. Verifique sua conexão.'])
       setStatus('error')
     }
   }
@@ -187,7 +202,7 @@ export default function App() {
       form={form}
       setForm={setForm}
       status={status}
-      errorMessage={errorMessage}
+      runErrors={runErrors}
       validationErrors={validationErrors}
       validationRequestError={validationRequestError}
       validationStatus={validationStatus}
@@ -243,7 +258,7 @@ LoginPage.propTypes = {
 // Run page
 // ---------------------------------------------------------------------------
 
-function RunPage({ form, setForm, status, errorMessage, validationErrors, validationRequestError, validationStatus, onRun, onLogout }) {
+function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout }) {
   const isReady =
     form.playersCsv &&
     form.tournamentsCsv &&
@@ -353,9 +368,18 @@ function RunPage({ form, setForm, status, errorMessage, validationErrors, valida
             <p className="text-sm text-green-600">Arquivos validados com sucesso.</p>
           )}
 
-          {status === 'error' && (
+          {status === 'error' && runErrors.length > 0 && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-              {errorMessage}
+              {runErrors.length === 1 ? (
+                <p>{runErrors[0]}</p>
+              ) : (
+                <>
+                  <p className="font-medium mb-1">O servidor rejeitou a execução:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {runErrors.map((err, i) => <li key={i}>{err}</li>)}
+                  </ul>
+                </>
+              )}
             </div>
           )}
 
@@ -382,7 +406,7 @@ RunPage.propTypes = {
   }).isRequired,
   setForm: PropTypes.func.isRequired,
   status: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
-  errorMessage: PropTypes.string.isRequired,
+  runErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
   validationErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
   validationRequestError: PropTypes.string.isRequired,
   validationStatus: PropTypes.oneOf(['idle', 'checking', 'done', 'failed']).isRequired,

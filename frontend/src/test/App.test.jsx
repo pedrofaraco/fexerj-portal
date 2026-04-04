@@ -174,6 +174,29 @@ describe('RunPage', () => {
     )
   })
 
+  it('displays multiple 422 error lines when detail is an array', async () => {
+    await uploadAllFiles(user)
+
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () =>
+          Promise.resolve({
+            detail: ['First problem from server', 'Second problem from server'],
+          }),
+      })
+    )
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByText(/o servidor rejeitou a execução/i)).toBeInTheDocument()
+    )
+    expect(screen.getByText('First problem from server')).toBeInTheDocument()
+    expect(screen.getByText('Second problem from server')).toBeInTheDocument()
+  })
+
   it('returns to the login page on a 401 response', async () => {
     await uploadAllFiles(user)
 

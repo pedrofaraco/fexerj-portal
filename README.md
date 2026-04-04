@@ -176,6 +176,8 @@ sudo systemctl restart fexerj-portal
 
 `first` and `count` form parameters on `/validate` and `/run` must be integers ≥ 1.
 
+On **`POST /run`**, **HTTP 422** responses use a JSON `detail` field: file validation failures return **`detail` as a list of strings** (the same messages as `/validate`’s `errors`). Invalid form fields or missing files may instead return FastAPI’s structured validation entries (objects with a `msg` field).
+
 ## Branch Strategy
 
 - `master` — production only

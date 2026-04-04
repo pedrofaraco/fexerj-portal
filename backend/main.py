@@ -112,6 +112,10 @@ async def run(
 
     The returned zip contains ``RatingList_after_N.csv`` and
     ``Audit_of_Tournament_N.csv`` for each processed tournament.
+
+    When input validation fails (same rules as ``POST /validate``), the response
+    is **422** with ``detail`` set to the **full list** of error strings, not
+    only the first one.
     """
     logger.info("POST /run — first=%d count=%d files=%d", first, count, len(binary_files))
     players_content = (await players_csv.read()).decode("utf-8-sig")
@@ -125,7 +129,7 @@ async def run(
     if errors:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=errors[0],
+            detail=errors,
         )
 
     try:
