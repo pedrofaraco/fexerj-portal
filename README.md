@@ -199,5 +199,7 @@ On **`POST /run`**, **HTTP 422** responses use a JSON `detail` field: file valid
 ## Branch Strategy
 
 - `master` — production only
-- `develop` — integration branch
-- `feature/*` — one branch per feature; PR into `develop`
+- `develop` — integration branch; open PRs here for day-to-day work
+- `feature/<name>`, `fix/<name>`, `refactor/<name>`, `chore/<name>` — one branch per task; each targets `develop` via pull request
+
+CI runs on pushes to `master`, `develop`, and the branch patterns above, and on pull requests targeting `master` or `develop`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow (lint, tests, frontend build).
