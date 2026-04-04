@@ -363,6 +363,24 @@ class TestRunRatingValues:
 # ---------------------------------------------------------------------------
 
 class TestRunValidation:
+    def test_cycle_valueerror_returns_422_with_string_detail(self, monkeypatch):
+        """FexerjRatingCycle.run_cycle ValueError is mapped to 422 (not a validation list)."""
+
+        class _FailingCycle:
+            def __init__(self, **kwargs):
+                pass
+
+            def run_cycle(self):
+                raise ValueError("simulated cycle failure")
+
+        monkeypatch.setattr(main_module, "FexerjRatingCycle", _FailingCycle)
+        response = _post_run()
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert isinstance(detail, str)
+        assert "Erro ao processar ciclo de rating" in detail
+        assert "simulated cycle failure" in detail
+
     def test_missing_binary_file_returns_422(self):
         response = _post_run(binary_filename="wrong_name.TURX")
         assert response.status_code == 422

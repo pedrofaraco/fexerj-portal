@@ -3,6 +3,7 @@ import pathlib
 import textwrap
 
 from backend.validator import validate_inputs
+from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 BINARY_DIR = pathlib.Path(__file__).parent / "binary"
 TURX_DATA = (BINARY_DIR / "round_robin_6players.TURX").read_bytes()
@@ -102,6 +103,22 @@ class TestPlayersCSVValidation:
         """)
         errors = _validate(players=bad)
         assert any("TotalPoints deve ser um número válido" in e for e in errors)
+
+    def test_non_integer_total_num_games_returns_error(self):
+        bad = textwrap.dedent("""\
+            Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+            1;;;Player One;1500;;01/01/1990;M;BRA;many;0;0
+        """)
+        errors = _validate(players=bad)
+        assert any("TotalNumGames deve ser um número inteiro" in e for e in errors)
+
+    def test_non_integer_sum_oppon_rating_returns_error(self):
+        bad = textwrap.dedent("""\
+            Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+            1;;;Player One;1500;;01/01/1990;M;BRA;50;big;0
+        """)
+        errors = _validate(players=bad)
+        assert any("SumOpponRating deve ser um número inteiro" in e for e in errors)
 
     def test_duplicate_id_no_returns_error(self):
         bad = textwrap.dedent("""\
@@ -204,6 +221,22 @@ class TestTournamentsCSVValidation:
         errors = _validate(tournaments=bad)
         assert any("CrId é obrigatório" in e for e in errors)
 
+    def test_missing_required_ord_returns_error(self):
+        bad = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            ;99999;Test;2025-01-01;RR;0;1
+        """)
+        errors = _validate(tournaments=bad)
+        assert any("Ord é obrigatório" in e for e in errors)
+
+    def test_too_few_columns_returns_error(self):
+        bad = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            1;99999;Short
+        """)
+        errors = _validate(tournaments=bad)
+        assert any("esperadas 7 colunas" in e for e in errors)
+
 
 # ---------------------------------------------------------------------------
 # Binary files
@@ -220,9 +253,14 @@ class TestBinaryFileValidation:
         assert any("marcador BIO ausente" in e for e in errors)
 
     def test_file_missing_pairing_marker_returns_error(self):
-        from calculator.tunx_parser import BIO_MARKER
         errors = _validate(binaries={"1-99999.TURX": BIO_MARKER + b"\x00" * 100})
         assert any("marcador PAIRING ausente" in e for e in errors)
+
+    def test_file_with_markers_but_no_players_in_bio_returns_error(self):
+        """BIO + PAIRING present but bio section too short to parse any player."""
+        junk = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
+        errors = _validate(binaries={"1-99999.TURX": junk})
+        assert any("nenhum jogador encontrado na seção BIO" in e for e in errors)
 
     def test_valid_turx_file_returns_no_errors(self):
         assert _validate() == []
