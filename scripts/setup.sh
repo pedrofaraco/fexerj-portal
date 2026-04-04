@@ -20,6 +20,16 @@ SYSTEMD_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
 info()  { echo "[INFO]  $*"; }
 error() { echo "[ERROR] $*" >&2; exit 1; }
 
+validate_production_credentials() {
+    # Matches backend enforcement when PORTAL_ENVIRONMENT=production
+    if [[ "${PORTAL_PASSWORD}" == "changeme" ]]; then
+        error "Refusing default password 'changeme'. Choose a strong PORTAL_PASSWORD."
+    fi
+    if [[ ${#PORTAL_PASSWORD} -lt 8 ]]; then
+        error "PORTAL_PASSWORD must be at least 8 characters."
+    fi
+}
+
 require_root() {
     [[ $EUID -eq 0 ]] || error "Please run with sudo: sudo bash $0"
 }
@@ -113,6 +123,7 @@ build_frontend() {
 write_env_file() {
     info "Writing environment file ${ENV_FILE}..."
     cat > "${ENV_FILE}" <<EOF
+PORTAL_ENVIRONMENT=production
 PORTAL_USER=${PORTAL_USER}
 PORTAL_PASSWORD=${PORTAL_PASSWORD}
 EOF
@@ -156,7 +167,7 @@ server {
         try_files \$uri \$uri/ /index.html;
     }
 
-    location ~ ^/(me|run|validate) {
+    location ~ ^/(health|me|validate|run)\$ {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -192,6 +203,7 @@ main() {
     require_root
     read_domain
     read_credentials
+    validate_production_credentials
 
     add_swap
     install_system_deps
