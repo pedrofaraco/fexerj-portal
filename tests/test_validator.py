@@ -2,9 +2,8 @@
 import pathlib
 import textwrap
 
-from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
-
 from backend.validator import validate_inputs
+from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 BINARY_DIR = pathlib.Path(__file__).parent / "binary"
 TURX_DATA = (BINARY_DIR / "round_robin_6players.TURX").read_bytes()
