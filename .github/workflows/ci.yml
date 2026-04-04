@@ -55,7 +55,7 @@ jobs:
         run: shellcheck scripts/*.sh
 
   test-frontend:
-    name: Frontend tests
+    name: Frontend lint, test, and build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,6 +70,14 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
       - name: Run tests
         run: npm test
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
         working-directory: frontend
