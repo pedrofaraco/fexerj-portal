@@ -211,6 +211,51 @@ describe('RunPage', () => {
     )
   })
 
+  it('sign out during run does not show a connection error', async () => {
+    await uploadAllFiles(user)
+
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+        })
+      }
+      if (url === '/validate') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ errors: [] }),
+        })
+      }
+      if (url === '/run') {
+        const signal = init?.signal
+        return new Promise((_resolve, reject) => {
+          const onAbort = () => {
+            reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+          }
+          if (signal?.aborted) {
+            onAbort()
+            return
+          }
+          signal?.addEventListener('abort', onAbort)
+        })
+      }
+      return new Promise(() => {})
+    })
+
+    submitRunForm()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /executando/i })).toBeDisabled()
+    )
+    await user.click(screen.getByRole('button', { name: /sair/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    )
+    expect(screen.queryByText(/não foi possível conectar ao servidor/i)).not.toBeInTheDocument()
+  })
+
   it('sign out button returns to the login page', async () => {
     await user.click(screen.getByRole('button', { name: /sair/i }))
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
@@ -270,6 +315,47 @@ describe('Validation', () => {
     await waitFor(() =>
       expect(screen.getByText(/validando arquivos/i)).toBeInTheDocument()
     )
+  })
+
+  it('sign out during validation does not show a false connection error', async () => {
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ok: true }),
+        })
+      }
+      if (url === '/validate') {
+        const signal = init?.signal
+        return new Promise((_resolve, reject) => {
+          const onAbort = () => {
+            reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+          }
+          if (signal?.aborted) {
+            onAbort()
+            return
+          }
+          signal?.addEventListener('abort', onAbort)
+        })
+      }
+      return new Promise(() => {})
+    })
+
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
+
+    await waitFor(() =>
+      expect(screen.getByText(/validando arquivos/i)).toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: /sair/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    )
+    expect(
+      screen.queryByText(/não foi possível conectar ao servidor para validar/i),
+    ).not.toBeInTheDocument()
   })
 
   it('shows "Arquivos validados com sucesso." when validation returns no errors', async () => {
