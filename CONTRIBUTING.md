@@ -10,6 +10,8 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
+Leave `PORTAL_ENVIRONMENT` unset (or `development`) locally so the default `changeme` password in `.env` still works. **Do not** set `production` unless you use a real password of at least 8 characters — the app will not boot otherwise.
+
 **Frontend**
 
 ```bash
