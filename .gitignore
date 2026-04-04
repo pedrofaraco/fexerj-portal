@@ -194,6 +194,7 @@ cython_debug/
 
 # Local tooling metadata
 .claude/
+.cursor/
 
 # Launch config (contains personal AWS resource IDs)
 scripts/launch.conf
