@@ -66,6 +66,8 @@ export PORTAL_PASSWORD=yourpassword
 
 A `.env` file in the project root is also supported.
 
+**Environment:** `PORTAL_ENVIRONMENT` is `development` by default. Use **`production`** only on internet-facing servers; the API then **refuses to start** with the placeholder password `changeme` or with passwords shorter than **8** characters. For local work, omit this variable or keep `development`.
+
 **Upload size:** `PORTAL_MAX_UPLOAD_MEGABYTES` (optional, default **100**, allowed range **1–2048**) sets the maximum total body size in mebibytes for `POST /validate` and `POST /run`. The server checks the `Content-Length` header; if it is absent, this limit is not applied at the middleware layer (use a reverse proxy limit in production as well).
 
 ## Input File Formats
@@ -135,6 +137,16 @@ The script will prompt for the domain name and portal credentials, then handle e
 
 > The domain must already resolve to the server's public IP before running the script, as Certbot requires DNS propagation to issue the certificate.
 
+### Production checklist
+
+- **`PORTAL_ENVIRONMENT=production`** — written by `scripts/setup.sh` into `/etc/fexerj-portal.env` on new installs. The process will not start if `PORTAL_PASSWORD` is still `changeme` or shorter than 8 characters.
+- **HTTPS** — `setup.sh` configures Nginx and Certbot; use the site only over `https://` for staff traffic (Basic credentials must not cross the internet on plain HTTP).
+- **Secrets** — store SSM / env passwords with at least 8 characters; avoid defaults. Keep `/etc/fexerj-portal.env` readable only by root (`chmod 600`, applied by setup).
+- **Proxy limits** — set `client_max_body_size` (or equivalent) on Nginx in addition to `PORTAL_MAX_UPLOAD_MEGABYTES`.
+- **Health checks** — Nginx proxies `GET /health` to the API so monitors can hit `https://<domain>/health`.
+
+**Servers deployed before this behavior:** add `PORTAL_ENVIRONMENT=production` to `/etc/fexerj-portal.env` if it is missing, upgrade weak passwords, then `sudo systemctl restart fexerj-portal`.
+
 ### Deploying Updates
 
 After merging new code into `master`, SSH into the server and run:
@@ -166,6 +178,8 @@ Edit `/etc/fexerj-portal.env` on the server and restart the backend:
 sudo nano /etc/fexerj-portal.env
 sudo systemctl restart fexerj-portal
 ```
+
+Keep `PORTAL_ENVIRONMENT=production` on public hosts and ensure `PORTAL_PASSWORD` meets the length and non-default rules above.
 
 ## API Endpoints
 
