@@ -166,7 +166,7 @@ async def run(
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
     if errors:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=errors,
         )
 
@@ -182,13 +182,13 @@ async def run(
     except ValueError as e:
         logger.error("Erro no ciclo de rating: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Erro ao processar ciclo de rating: {e}",
         ) from e
 
     if not output_files:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Nenhum torneio encontrado no intervalo primeiro={first}, quantidade={count}.",
         )
 
