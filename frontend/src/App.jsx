@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 
 const INITIAL_FORM = {
@@ -18,6 +18,7 @@ export default function App() {
   const [validationRequestError, setValidationRequestError] = useState('')
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
   const [loginStatus, setLoginStatus] = useState('idle') // idle | loading | error
+  const runFetchAbortRef = useRef(null)
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -43,6 +44,8 @@ export default function App() {
   }
 
   function handleLogout() {
+    runFetchAbortRef.current?.abort()
+    runFetchAbortRef.current = null
     setCredentials(null)
     setForm(INITIAL_FORM)
     setStatus('idle')
@@ -80,6 +83,7 @@ export default function App() {
     body.append('first', form.first)
     body.append('count', form.count)
 
+    const ac = new AbortController()
     ;(async () => {
       try {
         const res = await fetch('/validate', {
@@ -88,8 +92,9 @@ export default function App() {
             Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
           },
           body,
+          signal: ac.signal,
         })
-        if (cancelled) return
+        if (cancelled || ac.signal.aborted) return
         if (res.status === 401) {
           setCredentials(null)
           return
@@ -106,17 +111,17 @@ export default function App() {
         try {
           data = await res.json()
         } catch {
-          if (cancelled) return
+          if (cancelled || ac.signal.aborted) return
           setValidationErrors([])
           setValidationRequestError('Resposta inválida do servidor ao validar. Tente novamente.')
           setValidationStatus('failed')
           return
         }
-        if (cancelled) return
+        if (cancelled || ac.signal.aborted) return
         setValidationErrors(data.errors ?? [])
         setValidationStatus('done')
-      } catch {
-        if (cancelled) return
+      } catch (e) {
+        if (cancelled || ac.signal.aborted || e?.name === 'AbortError') return
         setValidationErrors([])
         setValidationRequestError(
           'Não foi possível conectar ao servidor para validar. Verifique sua conexão e tente novamente.',
@@ -125,11 +130,17 @@ export default function App() {
       }
     })()
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
   }, [form.playersCsv, form.tournamentsCsv, form.binaryFiles, form.first, form.count, credentials])
 
   async function handleRun(e) {
     e.preventDefault()
+    runFetchAbortRef.current?.abort()
+    const ac = new AbortController()
+    runFetchAbortRef.current = ac
     setStatus('loading')
     setRunErrors([])
 
@@ -149,7 +160,10 @@ export default function App() {
           Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
         },
         body,
+        signal: ac.signal,
       })
+
+      if (ac.signal.aborted) return
 
       if (response.status === 401) {
         setCredentials(null)
@@ -179,7 +193,10 @@ export default function App() {
         return
       }
 
+      if (ac.signal.aborted) return
+
       const blob = await response.blob()
+      if (ac.signal.aborted) return
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -187,9 +204,12 @@ export default function App() {
       a.click()
       URL.revokeObjectURL(url)
       setStatus('idle')
-    } catch {
+    } catch (e) {
+      if (e?.name === 'AbortError') return
       setRunErrors(['Não foi possível conectar ao servidor. Verifique sua conexão.'])
       setStatus('error')
+    } finally {
+      if (runFetchAbortRef.current === ac) runFetchAbortRef.current = null
     }
   }
 
