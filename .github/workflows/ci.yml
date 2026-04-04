@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, develop, feature/**, refactor/**, chore/**]
+    branches: [master, develop, feature/**, fix/**, refactor/**, chore/**]
   pull_request:
     branches: [master, develop]
 
@@ -74,8 +74,8 @@ jobs:
         run: npm run lint
         working-directory: frontend
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npm run test:coverage
         working-directory: frontend
 
       - name: Build

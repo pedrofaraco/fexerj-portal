@@ -51,7 +51,7 @@ npm run lint
 npm run build
 ```
 
-These same checks run automatically on every push via GitHub Actions (Python lint/typecheck, shellcheck, and frontend lint, test, and production build).
+These same checks run automatically via GitHub Actions on pushes to `master`, `develop`, and matching `feature/**`, `fix/**`, `refactor/**`, and `chore/**` branches, and on pull requests targeting `master` or `develop` (Python lint/typecheck, shellcheck, and frontend lint, test, and production build).
 
 ## Branch Strategy
 
