@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# deploy-synology.conf — Example configuration for Synology deployments.
+#
+# Copy this file to scripts/deploy-synology.conf and fill in your values.
+# deploy-synology.conf is gitignored and never committed.
+
+# Synology connection
+NAS_HOST="your-nas-ip-or-hostname"
+NAS_SSH_PORT="your-ssh-port"
+NAS_USER="your-nas-username"
+NAS_SSH_KEY="$HOME/.ssh/your_synology_key"
+
+# Production
+PROD_DIR="/volume1/docker/fexerj-portal-prod"
+PROD_BRANCH="master"
+PROD_DOMAIN="your-prod-domain.com"
+
+# UAT
+UAT_DIR="/volume1/docker/fexerj-portal-uat"
+UAT_BRANCH="develop"
+UAT_DOMAIN="your-uat-domain.com"
+
+# Repo
+REPO_URL="https://github.com/pedrofaraco/fexerj-portal.git"
+
