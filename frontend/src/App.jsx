@@ -1,39 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 
+import { buildBasicAuthHeader, buildCycleFormData, isLatin1 } from './portalApi'
+
 const INITIAL_FORM = {
   playersCsv: null,
   tournamentsCsv: null,
   binaryFiles: [],
   first: '1',
   count: '1',
-}
-
-function base64EncodeUtf8(str) {
-  const bytes = new TextEncoder().encode(str)
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return btoa(binary)
-}
-
-function buildBasicAuthHeader(credentials) {
-  return `Basic ${base64EncodeUtf8(`${credentials.username}:${credentials.password}`)}`
-}
-
-function buildCycleFormData(form) {
-  const body = new FormData()
-  body.append('players_csv', form.playersCsv)
-  body.append('tournaments_csv', form.tournamentsCsv)
-  for (const file of form.binaryFiles) body.append('binary_files', file)
-  body.append('first', form.first)
-  body.append('count', form.count)
-  return body
-}
-
-function isLatin1(str) {
-  // HTTP Basic in browsers/server stacks is not reliably UTF-8 for credentials.
-  // Keep UX explicit by rejecting non-Latin-1 characters (e.g. emojis).
-  return Array.from(str).every(ch => ch.codePointAt(0) <= 0xff)
 }
 
 export default function App() {
@@ -466,12 +441,15 @@ RunPage.propTypes = {
 
 function HelpSection() {
   const [open, setOpen] = useState(false)
+  const contentId = 'help-section-content'
 
   return (
     <div className="mb-8 rounded-lg border border-gray-200 bg-white">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls={contentId}
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors rounded-lg"
       >
         <span>Como usar</span>
@@ -479,7 +457,10 @@ function HelpSection() {
       </button>
 
       {open && (
-        <div className="px-4 pb-4 text-sm text-gray-600 space-y-4 border-t border-gray-100 pt-4">
+        <div
+          id={contentId}
+          className="px-4 pb-4 text-sm text-gray-600 space-y-4 border-t border-gray-100 pt-4"
+        >
           <Section title="1. Acesso">
             Informe o usuário e senha fornecidos pelo administrador e clique em <strong>Entrar</strong>.
             <p className="mt-2 text-xs text-gray-500">
