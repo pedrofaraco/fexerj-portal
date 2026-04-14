@@ -30,6 +30,12 @@ function buildCycleFormData(form) {
   return body
 }
 
+function isLatin1(str) {
+  // HTTP Basic in browsers/server stacks is not reliably UTF-8 for credentials.
+  // Keep UX explicit by rejecting non-Latin-1 characters (e.g. emojis).
+  return Array.from(str).every(ch => ch.codePointAt(0) <= 0xff)
+}
+
 export default function App() {
   const [credentials, setCredentials] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
@@ -39,6 +45,7 @@ export default function App() {
   const [validationRequestError, setValidationRequestError] = useState('')
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
   const [loginStatus, setLoginStatus] = useState('idle') // idle | loading | error
+  const [loginError, setLoginError] = useState('')
   const runFetchAbortRef = useRef(null)
 
   async function handleLogin(e) {
@@ -49,18 +56,26 @@ export default function App() {
       password: data.get('password'),
     }
     setLoginStatus('loading')
+    setLoginError('')
+    if (!isLatin1(creds.username) || !isLatin1(creds.password)) {
+      setLoginStatus('error')
+      setLoginError('Usuário e senha não podem conter emojis ou caracteres especiais incomuns.')
+      return
+    }
     try {
       const res = await fetch('/me', {
         headers: { Authorization: buildBasicAuthHeader(creds) },
       })
       if (res.status === 401) {
         setLoginStatus('error')
+        setLoginError('Usuário ou senha incorretos.')
         return
       }
       setLoginStatus('idle')
       setCredentials(creds)
     } catch {
       setLoginStatus('error')
+      setLoginError('Não foi possível conectar ao servidor. Verifique sua conexão.')
     }
   }
 
@@ -75,6 +90,7 @@ export default function App() {
     setValidationRequestError('')
     setValidationStatus('idle')
     setLoginStatus('idle')
+    setLoginError('')
   }
 
   useEffect(() => {
@@ -223,7 +239,7 @@ export default function App() {
   }
 
   if (!credentials) {
-    return <LoginPage onLogin={handleLogin} loginStatus={loginStatus} />
+    return <LoginPage onLogin={handleLogin} loginStatus={loginStatus} loginError={loginError} />
   }
 
   return (
@@ -245,7 +261,7 @@ export default function App() {
 // Login page
 // ---------------------------------------------------------------------------
 
-function LoginPage({ onLogin, loginStatus }) {
+function LoginPage({ onLogin, loginStatus, loginError }) {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
@@ -261,8 +277,8 @@ function LoginPage({ onLogin, loginStatus }) {
             <input name="password" type="password" required className="input" />
           </Field>
 
-          {loginStatus === 'error' && (
-            <p className="text-sm text-red-600">Usuário ou senha incorretos.</p>
+          {loginStatus === 'error' && loginError && (
+            <p className="text-sm text-red-600">{loginError}</p>
           )}
 
           <button
@@ -281,6 +297,7 @@ function LoginPage({ onLogin, loginStatus }) {
 LoginPage.propTypes = {
   onLogin: PropTypes.func.isRequired,
   loginStatus: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
+  loginError: PropTypes.string.isRequired,
 }
 
 // ---------------------------------------------------------------------------
@@ -465,6 +482,9 @@ function HelpSection() {
         <div className="px-4 pb-4 text-sm text-gray-600 space-y-4 border-t border-gray-100 pt-4">
           <Section title="1. Acesso">
             Informe o usuário e senha fornecidos pelo administrador e clique em <strong>Entrar</strong>.
+            <p className="mt-2 text-xs text-gray-500">
+              Observação: devido ao uso de autenticação HTTP Basic, <strong>evite emojis</strong> ou caracteres especiais incomuns na senha.
+            </p>
           </Section>
 
           <Section title="2. Preparar os arquivos">
