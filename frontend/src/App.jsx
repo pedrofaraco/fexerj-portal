@@ -466,12 +466,15 @@ RunPage.propTypes = {
 
 function HelpSection() {
   const [open, setOpen] = useState(false)
+  const contentId = 'help-section-content'
 
   return (
     <div className="mb-8 rounded-lg border border-gray-200 bg-white">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls={contentId}
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors rounded-lg"
       >
         <span>Como usar</span>
@@ -479,7 +482,10 @@ function HelpSection() {
       </button>
 
       {open && (
-        <div className="px-4 pb-4 text-sm text-gray-600 space-y-4 border-t border-gray-100 pt-4">
+        <div
+          id={contentId}
+          className="px-4 pb-4 text-sm text-gray-600 space-y-4 border-t border-gray-100 pt-4"
+        >
           <Section title="1. Acesso">
             Informe o usuário e senha fornecidos pelo administrador e clique em <strong>Entrar</strong>.
             <p className="mt-2 text-xs text-gray-500">
