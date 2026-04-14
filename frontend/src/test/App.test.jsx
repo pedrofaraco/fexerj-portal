@@ -80,6 +80,28 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
   })
 
+  it('sends UTF-8 safe Basic auth for non-Latin-1 credentials', async () => {
+    // password includes a character outside Latin-1 (emoji)
+    globalThis.fetch = vi.fn((url, init) => {
+      expect(url).toBe('/me')
+      expect(init?.headers?.Authorization).toBe('Basic ZmV4ZXJqOnBh8J+YgHN3ZA==')
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true }),
+      })
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
+    await user.type(screen.getByLabelText(/senha/i), 'pa😀swd')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument()
+    )
+  })
+
   it('shows the run page after successful login', async () => {
     const user = userEvent.setup()
     render(<App />)

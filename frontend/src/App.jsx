@@ -9,6 +9,27 @@ const INITIAL_FORM = {
   count: '1',
 }
 
+function base64EncodeUtf8(str) {
+  const bytes = new TextEncoder().encode(str)
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return btoa(binary)
+}
+
+function buildBasicAuthHeader(credentials) {
+  return `Basic ${base64EncodeUtf8(`${credentials.username}:${credentials.password}`)}`
+}
+
+function buildCycleFormData(form) {
+  const body = new FormData()
+  body.append('players_csv', form.playersCsv)
+  body.append('tournaments_csv', form.tournamentsCsv)
+  for (const file of form.binaryFiles) body.append('binary_files', file)
+  body.append('first', form.first)
+  body.append('count', form.count)
+  return body
+}
+
 export default function App() {
   const [credentials, setCredentials] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
@@ -30,7 +51,7 @@ export default function App() {
     setLoginStatus('loading')
     try {
       const res = await fetch('/me', {
-        headers: { Authorization: 'Basic ' + btoa(`${creds.username}:${creds.password}`) },
+        headers: { Authorization: buildBasicAuthHeader(creds) },
       })
       if (res.status === 401) {
         setLoginStatus('error')
@@ -76,12 +97,7 @@ export default function App() {
       setValidationRequestError('')
     })
 
-    const body = new FormData()
-    body.append('players_csv', form.playersCsv)
-    body.append('tournaments_csv', form.tournamentsCsv)
-    for (const file of form.binaryFiles) body.append('binary_files', file)
-    body.append('first', form.first)
-    body.append('count', form.count)
+    const body = buildCycleFormData(form)
 
     const ac = new AbortController()
     ;(async () => {
@@ -89,7 +105,7 @@ export default function App() {
         const res = await fetch('/validate', {
           method: 'POST',
           headers: {
-            Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
+            Authorization: buildBasicAuthHeader(credentials),
           },
           body,
           signal: ac.signal,
@@ -134,7 +150,7 @@ export default function App() {
       cancelled = true
       ac.abort()
     }
-  }, [form.playersCsv, form.tournamentsCsv, form.binaryFiles, form.first, form.count, credentials])
+  }, [form, credentials])
 
   async function handleRun(e) {
     e.preventDefault()
@@ -144,20 +160,13 @@ export default function App() {
     setStatus('loading')
     setRunErrors([])
 
-    const body = new FormData()
-    body.append('players_csv', form.playersCsv)
-    body.append('tournaments_csv', form.tournamentsCsv)
-    for (const file of form.binaryFiles) {
-      body.append('binary_files', file)
-    }
-    body.append('first', form.first)
-    body.append('count', form.count)
+    const body = buildCycleFormData(form)
 
     try {
       const response = await fetch('/run', {
         method: 'POST',
         headers: {
-          Authorization: 'Basic ' + btoa(`${credentials.username}:${credentials.password}`),
+          Authorization: buildBasicAuthHeader(credentials),
         },
         body,
         signal: ac.signal,
