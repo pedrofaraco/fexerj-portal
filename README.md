@@ -68,7 +68,9 @@ A `.env` file in the project root is also supported.
 
 **Environment:** `PORTAL_ENVIRONMENT` is `development` by default. Use **`production`** only on internet-facing servers; the API then **refuses to start** with the placeholder password `changeme` or with passwords shorter than **8** characters. For local work, omit this variable or keep `development`.
 
-**Upload size:** `PORTAL_MAX_UPLOAD_MEGABYTES` (optional, default **100**, allowed range **1–2048**) sets the maximum total body size in mebibytes for `POST /validate` and `POST /run`. The server checks the `Content-Length` header; if it is absent, this limit is not applied at the middleware layer (use a reverse proxy limit in production as well).
+**Upload size:** `PORTAL_MAX_UPLOAD_MEGABYTES` (optional, default **100**, allowed range **1–2048**) sets the maximum total body size in mebibytes for `POST /validate` and `POST /run`.
+
+The backend rejects oversized requests **only when** the client/proxy sends a `Content-Length` header (so it can fail fast before parsing multipart bodies). If `Content-Length` is absent (e.g., chunked uploads), enforce a body size limit at the reverse proxy (`client_max_body_size` in nginx / Synology Reverse Proxy) as well.
 
 ## Input File Formats
 
