@@ -255,7 +255,7 @@ bash scripts/deploy-synology.sh prod   # or uat
 The script performs the following steps:
 
 1. Resolves environment variables from `deploy-synology.conf`
-2. Prompts for the NAS sudo password (held in memory only)
+2. Uses `sudo` on the NAS to run `docker compose` (prompts for the NAS sudo password only if required)
 3. SSHs into the NAS and clones or updates the repository from GitHub to the appropriate directory
 4. On first run: prompts for portal credentials and writes them to `.env` on the NAS (`chmod 600`)
 5. Builds the React frontend on the NAS using Node.js 22

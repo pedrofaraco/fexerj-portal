@@ -18,6 +18,25 @@ error() { echo "[ERROR] $*" >&2; exit 1; }
 NAS_PATH="/var/packages/Git/target/usr/bin:/var/packages/Node.js_v22/target/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 nas_ssh() { ssh -i "${NAS_SSH_KEY}" -p "$NAS_SSH_PORT" "${NAS_USER}@${NAS_HOST}" "export PATH=${NAS_PATH}; $*"; }
 
+nas_ssh_sudo() {
+    # First try non-interactive sudo (works if a sudo timestamp exists).
+    if nas_ssh "sudo -n $*" >/dev/null 2>&1; then
+        nas_ssh "sudo -n $*"
+        return 0
+    fi
+
+    info "sudo password required on NAS for: $*"
+    local nas_sudo_pass
+    read -rsp "NAS sudo password: " nas_sudo_pass
+    echo
+    [[ -n "$nas_sudo_pass" ]] || error "Empty sudo password; aborting."
+
+    # Feed the password via stdin (-S) and silence the prompt (-p '') to avoid
+    # interleaving a 'Password:' line with docker build logs.
+    printf '%s\n' "$nas_sudo_pass" | ssh -i "${NAS_SSH_KEY}" -p "$NAS_SSH_PORT" "${NAS_USER}@${NAS_HOST}" \
+        "export PATH=${NAS_PATH}; sudo -S -p '' $*"
+}
+
 # ── Resolve env vars ──────────────────────────────────────────────────────────
 
 if [[ "$ENV" == "prod" ]]; then
@@ -40,9 +59,6 @@ info "Environment : ${ENV} (branch: ${BRANCH})"
 info "NAS target  : ${NAS_USER}@${NAS_HOST}:${NAS_SSH_PORT}"
 info "Deploy dir  : ${DEPLOY_DIR}"
 info "Portal env  : ${PORTAL_ENVIRONMENT}"
-
-read -rsp "NAS sudo password: " NAS_SUDO_PASS
-echo
 
 # ── First-run credential setup ────────────────────────────────────────────────
 
@@ -97,11 +113,7 @@ nas_ssh "
 # ── Build and restart containers ──────────────────────────────────────────────
 
 info "Building and starting Docker containers..."
-nas_ssh "
-    set -euo pipefail
-    cd ${DEPLOY_DIR}
-    echo '${NAS_SUDO_PASS}' | sudo -S docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build
-"
+nas_ssh_sudo "bash -lc 'set -euo pipefail; cd ${DEPLOY_DIR}; docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
 
 # ── Poll until live ───────────────────────────────────────────────────────────
 
