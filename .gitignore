@@ -201,7 +201,6 @@ scripts/launch.conf
 
 # Synology deploy config and script (contain NAS IP and SSH details)
 scripts/deploy-synology.conf
-scripts/deploy-synology.sh
 
 # Ruff stuff:
 .ruff_cache/
