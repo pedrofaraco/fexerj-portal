@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# deploy-synology.sh — Deploy the FEXERJ Portal to a Synology NAS via Docker.
+#
+# Usage:
+#   bash scripts/deploy-synology.sh <prod|uat>
+#
+# Copy this file to scripts/deploy-synology.sh and fill in your values.
+# deploy-synology.sh is gitignored and never committed.
+#
+# Prerequisites:
+#   - SSH enabled on the Synology (Control Panel → Terminal & SNMP)
+#   - Docker (Container Manager) installed on the Synology
+#   - Port 443 forwarded to the NAS on your router
+#   - Synology Reverse Proxy configured (see CONTRIBUTING.md)
+
+NAS_HOST="your-nas-ip"
+NAS_SSH_PORT="your-ssh-port"
+NAS_USER="your-nas-username"
+
+PROD_DIR="/volume1/docker/fexerj-portal-prod"
+PROD_BRANCH="master"
+PROD_DOMAIN="your-prod-domain.com"
+
+UAT_DIR="/volume1/docker/fexerj-portal-uat"
+UAT_BRANCH="develop"
+UAT_DOMAIN="your-uat-domain.com"
+
+REPO_URL="https://github.com/pedrofaraco/fexerj-portal.git"
