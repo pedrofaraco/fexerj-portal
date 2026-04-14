@@ -123,7 +123,29 @@ bash scripts/terminate.sh uat
 
 The instance is destroyed. The Elastic IP remains allocated so the domain keeps resolving correctly for the next launch.
 
-### Initial Server Setup
+### Synology NAS (Docker)
+
+The portal can run permanently on a Synology NAS using Docker Compose, with no ongoing cloud costs.
+
+**One-time setup:**
+
+1. Install **Container Manager** and **Git** from Package Center
+2. Configure two Reverse Proxy rules in **Control Panel → Login Portal → Advanced**:
+   - `https://your-prod-domain.com:443` → `http://localhost:80`
+   - `https://your-uat-domain.com:443` → `http://localhost:8080`
+3. Point your domain DNS records to your NAS (CNAME to your Synology DDNS address)
+4. Copy `scripts/deploy-synology.sh.example` to `scripts/deploy-synology.sh`, fill in your NAS details, and set up SSH key authentication (`deploy-synology.sh` is gitignored and never committed)
+
+**Deploy:**
+
+```bash
+bash scripts/deploy-synology.sh prod   # production (master branch)
+bash scripts/deploy-synology.sh uat    # UAT (develop branch)
+```
+
+The script SSHs into the NAS, clones or updates the repository, builds the frontend, and starts the Docker containers. On first run it prompts for portal credentials and writes them to a `.env` file on the NAS.
+
+### Initial Server Setup (AWS EC2)
 
 On a fresh Ubuntu 24.04 instance, clone the repository and run the setup script:
 
