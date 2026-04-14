@@ -164,6 +164,8 @@ The script will prompt for the domain name and portal credentials, then handle e
 - **`PORTAL_ENVIRONMENT=production`** — written by `scripts/setup.sh` into `/etc/fexerj-portal.env` on new installs. The process will not start if `PORTAL_PASSWORD` is still `changeme` or shorter than 8 characters.
 - **HTTPS** — `setup.sh` configures Nginx and Certbot; use the site only over `https://` for staff traffic (Basic credentials must not cross the internet on plain HTTP).
 - **Secrets** — store SSM / env passwords with at least 8 characters; avoid defaults. Keep `/etc/fexerj-portal.env` readable only by root (`chmod 600`, applied by setup).
+
+Note: the portal uses **HTTP Basic auth**. Avoid emojis or other characters outside Latin-1 in `PORTAL_USER` / `PORTAL_PASSWORD` to ensure browser compatibility.
 - **Proxy limits** — set `client_max_body_size` (or equivalent) on Nginx in addition to `PORTAL_MAX_UPLOAD_MEGABYTES`.
 - **Health checks** — Nginx proxies `GET /health` to the API so monitors can hit `https://<domain>/health`.
 
