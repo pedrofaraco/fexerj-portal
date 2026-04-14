@@ -80,6 +80,42 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
   })
 
+  it('rejects non-Latin-1 credentials with a clear message', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) }))
+
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
+    await user.type(screen.getByLabelText(/senha/i), 'pa😀swd')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+
+    await waitFor(() =>
+      expect(screen.getByText(/não podem conter emojis/i)).toBeInTheDocument()
+    )
+    expect(screen.queryByRole('heading', { name: /execução do ciclo de rating/i })).not.toBeInTheDocument()
+  })
+
+  it('sends UTF-8 safe Basic auth for Latin-1 credentials (accents)', async () => {
+    globalThis.fetch = vi.fn((url, init) => {
+      expect(url).toBe('/me')
+      expect(init?.headers?.Authorization).toBe('Basic ZmV4ZXJqOnBhw6dzd2Q=')
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true }),
+      })
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
+    await user.type(screen.getByLabelText(/senha/i), 'paçswd')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument()
+    )
+  })
+
   it('shows the run page after successful login', async () => {
     const user = userEvent.setup()
     render(<App />)
