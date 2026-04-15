@@ -34,6 +34,10 @@ class Settings(BaseSettings):
         le=2048,
         description="Maximum multipart body size for POST /validate and POST /run (MiB).",
     )
+    portal_json_logs: bool = Field(
+        default=False,
+        description='When true, emit one JSON object per line for the "backend" logger (easier log shipping).',
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
