@@ -185,7 +185,12 @@ both thresholds would pass.
 
 After filtering invalid opponents and counting valid games, the engine computes:
 
-- `this_expected_points`: expected score from the logistic curve vs average opponent rating.
+- `this_expected_points`: **expected total score** for the tournament using the usual **Elo-style**
+  expected-score formula (in statistics this family of “S-shaped” mappings is often called **logistic**;
+  here it’s just the standard chess rating math, not machine learning). The code collapses opponents
+  to your **average opponent rating** and uses the same shape as one game, scaled by game count:
+  `this_games / (1 + 10 ** ((this_avg_oppon_rating - last_rating) / 400))` (see `calculate_new_rating`
+  in `calculator/classes.py`).
 - `this_points_above_expected`: **points scored minus expected points** in the current tournament
   (`this_pts_against_oppon - this_expected_points`).
 
