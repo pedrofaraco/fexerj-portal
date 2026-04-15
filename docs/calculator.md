@@ -157,21 +157,65 @@ These rules are mutually exclusive; exactly one is recorded in the audit column 
 
 - **TEMPORARY**: applies when the player is **unrated** (`TotalNumGames == 0`) or **temporary**
   (`0 < TotalNumGames < 15`), i.e. fewer than `_MAX_NUM_GAMES_TEMP_RATING` total games.
-- **RATING_PERFORMANCE**: applies only for **established players** in **FEXERJ tournaments**
-  (`IsFexerj == 1`) when a strong over-performance threshold is met; implemented only for tournaments
-  with **5–7 valid games** (otherwise it prints a warning and returns false).
-- **DOUBLE_K**: applies for established players when a (separate) over-performance threshold is met;
-  implemented only for tournaments with **4–7 valid games** (otherwise it prints a warning and
-  returns false). When it fires, the K-based gain is doubled.
+- **RATING_PERFORMANCE**: applies only for **established players** (`TotalNumGames >= 15`) in
+  **FEXERJ tournaments** (`IsFexerj == 1`) when an over-performance threshold is met (see below).
+  If the player has **fewer than 5** valid games in the tournament, the rule is **not eligible** and
+  evaluation continues (typically ending in **NORMAL** or **DOUBLE_K**).
+- **DOUBLE_K**: applies for **established players** when a different over-performance threshold is met
+  (see below). If the player has **fewer than 4** valid games in the tournament, the rule is **not
+  eligible** and evaluation continues (typically ending in **NORMAL**). When it fires, the K-based
+  gain is doubled.
 - **NORMAL**: the default for established players when no special rule fires; rating gain uses the
   standard K-factor.
 
+#### Rule precedence (what happens when multiple could apply)
+
+`get_calculation_rule()` evaluates in this order:
+
+1. **TEMPORARY** if the player is unrated/temporary (this ends evaluation — it cannot coexist with
+   the established-player rules).
+2. Else **RATING_PERFORMANCE** if eligible (FEXERJ tournament + RP thresholds pass).
+3. Else **DOUBLE_K** if eligible (DK thresholds pass).
+4. Else **NORMAL**.
+
+So for an established player in a FEXERJ tournament, **RATING_PERFORMANCE wins over DOUBLE_K** when
+both thresholds would pass.
+
+#### Over-performance signal (what “threshold” means)
+
+After filtering invalid opponents and counting valid games, the engine computes:
+
+- `this_expected_points`: expected score from the logistic curve vs average opponent rating.
+- `this_points_above_expected`: **points scored minus expected points** in the current tournament
+  (`this_pts_against_oppon - this_expected_points`).
+
+The RP/DK “thresholds” are explicit comparisons against `this_points_above_expected` by valid-game
+count (`this_games`):
+
+- **RATING_PERFORMANCE** (only when `this_games` is 5–7):
+  - 5 games: `this_points_above_expected >= 1.84`
+  - 6 games: `this_points_above_expected >= 2.02`
+  - 7 games: `this_points_above_expected >= 2.16`
+  - If `this_games > 7`, the implementation treats RP as **not eligible** (falls through to DK/NORMAL).
+- **DOUBLE_K** (only when `this_games` is 4–7):
+  - 4 games: `this_points_above_expected >= 1.65`
+  - 5 games: `this_points_above_expected >= 1.43`
+  - 6 games: `this_points_above_expected >= 1.56`
+  - 7 games: `this_points_above_expected >= 1.69`
+  - If `this_games > 7`, the implementation treats DK as **not eligible** (falls through to NORMAL).
+
 ### K-factor tiers
 
-For established-player calculations (NORMAL / DOUBLE_K), the K factor is chosen from the player’s
-**pre-tournament** total games (`TotalNumGames`) using `_K_STARTING_NUM_GAMES`:
+The K-factor table applies to **NORMAL** and **DOUBLE_K** rating updates (established players using
+the K-based gain path). It does **not** drive **TEMPORARY** or **RATING_PERFORMANCE** updates, even
+though the audit file still records a `K` column for diagnostics.
 
-- **K = 30** when `TotalNumGames < 15`
+The K factor is chosen from the player’s **pre-tournament** total games (`TotalNumGames`) using
+`_K_STARTING_NUM_GAMES`:
+
+- **K = 30** when `TotalNumGames < 15` (in practice this tier is for **temporary/unrated** players:
+  they take the **TEMPORARY** path, so this K is **not** used to compute their new rating — it may
+  still appear in audit output as a diagnostic column.)
 - **K = 25** when `15 <= TotalNumGames < 40`
 - **K = 15** when `40 <= TotalNumGames < 80`
 - **K = 10** when `TotalNumGames >= 80`
