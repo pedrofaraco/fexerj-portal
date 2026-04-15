@@ -24,8 +24,9 @@ frontend/     # React frontend (Vite)
 tests/        # Backend and validator test suite (pytest)
 ```
 
-**Calculator spec:** see `docs/calculator.md` for a maintainer-oriented description of the rating cycle,
-binary format assumptions, rule precedence, and audit/debug signals.
+**Calculator overview:** see `docs/calculator.md` for a plain-language walkthrough of the rating cycle,
+the Swiss Manager binary layout the code expects, how rating rules are chosen, and how to read the
+audit CSV.
 
 ## Development Setup
 
