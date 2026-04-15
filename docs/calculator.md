@@ -151,6 +151,31 @@ The core loop is:
 The audit output is intended to make the calculation explainable and debuggable without stepping
 through code.
 
+### When each calculation rule applies
+
+These rules are mutually exclusive; exactly one is recorded in the audit column `Calc_Rule`.
+
+- **TEMPORARY**: applies when the player is **unrated** (`TotalNumGames == 0`) or **temporary**
+  (`0 < TotalNumGames < 15`), i.e. fewer than `_MAX_NUM_GAMES_TEMP_RATING` total games.
+- **RATING_PERFORMANCE**: applies only for **established players** in **FEXERJ tournaments**
+  (`IsFexerj == 1`) when a strong over-performance threshold is met; implemented only for tournaments
+  with **5–7 valid games** (otherwise it prints a warning and returns false).
+- **DOUBLE_K**: applies for established players when a (separate) over-performance threshold is met;
+  implemented only for tournaments with **4–7 valid games** (otherwise it prints a warning and
+  returns false). When it fires, the K-based gain is doubled.
+- **NORMAL**: the default for established players when no special rule fires; rating gain uses the
+  standard K-factor.
+
+### K-factor tiers
+
+For established-player calculations (NORMAL / DOUBLE_K), the K factor is chosen from the player’s
+**pre-tournament** total games (`TotalNumGames`) using `_K_STARTING_NUM_GAMES`:
+
+- **K = 30** when `TotalNumGames < 15`
+- **K = 25** when `15 <= TotalNumGames < 40`
+- **K = 15** when `40 <= TotalNumGames < 80`
+- **K = 10** when `TotalNumGames >= 80`
+
 ## Failure modes you should expect
 
 - **Missing binary file for a tournament** → `ValueError` → backend returns 422 string detail.
