@@ -19,9 +19,13 @@ Web portal for the FEXERJ chess community — rating lists, player database, and
 ```
 backend/      # FastAPI application, configuration, and input validator
 calculator/   # Rating calculator library
+docs/         # Additional documentation (e.g. Synology deployment notes)
 frontend/     # React frontend (Vite)
 tests/        # Backend and validator test suite (pytest)
 ```
+
+**Calculator spec:** see `docs/calculator.md` for a maintainer-oriented description of the rating cycle,
+binary format assumptions, rule precedence, and audit/debug signals.
 
 ## Development Setup
 
