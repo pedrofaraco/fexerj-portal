@@ -255,13 +255,27 @@ bash scripts/deploy-synology.sh prod   # or uat
 The script performs the following steps:
 
 1. Resolves environment variables from `deploy-synology.conf`
-2. Uses `sudo` on the NAS to run `docker compose` (prompts for the NAS sudo password only if required)
-3. SSHs into the NAS and clones or updates the repository from GitHub to the appropriate directory
+2. Records the current Git commit on the NAS (when the repo already exists) so a failed deploy can roll back
+3. SSHs into the NAS and clones or updates the repository from GitHub to the deploy directory
 4. On first run: prompts for portal credentials and writes them to `.env` on the NAS (`chmod 600`)
-5. Builds the React frontend on the NAS using Node.js 22
-6. Runs `docker compose up -d --build` via sudo to build and start the containers
+5. Builds the React frontend on the NAS using Node.js 22 (`npm ci`, `npm run build`)
+6. Runs `docker compose up -d --build` on the NAS via `sudo` (prompts for the NAS sudo password only if needed)
 7. Polls `https://<domain>/health` every 10 seconds until the backend responds, printing elapsed time
 8. Reports success with the live URL
+
+### Automatic rollback
+
+If the NAS already had a clone of the repo, the script stores **`HEAD` before `git reset --hard`**. If any later step fails (Git update, `.env` write, `npm ci` / `npm run build`, or `docker compose up --build`), it attempts to:
+
+1. `git reset --hard` back to that saved commit
+2. Rebuild the frontend at that revision
+3. Run `docker compose up -d --build` again
+
+If there was **no prior commit** (typical right after a first clone before a successful full deploy), the script cannot roll back automatically and prints an error asking you to inspect the deploy directory on the NAS.
+
+The health poll at the end does **not** trigger rollback: a slow or unreachable `/health` only produces a warning (same as before).
+
+If **rollback** itself fails (for example `npm run build` at the old revision), the script exits on that error and the NAS may need **manual** cleanup—the original deploy exit code is no longer available.
 
 ### Re-deploy / Update
 
