@@ -60,6 +60,33 @@ info "NAS target  : ${NAS_USER}@${NAS_HOST}:${NAS_SSH_PORT}"
 info "Deploy dir  : ${DEPLOY_DIR}"
 info "Portal env  : ${PORTAL_ENVIRONMENT}"
 
+# Git HEAD on the NAS before we change anything (used for automatic rollback).
+PREVIOUS_COMMIT=""
+if nas_ssh "test -d ${DEPLOY_DIR}/.git" 2>/dev/null; then
+    PREVIOUS_COMMIT=$(nas_ssh "cd ${DEPLOY_DIR} && git rev-parse HEAD") || PREVIOUS_COMMIT=""
+fi
+if [[ -n "${PREVIOUS_COMMIT}" ]]; then
+    info "Rollback target (current NAS commit): ${PREVIOUS_COMMIT}"
+fi
+
+rollback_nas() {
+    local exit_code=$?
+    trap - ERR
+    if [[ -z "${PREVIOUS_COMMIT}" ]]; then
+        echo "[ERROR] Deploy failed (exit ${exit_code}). No prior Git commit to roll back to." >&2
+        echo "[ERROR] Inspect ${DEPLOY_DIR} on the NAS (typical on first install if clone/npm/Docker failed)." >&2
+        exit "${exit_code}"
+    fi
+    info "Deploy failed (exit ${exit_code}) — rolling back to ${PREVIOUS_COMMIT}..."
+    nas_ssh "set -euo pipefail; cd ${DEPLOY_DIR}; git reset --hard ${PREVIOUS_COMMIT}"
+    info "Rebuilding frontend at rolled-back revision..."
+    nas_ssh "set -euo pipefail; cd ${DEPLOY_DIR}/frontend; npm ci --silent; npm run build"
+    info "Restarting Docker stack after rollback..."
+    nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
+    echo "[ERROR] Rollback complete; previous revision is restored. Original deploy failed (exit ${exit_code})." >&2
+    exit "${exit_code}"
+}
+
 # ── First-run credential setup ────────────────────────────────────────────────
 
 ENV_FILE="${DEPLOY_DIR}/.env"
@@ -74,6 +101,8 @@ if ! nas_ssh "test -f ${ENV_FILE}" 2>/dev/null; then
 fi
 
 # ── Clone or update repo on NAS ───────────────────────────────────────────────
+
+trap rollback_nas ERR
 
 nas_ssh "
     set -euo pipefail
@@ -113,7 +142,9 @@ nas_ssh "
 # ── Build and restart containers ──────────────────────────────────────────────
 
 info "Building and starting Docker containers..."
-nas_ssh_sudo "bash -lc 'set -euo pipefail; cd ${DEPLOY_DIR}; docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
+nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
+
+trap - ERR
 
 # ── Poll until live ───────────────────────────────────────────────────────────
 
