@@ -1,7 +1,9 @@
 """Tests for the FastAPI backend (/health, /me, /validate, and /run endpoints)."""
 import io
 import pathlib
+import re
 import textwrap
+import uuid
 import zipfile
 
 import pytest
@@ -90,6 +92,34 @@ class TestHealthEndpoint:
     def test_health_returns_ok_status(self):
         response = client.get("/health")
         assert response.json() == {"status": "ok"}
+
+    def test_health_echoes_x_request_id(self):
+        response = client.get("/health")
+        assert response.status_code == 200
+        rid = response.headers.get("X-Request-ID")
+        assert rid
+        assert uuid.UUID(rid)  # server-generated UUID string
+
+    def test_health_respects_valid_client_request_id(self):
+        client_id = "abcdefgh"  # 8 chars, allowed pattern
+        response = client.get("/health", headers={"X-Request-ID": client_id})
+        assert response.headers.get("X-Request-ID") == client_id
+
+    def test_health_accepts_x_correlation_id_alias(self):
+        client_id = "abcdefgh"
+        response = client.get("/health", headers={"X-Correlation-ID": client_id})
+        assert response.headers.get("X-Request-ID") == client_id
+
+    def test_health_replaces_invalid_request_id(self):
+        response = client.get("/health", headers={"X-Request-ID": "bad"})
+        rid = response.headers.get("X-Request-ID")
+        assert rid
+        assert rid != "bad"
+        assert re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            rid,
+            flags=re.IGNORECASE,
+        )
 
     def test_health_does_not_require_auth(self):
         """Health endpoint must be publicly accessible for uptime monitoring."""
@@ -258,6 +288,11 @@ class TestRunSuccess:
     def test_returns_zip_content_type(self):
         response = _post_run()
         assert response.headers["content-type"] == "application/zip"
+
+    def test_returns_x_request_id_header(self):
+        response = _post_run()
+        assert response.status_code == 200
+        assert response.headers.get("X-Request-ID")
 
     def test_returns_zip_with_correct_filename(self):
         response = _post_run()

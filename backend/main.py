@@ -23,13 +23,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from backend.config import settings
+from backend.logging_setup import configure_logging
+from backend.request_id import request_id_middleware
 from backend.validator import validate_inputs
 from calculator import FexerjRatingCycle
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+configure_logging(json_logs=settings.portal_json_logs)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Portal FEXERJ")
@@ -52,7 +51,12 @@ async def limit_upload_body(request: Request, call_next):
     try:
         content_length = int(cl)
     except ValueError:
-        logger.warning("Invalid Content-Length on %s: %r", request.url.path, cl)
+        logger.warning(
+            "Invalid Content-Length on %s: %r",
+            request.url.path,
+            cl,
+            extra={"event": "invalid_content_length", "path": request.url.path, "header_value": cl},
+        )
         return await call_next(request)
     if content_length > max_bytes:
         mib = settings.portal_max_upload_megabytes
@@ -61,6 +65,12 @@ async def limit_upload_body(request: Request, call_next):
             request.url.path,
             content_length,
             max_bytes,
+            extra={
+                "event": "upload_rejected",
+                "path": request.url.path,
+                "content_length": content_length,
+                "limit_bytes": max_bytes,
+            },
         )
         return JSONResponse(
             status_code=413,
@@ -72,6 +82,9 @@ async def limit_upload_body(request: Request, call_next):
             },
         )
     return await call_next(request)
+
+
+app.middleware("http")(request_id_middleware)
 
 
 def require_auth(credentials: HTTPBasicCredentials | None = Depends(_security)) -> None:
@@ -125,7 +138,19 @@ async def validate(
     valid.  The HTTP status is always 200 when the endpoint itself succeeds —
     the ``errors`` list carries validation results.
     """
-    logger.info("POST /validate — first=%d count=%d files=%d", first, count, len(binary_files))
+    logger.info(
+        "POST /validate — first=%d count=%d files=%d",
+        first,
+        count,
+        len(binary_files),
+        extra={
+            "event": "validate_start",
+            "path": "/validate",
+            "first": first,
+            "count": count,
+            "binary_file_count": len(binary_files),
+        },
+    )
     players_content = (await players_csv.read()).decode("utf-8-sig")
     tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
     binary_files_dict: dict[str, bytes] = {
@@ -133,7 +158,11 @@ async def validate(
     }
 
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
-    logger.info("POST /validate — %d error(s) found", len(errors))
+    logger.info(
+        "POST /validate — %d error(s) found",
+        len(errors),
+        extra={"event": "validate_done", "path": "/validate", "error_count": len(errors)},
+    )
     return {"errors": errors}
 
 
@@ -155,7 +184,19 @@ async def run(
     is **422** with ``detail`` set to the **full list** of error strings, not
     only the first one.
     """
-    logger.info("POST /run — first=%d count=%d files=%d", first, count, len(binary_files))
+    logger.info(
+        "POST /run — first=%d count=%d files=%d",
+        first,
+        count,
+        len(binary_files),
+        extra={
+            "event": "run_start",
+            "path": "/run",
+            "first": first,
+            "count": count,
+            "binary_file_count": len(binary_files),
+        },
+    )
     players_content = (await players_csv.read()).decode("utf-8-sig")
     tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
 
@@ -180,7 +221,12 @@ async def run(
         )
         output_files = cycle.run_cycle()
     except ValueError as e:
-        logger.error("Erro no ciclo de rating: %s", e, exc_info=True)
+        logger.error(
+            "Erro no ciclo de rating: %s",
+            e,
+            exc_info=True,
+            extra={"event": "rating_cycle_failed", "path": "/run"},
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Erro ao processar ciclo de rating: {e}",
@@ -192,7 +238,11 @@ async def run(
             detail=f"Nenhum torneio encontrado no intervalo primeiro={first}, quantidade={count}.",
         )
 
-    logger.info("POST /run — ciclo concluído, %d arquivo(s) gerados", len(output_files))
+    logger.info(
+        "POST /run — ciclo concluído, %d arquivo(s) gerados",
+        len(output_files),
+        extra={"event": "run_done", "path": "/run", "output_file_count": len(output_files)},
+    )
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
