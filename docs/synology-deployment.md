@@ -275,6 +275,8 @@ If there was **no prior commit** (typical right after a first clone before a suc
 
 The health poll at the end does **not** trigger rollback: a slow or unreachable `/health` only produces a warning (same as before).
 
+If **rollback** itself fails (for example `npm run build` at the old revision), the script exits on that error and the NAS may need **manual** cleanup—the original deploy exit code is no longer available.
+
 ### Re-deploy / Update
 
 Running `deploy-synology.sh` again on an existing deployment:

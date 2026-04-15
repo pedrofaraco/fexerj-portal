@@ -70,6 +70,9 @@ if [[ -n "${PREVIOUS_COMMIT}" ]]; then
 fi
 
 rollback_nas() {
+    # If a rollback step fails, ``set -e`` exits immediately: the NAS may be
+    # left inconsistent and the shell exit code reflects the rollback failure,
+    # not ``exit_code`` below.
     local exit_code=$?
     trap - ERR
     if [[ -z "${PREVIOUS_COMMIT}" ]]; then
