@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { describe, it, expect } from 'vitest'
 import {
   AUDIT_FILE_HEADER,
+  AUDIT_PREAMBLE,
   buildPlayerIndex,
   mapAuditRowToPlayer,
   parseAuditCsv,
@@ -88,7 +89,7 @@ describe('mapAuditRowToPlayer', () => {
 describe('parseAuditCsv', () => {
   it('accepts a header that matches Id_Fexerj prefix but not the strict calculator header', () => {
     const looseHeader = `${AUDIT_FILE_HEADER}X`
-    const text = `${looseHeader}\n${SAMPLE_AUDIT_ROW}`
+    const text = `${AUDIT_PREAMBLE}\n${looseHeader}\n${SAMPLE_AUDIT_ROW}`
     const players = parseAuditCsv(text)
     expect(players).toHaveLength(1)
     expect(players[0].fexerjId).toBe(100)
@@ -96,7 +97,7 @@ describe('parseAuditCsv', () => {
 
   it('skips rows that are entirely empty cells', () => {
     const emptyRow = Array(19).fill('').join(';')
-    const text = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}\n${emptyRow}`
+    const text = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}\n${emptyRow}`
     const players = parseAuditCsv(text)
     expect(players).toHaveLength(1)
   })
@@ -104,7 +105,7 @@ describe('parseAuditCsv', () => {
   it('preserves row order', () => {
     const row2 =
       '101;Maria;2;1650;40;20;2;4;7200;1800;-150;0.5;2.0;-0.25;-5;1658;44;0.5;NORMAL'
-    const text = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}\n${row2}`
+    const text = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}\n${row2}`
     const players = parseAuditCsv(text)
     expect(players).toHaveLength(2)
     expect(players[0].fexerjId).toBe(100)
@@ -112,8 +113,28 @@ describe('parseAuditCsv', () => {
   })
 
   it('allows header-only audit', () => {
-    const players = parseAuditCsv(`${AUDIT_FILE_HEADER}\n`)
+    const players = parseAuditCsv(`${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n`)
     expect(players).toHaveLength(0)
+  })
+
+  it('throws when preamble is missing (old format)', () => {
+    const text = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    expect(() => parseAuditCsv(text)).toThrow(/audit_v1/)
+  })
+
+  it('truncates nothing when missing preamble line is short', () => {
+    const text = `oops\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    expect(() => parseAuditCsv(text)).toThrow(/encontrado "oops"/i)
+  })
+
+  it('throws when preamble is unknown', () => {
+    const text = `# audit_v2\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    expect(() => parseAuditCsv(text)).toThrow(/audit_v1/)
+  })
+
+  it('throws header mismatch even when preamble is present', () => {
+    const text = `${AUDIT_PREAMBLE}\nX;Bad;Header\n${SAMPLE_AUDIT_ROW}`
+    expect(() => parseAuditCsv(text)).toThrow(/cabeçalho inesperado/i)
   })
 })
 
@@ -239,11 +260,24 @@ describe('buildPlayerIndex', () => {
     expect(keysInOrder).toEqual([...keysInOrder].sort((a, b) => a.localeCompare(b)))
     expect('Silva'.localeCompare('SILVA', 'pt-BR', { sensitivity: 'base' })).toBe(0)
   })
+
+  it('when names compare equal, prefers defined fexerjId over null (stable ordering)', () => {
+    const withId = mapAuditRowToPlayer(
+      '10;Same Name;1;1500;5;15;1;2;3000;1500;0;0.5;1;0;0;1510;7;0.5;NORMAL'.split(';'),
+    )
+    const noId = mapAuditRowToPlayer(
+      'xx;SAME NAME;1;1500;5;15;1;2;3000;1500;0;0.5;1;0;0;1510;7;0.5;NORMAL'.split(';'),
+    )
+    expect(withId.fexerjId).toBe(10)
+    expect(noId.fexerjId).toBe(null)
+    const idx = buildPlayerIndex([mkTournament(1, [noId, withId])])
+    expect(idx.map(x => x.fexerjId)).toEqual([10, null])
+  })
 })
 
 describe('parseRunResult', () => {
   it('returns tournaments from ZIP audit files', async () => {
-    const audit = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const audit = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
     const blob = await zipFromEntries({
       'Audit_of_Tournament_1.csv': audit,
     })
@@ -256,10 +290,10 @@ describe('parseRunResult', () => {
   })
 
   it('sorts tournaments by Ord when filenames are out of order', async () => {
-    const audit1 = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const audit1 = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
     const row2 =
       '101;Maria;2;1650;40;20;2;4;7200;1800;-150;0.5;2.0;-0.25;-5;1658;44;0.5;NORMAL'
-    const audit2 = `${AUDIT_FILE_HEADER}\n${row2}`
+    const audit2 = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${row2}`
     const z = new JSZip()
     z.file('Audit_of_Tournament_2.csv', audit2)
     z.file('Audit_of_Tournament_1.csv', audit1)
@@ -275,7 +309,7 @@ describe('parseRunResult', () => {
   })
 
   it('finds audit files inside a nested folder in the ZIP', async () => {
-    const audit = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const audit = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
     const z = new JSZip()
     z.folder('out').file('Audit_of_Tournament_1.csv', audit)
     const blob = await z.generateAsync({ type: 'blob' })
@@ -291,7 +325,7 @@ describe('parseRunResult', () => {
   })
 
   it('uses Torneio ord when tournaments.csv has no row for that Ord', async () => {
-    const audit = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const audit = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
     const blob = await zipFromEntries({ 'Audit_of_Tournament_7.csv': audit })
     const result = await parseRunResult(blob, TOURNAMENTS_CSV)
     expect(result.tournaments[0].ord).toBe(7)
@@ -299,7 +333,7 @@ describe('parseRunResult', () => {
   })
 
   it('audit Rn matches RatingList_after Rtg_Nat for every player (regression guard)', async () => {
-    const audit = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const audit = `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
     const ratingList = `${RATING_LIST_HEADER}\n100;;M;João Silva;1823;;;;;;55;;;`
     const blob = await zipFromEntries({
       'Audit_of_Tournament_1.csv': audit,

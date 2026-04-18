@@ -29,6 +29,7 @@ _RATING_LIST_HEADER = 'Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed
 # P = PG / N
 # Calc_Rule = Calculation Rule used (NORMAL, TEMPORARY, RATING_PERFORMANCE or DOUBLE_K)
 _AUDIT_FILE_HEADER = 'Id_Fexerj;Name;No;Ro;Ind;K;PG;N;Erm;Rm;Dif;We;Nwe;Dw;kDw;Rn;Nind;P;Calc_Rule'
+_AUDIT_FILE_PREAMBLE = '# audit_v1'
 _MAX_NUM_GAMES_TEMP_RATING = 15
 
 
@@ -455,6 +456,7 @@ class Tournament:
 
     def write_tournament_audit(self) -> str:
         buf = io.StringIO()
+        print(_AUDIT_FILE_PREAMBLE, file=buf)
         print(_AUDIT_FILE_HEADER, file=buf)
         for snr, tp in self.players.items():
             line_list = [str(tp.id),
