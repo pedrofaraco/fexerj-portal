@@ -62,7 +62,7 @@ export function TournamentAccordion({ tournament }) {
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors"
+        className="accordion-row-btn w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-800 transition-colors"
       >
         <span>
           {tournament.ord} — {tournament.name}{' '}
@@ -112,13 +112,13 @@ export function PlayerRow({ player, index }) {
   )
 
   return (
-    <div className="rounded-md border border-gray-100 bg-gray-50/80">
+    <div className="results-accordion-card rounded-md border border-gray-100">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-100/80 transition-colors rounded-md"
+        className="accordion-row-btn accordion-row-btn--nested w-full text-left px-3 py-2.5 text-sm transition-colors rounded-md"
       >
         <span className="flex items-start justify-between gap-2">
           {summary}
@@ -157,13 +157,13 @@ export function TournamentDetailRow({ round, rowIndex }) {
   )
 
   return (
-    <div className="rounded-md border border-gray-100 bg-gray-50/80">
+    <div className="results-accordion-card rounded-md border border-gray-100">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-100/80 transition-colors rounded-md"
+        className="accordion-row-btn accordion-row-btn--nested w-full text-left px-3 py-2.5 text-sm transition-colors rounded-md"
       >
         <span className="flex items-start justify-between gap-2">
           {summary}
@@ -211,7 +211,7 @@ export function PlayerAccordion({ player }) {
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors"
+        className="accordion-row-btn w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-800 transition-colors"
       >
         <span className="min-w-0">{summary}</span>
         <span className="text-gray-400 shrink-0 ml-2">{open ? '▼' : '▶'}</span>

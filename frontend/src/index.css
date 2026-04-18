@@ -94,3 +94,22 @@
   background-color: #eff6ff;
   color: #1e40af;
 }
+
+/* Nested audit cards — solid hex (`bg-gray-50/80` uses color-mix + oklch; Chrome 109 drops it). */
+.results-accordion-card {
+  background-color: #f9fafb;
+}
+
+/*
+ * Accordion row toggles — explicit hex hover (Chrome 109; Tailwind gray utilities often emit oklch).
+ * Matches outer headers (white strip → gray-50 hover) vs nested rows on `.results-accordion-card` (gray-100 hover).
+ */
+.accordion-row-btn {
+  background-color: transparent;
+}
+.accordion-row-btn:hover {
+  background-color: #f9fafb;
+}
+.accordion-row-btn.accordion-row-btn--nested:hover {
+  background-color: #f3f4f6;
+}
