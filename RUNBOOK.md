@@ -7,7 +7,7 @@ Two deployment targets are supported — pick the section that matches your host
 - [AWS EC2 (systemd + Nginx)](#aws-ec2-systemd--nginx) — legacy / on-demand
 
 Code architecture, API payloads, and file formats live in [`README.md`](README.md).
-Calculator internals live in [`calculator.md`](calculator.md).
+Calculator internals live in [`CALCULATOR.md`](CALCULATOR.md).
 
 ---
 

@@ -3,7 +3,7 @@
 Web portal for the FEXERJ chess community — rating cycle runner and (planned) public rating/player lookups.
 
 - **Operations & deploy commands** → [`RUNBOOK.md`](RUNBOOK.md)
-- **Rating calculator internals** → [`calculator.md`](calculator.md)
+- **Rating calculator internals** → [`CALCULATOR.md`](CALCULATOR.md)
 - **Contributor workflow (lint, tests, branches, CI)** → [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ---
@@ -24,7 +24,7 @@ Web portal for the FEXERJ chess community — rating cycle runner and (planned) 
 
 ```
 backend/      FastAPI application, configuration, request-id middleware, input validator
-calculator/   Rating calculator library (see calculator.md)
+calculator/   Rating calculator library (see CALCULATOR.md)
 frontend/     React frontend (Vite)
 scripts/      Deploy/launch/terminate/update shell scripts
 tests/        Backend + calculator test suite (pytest)
