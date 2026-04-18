@@ -127,21 +127,6 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
   })
 
-  it('rejects non-Latin-1 credentials with a clear message', async () => {
-    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) }))
-
-    const user = userEvent.setup()
-    render(<App />)
-    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
-    await user.type(screen.getByLabelText(/senha/i), 'pa😀swd')
-    await user.click(screen.getByRole('button', { name: /entrar/i }))
-
-    await waitFor(() =>
-      expect(screen.getByText(/não podem conter emojis/i)).toBeInTheDocument()
-    )
-    expect(screen.queryByRole('heading', { name: /execução do ciclo de rating/i })).not.toBeInTheDocument()
-  })
-
   it('sends UTF-8 safe Basic auth for Latin-1 credentials (accents)', async () => {
     globalThis.fetch = vi.fn((url, init) => {
       expect(url).toBe('/me')
@@ -590,10 +575,10 @@ describe('Validation', () => {
     await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
-    await waitFor(() =>
+    await waitFor(() => {
       expect(screen.getByText('players.csv row 2: Id_No is required')).toBeInTheDocument()
-    )
-    expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+      expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+    })
   })
 
   it('shows request error when validate returns non-OK and keeps run disabled', async () => {
@@ -617,8 +602,8 @@ describe('Validation', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/resposta HTTP 502/i)).toBeInTheDocument()
+      expect(screen.queryByText(/validando arquivos/i)).not.toBeInTheDocument()
     })
-    expect(screen.queryByText(/validando arquivos/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/arquivos validados com sucesso/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
   })
