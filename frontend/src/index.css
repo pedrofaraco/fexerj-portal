@@ -14,8 +14,9 @@
            hover:file:bg-gray-200 cursor-pointer;
   }
 
+  /* Do not default to w-full here — pairing w-full with flex-1 can collapse the item in older Chrome. */
   .btn-primary {
-    @apply w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white
+    @apply rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white
            hover:bg-blue-700 active:bg-blue-800 transition-colors cursor-pointer;
   }
 }
