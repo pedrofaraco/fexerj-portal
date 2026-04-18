@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { formatBuildDisplayTimeEastern } from './buildStampTime'
+import { formatBuildDisplayTimeEastern, formatInstantEastern } from './buildStampTime'
+
+describe('formatInstantEastern', () => {
+  it('returns em dash for invalid Date', () => {
+    expect(formatInstantEastern(new Date('bad'))).toBe('—')
+  })
+
+  it('matches eastern formatting for valid Date', () => {
+    const d = new Date('2026-07-15T18:00:00.000Z')
+    expect(formatInstantEastern(d)).toBe(formatBuildDisplayTimeEastern(d.toISOString()))
+  })
+})
 
 describe('formatBuildDisplayTimeEastern', () => {
   it('returns raw string when date is invalid', () => {

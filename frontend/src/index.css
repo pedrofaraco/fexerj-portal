@@ -113,3 +113,69 @@
 .accordion-row-btn.accordion-row-btn--nested:hover {
   background-color: #f3f4f6;
 }
+
+/* Build stamp footer — flex + hex (Chrome 109) */
+.build-stamp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1.25rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  padding: 0.5rem 1rem;
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: left;
+}
+
+.build-stamp-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  min-width: 0;
+}
+
+.build-stamp-right {
+  color: #6b7280;
+  margin-left: auto;
+}
+
+.build-stamp-label {
+  color: #9ca3af;
+}
+
+.build-stamp-mono {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  color: #4b5563;
+}
+
+.build-stamp-sep {
+  color: #d1d5db;
+  margin: 0 0.15rem;
+}
+
+.build-stamp-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+}
+
+.build-stamp-copy-btn:hover {
+  color: #111827;
+  background-color: #f3f4f6;
+}
+
+.build-stamp-copied {
+  margin-left: 0.35rem;
+  font-size: 10px;
+  color: #15803d;
+}

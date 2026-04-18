@@ -1,6 +1,14 @@
 /**
- * Format an ISO build timestamp for the footer: local calendar in pt-BR, clock in
- * America/New_York, with EST/EDT abbreviation (Intl picks the correct offset).
+ * @param {Date} date
+ * @returns {string}
+ */
+export function formatInstantEastern(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—'
+  return formatBuildDisplayTimeEastern(date.toISOString())
+}
+
+/**
+ * Format an ISO build timestamp: pt-BR calendar, America/New_York clock, EST/EDT.
  *
  * @param {string} isoString
  * @returns {string}
