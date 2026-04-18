@@ -1,0 +1,26 @@
+# VCS / local
+.git
+.gitignore
+.DS_Store
+.cursor
+.claude
+
+# Python
+.venv
+**/__pycache__
+*.py[cod]
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Tests and docs (not used by backend image)
+tests/
+
+# Frontend (not COPY'd by current Dockerfile; keeps build context small for future multi-stage)
+frontend/node_modules
+frontend/dist
+
+# Root markdown (Dockerfile does not COPY these)
+*.md
