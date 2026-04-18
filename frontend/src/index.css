@@ -71,3 +71,26 @@
   line-height: 1.25rem;
   cursor: pointer;
 }
+
+/* Results page tabs — explicit hex (Chrome 109 cannot rely on Tailwind oklch tokens). */
+.results-tab {
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  cursor: pointer;
+}
+.results-tab:hover {
+  background-color: #f9fafb;
+}
+.results-tab[aria-selected='true'] {
+  border-color: #2563eb;
+  background-color: #eff6ff;
+  color: #1e40af;
+}

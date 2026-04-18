@@ -1,150 +1,152 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import ResultsPage, { TournamentAccordion, PlayerRow } from './ResultsPage'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import JSZip from 'jszip'
+import ResultsPage from './ResultsPage'
+import { AUDIT_FILE_HEADER, parseRunResult } from './resultParser'
 
-const RUN_RESULT_OK = {
-  zipBlob: new Blob(['PK'], { type: 'application/zip' }),
-  zipFilename: 'rating_cycle_output.zip',
-  parseError: null,
-  tournaments: [
-    {
-      ord: 1,
-      crId: 99999,
-      name: 'Copa Teste',
-      type: 'RR',
-      typeLabelPt: 'Round-robin',
-      endDate: '2025-01-01',
-      isFexerj: true,
-      isIrt: false,
-      players: [
-        {
-          fexerjId: 100,
-          name: 'João Silva',
-          oldRating: 1800,
-          newRating: 1823,
-          delta: 23,
-          calcRule: 'NORMAL',
-          gamesBefore: 50,
-          validGames: 5,
-          k: 25,
-          pointsScored: 3.5,
-          erm: 8750,
-          avgOpponRating: 1750,
-          dif: 50,
-          we: 0.59,
-          expectedPoints: 2.95,
-          pointsAboveExpected: 0.55,
-          kDw: 13.75,
-          newTotalGames: 55,
-          pRatio: 0.7,
-          boardNo: 1,
-        },
-      ],
-    },
-  ],
+const TOURNAMENTS_CSV = `Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+1;11111;Copa A;2025-01-01;RR;0;1
+2;22222;Copa B;2025-02-01;RR;0;1`
+
+const ROW_100_T1 =
+  '100;João Silva;1;1800;50;25;3.5;5;8750;1750;50;0.59;2.95;0.55;13.75;1823;55;0.7;NORMAL'
+const ROW_100_T2 =
+  '100;João Silva;1;1823;55;25;3.0;4;8000;1800;20;0.55;2.2;0.1;1.5;1840;59;0.75;NORMAL'
+const ROW_200_T2 =
+  '200;Ana Costa;2;1700;30;20;2.0;4;7000;1750;0;0.5;2.0;0;0;1710;34;0.5;NORMAL'
+
+async function runResultFromZips() {
+  const z = new JSZip()
+  z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
+  z.file('Audit_of_Tournament_2.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T2}\n${ROW_200_T2}`)
+  const blob = await z.generateAsync({ type: 'blob' })
+  return parseRunResult(blob, TOURNAMENTS_CSV)
 }
 
 describe('ResultsPage', () => {
-  const onNewRun = vi.fn()
-  const onLogout = vi.fn()
+  let runResult
 
-  beforeEach(() => {
-    onNewRun.mockClear()
-    onLogout.mockClear()
+  beforeEach(async () => {
+    runResult = await runResultFromZips()
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('renders title and actions', () => {
-    render(<ResultsPage runResult={RUN_RESULT_OK} onNewRun={onNewRun} onLogout={onLogout} />)
-    expect(screen.getByRole('heading', { name: /resultado do ciclo de rating/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /baixar zip/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /nova execução/i })).toBeInTheDocument()
-  })
-
-  it('shows parse error banner but keeps download', () => {
+  it('defaults to Por torneio tab and shows tournament accordions', () => {
+    const onNew = vi.fn()
+    const onOut = vi.fn()
     render(
       <ResultsPage
-        runResult={{
-          zipBlob: new Blob(['x']),
-          zipFilename: 'rating_cycle_output.zip',
-          tournaments: [],
-          parseError: 'ZIP inválido para teste.',
-        }}
-        onNewRun={onNewRun}
-        onLogout={onLogout}
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={onNew}
+        onLogout={onOut}
       />,
     )
-    expect(screen.getByText(/ZIP inválido para teste/i)).toBeInTheDocument()
-    expect(screen.queryByText(/Copa Teste/i)).not.toBeInTheDocument()
+
+    const t1 = screen.getByRole('tab', { name: /por torneio/i })
+    const t2 = screen.getByRole('tab', { name: /por jogador/i })
+    expect(t1).toHaveAttribute('aria-selected', 'true')
+    expect(t2).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByText(/1 — Copa A/)).toBeInTheDocument()
+    expect(screen.getByText(/2 — Copa B/)).toBeInTheDocument()
   })
 
-  it('Nova execução calls callback', () => {
-    render(<ResultsPage runResult={RUN_RESULT_OK} onNewRun={onNewRun} onLogout={onLogout} />)
-    fireEvent.click(screen.getByRole('button', { name: /nova execução/i }))
-    expect(onNewRun).toHaveBeenCalledTimes(1)
-  })
-
-  it('creates object URL for download button', async () => {
-    const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
-    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
-
-    render(<ResultsPage runResult={RUN_RESULT_OK} onNewRun={onNewRun} onLogout={onLogout} />)
-
-    await vi.waitFor(() => expect(createSpy).toHaveBeenCalled())
-
-    fireEvent.click(screen.getByRole('button', { name: /baixar zip/i }))
-    expect(createSpy).toHaveBeenCalledWith(RUN_RESULT_OK.zipBlob)
-
-    createSpy.mockRestore()
-    revokeSpy.mockRestore()
-  })
-})
-
-describe('TournamentAccordion', () => {
-  it('toggle expands and sets aria-expanded', () => {
+  it('switches to Por jogador and shows player summary with rating span and torneios count', async () => {
+    const user = userEvent.setup()
+    const onNew = vi.fn()
+    const onOut = vi.fn()
     render(
-      <TournamentAccordion
-        tournament={{
-          ord: 1,
-          name: 'X',
-          typeLabelPt: 'Round-robin',
-          players: [{ fexerjId: 1, name: 'A', oldRating: 1, newRating: 2, delta: 1, calcRule: 'NORMAL' }],
-        }}
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={onNew}
+        onLogout={onOut}
       />,
     )
-    const btn = screen.getByRole('button', { name: /1 — X/i })
-    expect(btn).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(btn)
-    expect(btn).toHaveAttribute('aria-expanded', 'true')
-    expect(btn).toHaveAttribute('aria-controls')
-  })
-})
 
-describe('PlayerRow', () => {
-  it('has aria-expanded on toggle', () => {
-    const player = RUN_RESULT_OK.tournaments[0].players[0]
-    render(<PlayerRow player={player} index={0} />)
-    const btn = screen.getByRole('button', { name: /João Silva/i })
-    expect(btn).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(btn)
-    expect(btn).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText(/Jogos anteriores/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /por jogador/i }))
+
+    expect(screen.getByRole('tab', { name: /por jogador/i })).toHaveAttribute('aria-selected', 'true')
+    // João: 1800 → 1840, 2 torneios; name sort: Ana before João
+    expect(screen.getByText(/2 torneios/)).toBeInTheDocument()
+    expect(screen.getByText(/1800/)).toBeInTheDocument()
+    expect(screen.getByText(/1840/)).toBeInTheDocument()
   })
 
-  it('formats non-integer ratings and non-positive deltas', () => {
-    const player = {
-      ...RUN_RESULT_OK.tournaments[0].players[0],
-      oldRating: 1800.25,
-      newRating: 1802.75,
-      delta: -3.5,
-      calcRule: 'NORMAL',
-    }
-    render(<PlayerRow player={player} index={0} />)
-    expect(screen.getByText(/1800\.25/)).toBeInTheDocument()
-    expect(screen.getByText(/1802\.75/)).toBeInTheDocument()
-    expect(screen.getByText(/\(-3\.5\)/)).toBeInTheDocument()
+  it('arrow keys move between tabs', async () => {
+    render(
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+
+    const tabT = screen.getByRole('tab', { name: /por torneio/i })
+    const tabP = screen.getByRole('tab', { name: /por jogador/i })
+    tabT.focus()
+    fireEvent.keyDown(tabT, { key: 'ArrowRight', code: 'ArrowRight' })
+    await waitFor(() => {
+      expect(tabP).toHaveFocus()
+      expect(tabP).toHaveAttribute('aria-selected', 'true')
+    })
+    fireEvent.keyDown(tabP, { key: 'ArrowLeft', code: 'ArrowLeft' })
+    await waitFor(() => {
+      expect(tabT).toHaveFocus()
+      expect(tabT).toHaveAttribute('aria-selected', 'true')
+    })
+  })
+
+  it('nested expand shows same calculation labels as tournament view', async () => {
+    const user = userEvent.setup()
+    render(
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('tab', { name: /por jogador/i }))
+
+    const joaoBtn = screen
+      .getAllByRole('button', { expanded: false })
+      .find(btn => btn.textContent.includes('João Silva') && btn.textContent.includes('torneios'))
+    expect(joaoBtn).toBeTruthy()
+    await user.click(joaoBtn)
+
+    const playerPanel = screen.getByRole('tabpanel', { name: /por jogador/i })
+    const copaA = within(playerPanel).getByRole('button', { name: /Copa A.*1823/s })
+    await user.click(copaA)
+
+    const grid = document.getElementById('tournament-detail-1-0-100')?.parentElement
+    expect(grid).toBeTruthy()
+    expect(within(grid).getByText(/Jogos anteriores/)).toBeInTheDocument()
+    // "Pontos esperados" also appears as prefix of "Pontos esperados por partida (We)" — use a unique line.
+    expect(within(grid).getByText(/Diferença \(obtido/)).toBeInTheDocument()
+    expect(within(grid).getByText(/Número no torneio \(Chess Results\)/)).toBeInTheDocument()
+  })
+
+  it('shows 1 torneio singular when player has one tournament only', async () => {
+    const z = new JSZip()
+    z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
+    const blob = await z.generateAsync({ type: 'blob' })
+    const single = await parseRunResult(
+      blob,
+      `Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n1;1;Solo;;RR;0;1`,
+    )
+    const user = userEvent.setup()
+    render(
+      <ResultsPage
+        runResult={{ ...single, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('tab', { name: /por jogador/i }))
+    expect(screen.getByText(/1 torneio/)).toBeInTheDocument()
+    expect(screen.queryByText(/1 torneios/)).not.toBeInTheDocument()
   })
 })
