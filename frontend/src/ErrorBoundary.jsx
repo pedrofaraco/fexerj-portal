@@ -26,7 +26,7 @@ export default class ErrorBoundary extends Component {
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="btn-primary"
+              className="btn-primary w-full"
             >
               Recarregar
             </button>

@@ -287,7 +287,7 @@ function LoginPage({ onLogin, loginStatus, loginError }) {
           <button
             type="submit"
             disabled={loginStatus === 'loading'}
-            className="btn-primary mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary mt-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loginStatus === 'loading' ? 'Entrando…' : 'Entrar'}
           </button>
@@ -433,11 +433,11 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
             <button
               type="submit"
               disabled={!isReady || status === 'loading'}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+              className="btn-primary min-w-0 w-full disabled:opacity-50 disabled:cursor-not-allowed sm:flex-1 sm:w-auto"
             >
               {status === 'loading' ? 'Executando…' : 'Executar'}
             </button>
