@@ -37,7 +37,7 @@ describe('BuildStamp', () => {
     })
 
     await user.click(
-      screen.getByRole('button', { name: /copiar commit do frontend e horários/i }),
+      screen.getByRole('button', { name: /copiar identificador do frontend/i }),
     )
 
     await waitFor(() => {

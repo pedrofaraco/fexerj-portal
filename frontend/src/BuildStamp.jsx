@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 
-import { BUILD_COMMIT, BUILD_TIME } from './buildMeta'
+import { BUILD_COMMIT } from './buildMeta'
 import { formatBuildStampClipboard } from './buildStampClipboard'
 import { fetchServerDate } from './buildStampServerTime'
-import { formatBuildDisplayTimeEastern, formatInstantEastern } from './buildStampTime'
+import { formatInstantEastern } from './buildStampTime'
 
 function CopyIcon() {
   return (
@@ -28,7 +28,6 @@ function CopyIcon() {
 
 /** Visible build id so operators can confirm the deployed bundle without DevTools. */
 export default function BuildStamp({ className = '' }) {
-  const buildWhen = formatBuildDisplayTimeEastern(BUILD_TIME)
   const [serverInstant, setServerInstant] = useState(null)
   const [copyFeedback, setCopyFeedback] = useState(false)
 
@@ -51,7 +50,7 @@ export default function BuildStamp({ className = '' }) {
   const serverWhen = serverInstant ? formatInstantEastern(serverInstant) : '—'
 
   const handleCopy = useCallback(async () => {
-    const text = formatBuildStampClipboard(BUILD_COMMIT, buildWhen, serverWhen)
+    const text = formatBuildStampClipboard(BUILD_COMMIT)
 
     try {
       await navigator.clipboard.writeText(text)
@@ -72,12 +71,12 @@ export default function BuildStamp({ className = '' }) {
     }
     setCopyFeedback(true)
     window.setTimeout(() => setCopyFeedback(false), 2000)
-  }, [buildWhen, serverWhen])
+  }, [])
 
   return (
     <footer
       className={`build-stamp ${className}`.trim()}
-      title="Commit do bundle. Server Time = cabeçalho HTTP Date (ET). Copiar inclui horário de build e servidor."
+      title="Commit do bundle. Server Time = cabeçalho HTTP Date (ET). Copiar cola só o identificador do frontend."
     >
       <div className="build-stamp-left">
         <span className="build-stamp-label">Frontend</span>{' '}
@@ -86,7 +85,7 @@ export default function BuildStamp({ className = '' }) {
           type="button"
           className="build-stamp-copy-btn"
           onClick={handleCopy}
-          aria-label="Copiar commit do frontend e horários (build e servidor) em ET"
+          aria-label="Copiar identificador do frontend (ex.: Frontend e hash do commit)"
         >
           <CopyIcon />
         </button>
