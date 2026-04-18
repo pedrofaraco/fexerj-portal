@@ -4,7 +4,6 @@ import math
 from enum import Enum
 
 from .tunx_parser import parse_tunx_from_bytes
-from .name_utils import normalize_name, name_similarity
 
 _CSV_DELIMITER = ';'
 _RATING_LIST_HEADER = 'Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating' \
