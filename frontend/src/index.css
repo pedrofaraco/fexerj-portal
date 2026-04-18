@@ -1,21 +1,73 @@
 @import "tailwindcss";
 
-@layer components {
-  .input {
-    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900
-           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-           placeholder:text-gray-400;
-  }
+/*
+ * Plain-CSS fallbacks for older browsers (e.g. Chrome 109 on Windows 7).
+ *
+ * Tailwind v4 emits colors with `oklch()` / `color-mix()`, which Chrome < 111
+ * ignores — leaving critical controls (Executar button) invisible. Declaring
+ * visible rgb/hex styles BEFORE `@tailwind` would not help, because Tailwind's
+ * utilities override by specificity; we keep these as the base and let
+ * Tailwind enhance on modern browsers.
+ */
+.btn-primary {
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 0.625rem 1rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 0.5rem;
+  background-color: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+}
+.btn-primary:hover { background-color: #1d4ed8; }
+.btn-primary:active { background-color: #1e40af; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .file-input {
-    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600
-           file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-3 file:py-1
-           file:text-sm file:font-medium file:text-gray-700
-           hover:file:bg-gray-200 cursor-pointer;
-  }
+.btn-secondary {
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+}
+.btn-secondary:hover { background-color: #f9fafb; }
+.btn-secondary:active { background-color: #f3f4f6; }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .btn-primary {
-    @apply w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white
-           hover:bg-blue-700 active:bg-blue-800 transition-colors cursor-pointer;
-  }
+.input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #111827;
+  background-color: #ffffff;
+}
+
+.file-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  color: #4b5563;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  cursor: pointer;
 }

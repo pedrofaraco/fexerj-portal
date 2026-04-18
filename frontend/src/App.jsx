@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 
+import BuildStamp from './BuildStamp'
 import { buildBasicAuthHeader, buildCycleFormData, isLatin1 } from './portalApi'
 import { parseRunResult } from './resultParser'
 import ResultsPage from './ResultsPage'
@@ -16,6 +17,9 @@ const INITIAL_FORM = {
 export default function App() {
   const [credentials, setCredentials] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
+  // Bumped whenever the form is cleared so file inputs remount and
+  // actually drop their selected filenames (file inputs are uncontrolled).
+  const [formResetKey, setFormResetKey] = useState(0)
   const [status, setStatus] = useState('idle') // idle | loading | error
   const [runErrors, setRunErrors] = useState([])
   const [validationErrors, setValidationErrors] = useState([])
@@ -255,7 +259,16 @@ export default function App() {
       validationStatus={validationStatus}
       onRun={handleRun}
       onLogout={handleLogout}
-      onClearForm={() => setForm(INITIAL_FORM)}
+      onClearForm={() => {
+        setForm(INITIAL_FORM)
+        setValidationErrors([])
+        setValidationRequestError('')
+        setValidationStatus('idle')
+        setRunErrors([])
+        setStatus('idle')
+        setFormResetKey(k => k + 1)
+      }}
+      formResetKey={formResetKey}
     />
   )
 }
@@ -266,33 +279,36 @@ export default function App() {
 
 function LoginPage({ onLogin, loginStatus, loginError }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Portal FEXERJ</h1>
-        <p className="text-sm text-gray-500 mb-6">Acesso restrito à equipe</p>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Portal FEXERJ</h1>
+          <p className="text-sm text-gray-500 mb-6">Acesso restrito à equipe</p>
 
-        <form onSubmit={onLogin} className="flex flex-col gap-4">
-          <Field label="Usuário">
-            <input name="username" type="text" required autoFocus className="input" />
-          </Field>
+          <form onSubmit={onLogin} className="flex flex-col gap-4">
+            <Field label="Usuário">
+              <input name="username" type="text" required autoFocus className="input" />
+            </Field>
 
-          <Field label="Senha">
-            <input name="password" type="password" required className="input" />
-          </Field>
+            <Field label="Senha">
+              <input name="password" type="password" required className="input" />
+            </Field>
 
-          {loginStatus === 'error' && loginError && (
-            <p className="text-sm text-red-600">{loginError}</p>
-          )}
+            {loginStatus === 'error' && loginError && (
+              <p className="text-sm text-red-600">{loginError}</p>
+            )}
 
-          <button
-            type="submit"
-            disabled={loginStatus === 'loading'}
-            className="btn-primary mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loginStatus === 'loading' ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loginStatus === 'loading'}
+              className="btn-primary mt-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loginStatus === 'loading' ? 'Entrando…' : 'Entrar'}
+            </button>
+          </form>
+        </div>
       </div>
+      <BuildStamp />
     </div>
   )
 }
@@ -307,7 +323,7 @@ LoginPage.propTypes = {
 // Run page
 // ---------------------------------------------------------------------------
 
-function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout, onClearForm }) {
+function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout, onClearForm, formResetKey }) {
   const isReady =
     form.playersCsv &&
     form.tournamentsCsv &&
@@ -341,6 +357,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
         <form onSubmit={onRun} className="flex flex-col gap-6">
           <Field label="Lista de Jogadores" hint="players.csv — lista de rating inicial">
             <input
+              key={`players-${formResetKey}`}
               type="file"
               accept=".csv"
               required
@@ -351,6 +368,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
 
           <Field label="Arquivo de Torneios" hint="tournaments.csv — lista de torneios a processar">
             <input
+              key={`tournaments-${formResetKey}`}
               type="file"
               accept=".csv"
               required
@@ -361,6 +379,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
 
           <Field label="Arquivos Binários" hint=".TUNX / .TURX / .TUMX — um ou mais arquivos">
             <input
+              key={`binaries-${formResetKey}`}
               type="file"
               accept=".TUNX,.TURX,.TUMX"
               multiple
@@ -433,11 +452,11 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <button
               type="submit"
               disabled={!isReady || status === 'loading'}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+              className="btn-primary box-border min-h-[2.75rem] w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {status === 'loading' ? 'Executando…' : 'Executar'}
             </button>
@@ -445,13 +464,14 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
               type="button"
               onClick={onClearForm}
               disabled={status === 'loading'}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto shrink-0"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
             >
               Limpar formulário
             </button>
           </div>
         </form>
       </main>
+      <BuildStamp />
     </div>
   )
 }
@@ -473,6 +493,7 @@ RunPage.propTypes = {
   onRun: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
   onClearForm: PropTypes.func.isRequired,
+  formResetKey: PropTypes.number.isRequired,
 }
 
 // ---------------------------------------------------------------------------

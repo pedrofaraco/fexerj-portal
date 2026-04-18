@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 
+import BuildStamp from './BuildStamp'
+
 function formatRating(n) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'
   const r = Math.round(n * 100) / 100
@@ -186,14 +188,14 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
             type="button"
             onClick={handleDownloadClick}
             disabled={!blobUrl}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full sm:w-auto"
           >
             Baixar ZIP
           </button>
           <button
             type="button"
             onClick={onNewRun}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            className="btn-secondary"
           >
             Nova execução
           </button>
@@ -215,6 +217,7 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
           </div>
         )}
       </main>
+      <BuildStamp />
     </div>
   )
 }
