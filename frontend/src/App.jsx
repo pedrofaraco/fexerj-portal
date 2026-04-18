@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { buildBasicAuthHeader } from './portalApi'
 import ResultsPage from './ResultsPage'
@@ -24,9 +24,7 @@ export default function App() {
   const [loginStatus, setLoginStatus] = useState('idle') // idle | loading | error
   const [loginError, setLoginError] = useState('')
 
-  function clearCredentials() {
-    setCredentials(null)
-  }
+  const clearCredentials = useCallback(() => setCredentials(null), [])
 
   const { validationErrors, validationRequestError, validationStatus } = useCycleValidation(
     form,

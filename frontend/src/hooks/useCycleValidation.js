@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { buildCycleFormData, postMultipart } from '../portalApi'
 
@@ -6,15 +6,6 @@ export default function useCycleValidation(form, credentials, { onAuthError, deb
   const [validationErrors, setValidationErrors] = useState([])
   const [validationRequestError, setValidationRequestError] = useState('')
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
-
-  const debounceTimerRef = useRef(null)
-
-  useEffect(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = null
-    }
-  })
 
   useEffect(() => {
     if (!credentials || !form.playersCsv || !form.tournamentsCsv || form.binaryFiles.length === 0) {
@@ -38,8 +29,7 @@ export default function useCycleValidation(form, credentials, { onAuthError, deb
 
     const body = buildCycleFormData(form)
     const ac = new AbortController()
-
-    debounceTimerRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       ;(async () => {
         try {
           const res = await postMultipart('/validate', body, credentials, { signal: ac.signal })
@@ -82,10 +72,7 @@ export default function useCycleValidation(form, credentials, { onAuthError, deb
 
     return () => {
       cancelled = true
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-        debounceTimerRef.current = null
-      }
+      clearTimeout(timer)
       ac.abort()
     }
   }, [form, credentials, onAuthError, debounceMs])
