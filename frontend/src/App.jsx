@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 
 import { buildBasicAuthHeader, buildCycleFormData, isLatin1 } from './portalApi'
+import { parseRunResult } from './resultParser'
+import ResultsPage from './ResultsPage'
 
 const INITIAL_FORM = {
   playersCsv: null,
@@ -21,6 +23,7 @@ export default function App() {
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
   const [loginStatus, setLoginStatus] = useState('idle') // idle | loading | error
   const [loginError, setLoginError] = useState('')
+  const [runResult, setRunResult] = useState(null)
   const runFetchAbortRef = useRef(null)
 
   async function handleLogin(e) {
@@ -59,6 +62,7 @@ export default function App() {
     runFetchAbortRef.current = null
     setCredentials(null)
     setForm(INITIAL_FORM)
+    setRunResult(null)
     setStatus('idle')
     setRunErrors([])
     setValidationErrors([])
@@ -152,6 +156,7 @@ export default function App() {
     setRunErrors([])
 
     const body = buildCycleFormData(form)
+    const tournamentsCsvText = form.tournamentsCsv ? await form.tournamentsCsv.text() : ''
 
     try {
       const response = await fetch('/run', {
@@ -197,12 +202,24 @@ export default function App() {
 
       const blob = await response.blob()
       if (ac.signal.aborted) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'rating_cycle_output.zip'
-      a.click()
-      URL.revokeObjectURL(url)
+
+      try {
+        const parsed = await parseRunResult(blob, tournamentsCsvText)
+        setRunResult({
+          zipBlob: parsed.zipBlob,
+          zipFilename: parsed.zipFilename,
+          tournaments: parsed.tournaments,
+          parseError: null,
+        })
+      } catch (parseErr) {
+        const msg = parseErr instanceof Error ? parseErr.message : String(parseErr)
+        setRunResult({
+          zipBlob: blob,
+          zipFilename: 'rating_cycle_output.zip',
+          tournaments: [],
+          parseError: msg,
+        })
+      }
       setStatus('idle')
     } catch (e) {
       if (e?.name === 'AbortError') return
@@ -217,6 +234,16 @@ export default function App() {
     return <LoginPage onLogin={handleLogin} loginStatus={loginStatus} loginError={loginError} />
   }
 
+  if (runResult) {
+    return (
+      <ResultsPage
+        runResult={runResult}
+        onNewRun={() => setRunResult(null)}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
   return (
     <RunPage
       form={form}
@@ -228,6 +255,7 @@ export default function App() {
       validationStatus={validationStatus}
       onRun={handleRun}
       onLogout={handleLogout}
+      onClearForm={() => setForm(INITIAL_FORM)}
     />
   )
 }
@@ -279,7 +307,7 @@ LoginPage.propTypes = {
 // Run page
 // ---------------------------------------------------------------------------
 
-function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout }) {
+function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout, onClearForm }) {
   const isReady =
     form.playersCsv &&
     form.tournamentsCsv &&
@@ -304,7 +332,8 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
       <main className="max-w-xl mx-auto px-4 py-10">
         <h2 className="text-xl font-semibold text-gray-900 mb-1">Execução do Ciclo de Rating</h2>
         <p className="text-sm text-gray-500 mb-6">
-          Carregue os arquivos de entrada, defina o intervalo e faça o download das listas de rating atualizadas.
+          Carregue os arquivos de entrada, defina o intervalo e execute o ciclo. Depois da execução,
+          você verá um resumo na tela e poderá baixar o arquivo ZIP com as listas e auditorias.
         </p>
 
         <HelpSection />
@@ -404,13 +433,23 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={!isReady || status === 'loading'}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {status === 'loading' ? 'Executando…' : 'Executar'}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="submit"
+              disabled={!isReady || status === 'loading'}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+            >
+              {status === 'loading' ? 'Executando…' : 'Executar'}
+            </button>
+            <button
+              type="button"
+              onClick={onClearForm}
+              disabled={status === 'loading'}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto shrink-0"
+            >
+              Limpar formulário
+            </button>
+          </div>
         </form>
       </main>
     </div>
@@ -433,6 +472,7 @@ RunPage.propTypes = {
   validationStatus: PropTypes.oneOf(['idle', 'checking', 'done', 'failed']).isRequired,
   onRun: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
+  onClearForm: PropTypes.func.isRequired,
 }
 
 // ---------------------------------------------------------------------------
@@ -490,7 +530,8 @@ function HelpSection() {
           </Section>
 
           <Section title="5. Executar o ciclo">
-            Se a validação for bem-sucedida, clique em <strong>Executar</strong>. O sistema fará o download de um arquivo <code>.zip</code> com a nova lista de rating e os arquivos de auditoria de cada torneio.
+            Se a validação for bem-sucedida, clique em <strong>Executar</strong>. Será exibido um resumo dos torneios processados;
+            use <strong>Baixar ZIP</strong> na tela seguinte para obter a nova lista de rating e os arquivos de auditoria de cada torneio.
           </Section>
 
           <Section title="6. Sair">
