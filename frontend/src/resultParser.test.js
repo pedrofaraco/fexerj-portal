@@ -225,6 +225,20 @@ describe('buildPlayerIndex', () => {
     expect(idx[0].initialRating).toBe(null)
     expect(idx[0].netDelta).toBe(null)
   })
+
+  it('when names compare equal and both lack fexerjId, breaks tie with groupKey', () => {
+    const a = 'xx;Silva;1;1500;5;15;1;2;3000;1500;0;0.5;1;0;0;1510;7;0.5;NORMAL'.split(';')
+    const b = 'yy;SILVA;1;1510;7;15;1;2;3100;1510;0;0.5;1;0;0;1520;9;0.5;NORMAL'.split(';')
+    const pa = mapAuditRowToPlayer(a)
+    const pb = mapAuditRowToPlayer(b)
+    expect(pa.fexerjId).toBe(null)
+    expect(pb.fexerjId).toBe(null)
+    const idx = buildPlayerIndex([mkTournament(1, [pa]), mkTournament(2, [pb])])
+    expect(idx).toHaveLength(2)
+    const keysInOrder = idx.map(x => x.groupKey)
+    expect(keysInOrder).toEqual([...keysInOrder].sort((a, b) => a.localeCompare(b)))
+    expect('Silva'.localeCompare('SILVA', 'pt-BR', { sensitivity: 'base' })).toBe(0)
+  })
 })
 
 describe('parseRunResult', () => {
