@@ -39,4 +39,25 @@ describe('fetchServerDate', () => {
     )
     await expect(fetchServerDate()).resolves.toBeNull()
   })
+
+  it('returns null when response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 503,
+          headers: {
+            get: name => (name.toLowerCase() === 'date' ? 'Sat, 18 Apr 2026 19:12:00 GMT' : null),
+          },
+        }),
+      ),
+    )
+    await expect(fetchServerDate()).resolves.toBeNull()
+  })
+
+  it('returns null when fetch throws', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('network'))))
+    await expect(fetchServerDate()).resolves.toBeNull()
+  })
 })
