@@ -5,12 +5,6 @@ function base64EncodeUtf8(str) {
   return btoa(binary)
 }
 
-export function isLatin1(str) {
-  // HTTP Basic in browsers/server stacks is not reliably UTF-8 for credentials.
-  // Keep UX explicit by rejecting non-Latin-1 characters (e.g. emojis).
-  return Array.from(str).every(ch => ch.codePointAt(0) <= 0xff)
-}
-
 export function buildBasicAuthHeader(credentials) {
   return `Basic ${base64EncodeUtf8(`${credentials.username}:${credentials.password}`)}`
 }
@@ -23,5 +17,16 @@ export function buildCycleFormData(form) {
   body.append('first', form.first)
   body.append('count', form.count)
   return body
+}
+
+export function postMultipart(url, formData, credentials, { signal } = {}) {
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: buildBasicAuthHeader(credentials),
+    },
+    body: formData,
+    signal,
+  })
 }
 
