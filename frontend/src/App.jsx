@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 
+import BuildStamp from './BuildStamp'
 import { buildBasicAuthHeader, buildCycleFormData, isLatin1 } from './portalApi'
 import { parseRunResult } from './resultParser'
 import ResultsPage from './ResultsPage'
@@ -266,33 +267,36 @@ export default function App() {
 
 function LoginPage({ onLogin, loginStatus, loginError }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Portal FEXERJ</h1>
-        <p className="text-sm text-gray-500 mb-6">Acesso restrito à equipe</p>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Portal FEXERJ</h1>
+          <p className="text-sm text-gray-500 mb-6">Acesso restrito à equipe</p>
 
-        <form onSubmit={onLogin} className="flex flex-col gap-4">
-          <Field label="Usuário">
-            <input name="username" type="text" required autoFocus className="input" />
-          </Field>
+          <form onSubmit={onLogin} className="flex flex-col gap-4">
+            <Field label="Usuário">
+              <input name="username" type="text" required autoFocus className="input" />
+            </Field>
 
-          <Field label="Senha">
-            <input name="password" type="password" required className="input" />
-          </Field>
+            <Field label="Senha">
+              <input name="password" type="password" required className="input" />
+            </Field>
 
-          {loginStatus === 'error' && loginError && (
-            <p className="text-sm text-red-600">{loginError}</p>
-          )}
+            {loginStatus === 'error' && loginError && (
+              <p className="text-sm text-red-600">{loginError}</p>
+            )}
 
-          <button
-            type="submit"
-            disabled={loginStatus === 'loading'}
-            className="btn-primary mt-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loginStatus === 'loading' ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loginStatus === 'loading'}
+              className="btn-primary mt-2 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loginStatus === 'loading' ? 'Entrando…' : 'Entrar'}
+            </button>
+          </form>
+        </div>
       </div>
+      <BuildStamp />
     </div>
   )
 }
@@ -452,6 +456,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
           </div>
         </form>
       </main>
+      <BuildStamp />
     </div>
   )
 }
