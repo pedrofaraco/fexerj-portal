@@ -216,3 +216,7 @@ scripts/deploy-synology.conf
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Planning / review notes (local-only; never commit)
+CODE_REVIEW*.md
+RESULTS_SEARCH*.md
