@@ -219,3 +219,73 @@ export async function parseRunResult(zipBlob, tournamentsCsvText) {
     tournaments,
   }
 }
+
+/**
+ * Group audit rows by player (FEXERJ id, or name fallback) for the "Por jogador" view.
+ * `tournaments` must be in `ord` ascending order (as returned by `parseRunResult`).
+ *
+ * @param {Array<{ ord: number, name: string, typeLabelPt: string, crId: number|null, type: string, endDate: string, isFexerj: boolean, isIrt: boolean, players: object[] }>} tournaments
+ * @returns {Array<{ groupKey: string, fexerjId: number|null, name: string, initialRating: number|null, finalRating: number|null, netDelta: number|null, tournaments: object[] }>}
+ */
+export function buildPlayerIndex(tournaments) {
+  /** @type {Map<string, { fexerjId: number|null, name: string, tournaments: object[] }>} */
+  const groups = new Map()
+
+  for (const t of tournaments ?? []) {
+    const meta = {
+      ord: t.ord,
+      tournamentName: t.name,
+      crId: t.crId ?? null,
+      type: t.type ?? '',
+      typeLabelPt: t.typeLabelPt ?? '',
+      endDate: t.endDate ?? '',
+      isFexerj: Boolean(t.isFexerj),
+      isIrt: Boolean(t.isIrt),
+    }
+
+    for (const p of t.players ?? []) {
+      const groupKey =
+        p.fexerjId != null ? `id:${p.fexerjId}` : `name:${String(p.name ?? '').trim()}`
+      let g = groups.get(groupKey)
+      if (!g) {
+        g = { fexerjId: p.fexerjId, name: p.name ?? '', tournaments: [] }
+        groups.set(groupKey, g)
+      }
+      g.tournaments.push({ ...meta, ...p })
+    }
+  }
+
+  /** @type {Array<{ groupKey: string, fexerjId: number|null, name: string, initialRating: number|null, finalRating: number|null, netDelta: number|null, tournaments: object[] }>} */
+  const out = []
+
+  for (const [groupKey, g] of groups) {
+    const rounds = [...g.tournaments].sort((a, b) => a.ord - b.ord)
+    const initialRating = rounds.length > 0 ? rounds[0].oldRating ?? null : null
+    const finalRating = rounds.length > 0 ? rounds[rounds.length - 1].newRating ?? null : null
+    let netDelta = null
+    if (initialRating !== null && finalRating !== null) netDelta = finalRating - initialRating
+
+    out.push({
+      groupKey,
+      fexerjId: g.fexerjId,
+      name: g.name,
+      initialRating,
+      finalRating,
+      netDelta,
+      tournaments: rounds,
+    })
+  }
+
+  out.sort((a, b) => {
+    const cmp = (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+    if (cmp !== 0) return cmp
+    const ida = a.fexerjId
+    const idb = b.fexerjId
+    if (ida != null && idb != null) return ida - idb
+    if (ida != null) return -1
+    if (idb != null) return 1
+    return a.groupKey.localeCompare(b.groupKey)
+  })
+
+  return out
+}

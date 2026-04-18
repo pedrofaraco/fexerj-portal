@@ -71,3 +71,45 @@
   line-height: 1.25rem;
   cursor: pointer;
 }
+
+/* Results page tabs — explicit hex (Chrome 109 cannot rely on Tailwind oklch tokens). */
+.results-tab {
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  cursor: pointer;
+}
+.results-tab:hover {
+  background-color: #f9fafb;
+}
+.results-tab[aria-selected='true'] {
+  border-color: #2563eb;
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+/* Nested audit cards — solid hex (`bg-gray-50/80` uses color-mix + oklch; Chrome 109 drops it). */
+.results-accordion-card {
+  background-color: #f9fafb;
+}
+
+/*
+ * Accordion row toggles — explicit hex hover (Chrome 109; Tailwind gray utilities often emit oklch).
+ * Matches outer headers (white strip → gray-50 hover) vs nested rows on `.results-accordion-card` (gray-100 hover).
+ */
+.accordion-row-btn {
+  background-color: transparent;
+}
+.accordion-row-btn:hover {
+  background-color: #f9fafb;
+}
+.accordion-row-btn.accordion-row-btn--nested:hover {
+  background-color: #f3f4f6;
+}
