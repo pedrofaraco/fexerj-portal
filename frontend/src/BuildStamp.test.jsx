@@ -44,4 +44,34 @@ describe('BuildStamp', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Copiado')
     })
   })
+
+  it('copy uses execCommand fallback when clipboard.writeText rejects', async () => {
+    const writeSpy = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('denied'))
+    const execCmd = vi.fn(() => true)
+    const prevExec = document.execCommand
+    document.execCommand = execCmd
+
+    const user = userEvent.setup()
+    render(<BuildStamp />)
+    await waitFor(() => {
+      expect(screen.getByText(/Server Time/)).not.toHaveTextContent(/^Server Time —$/)
+    })
+
+    try {
+      await user.click(
+        screen.getByRole('button', { name: /copiar identificador do frontend/i }),
+      )
+
+      await waitFor(() => {
+        expect(writeSpy).toHaveBeenCalled()
+        expect(execCmd).toHaveBeenCalledWith('copy')
+        expect(screen.getByRole('status')).toHaveTextContent('Copiado')
+      })
+    } finally {
+      writeSpy.mockRestore()
+      document.execCommand = prevExec
+    }
+  })
 })

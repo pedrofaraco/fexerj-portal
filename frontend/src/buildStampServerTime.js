@@ -2,6 +2,9 @@
  * Fetch current server clock from the HTTP `Date` header (GET /health).
  * Same-origin; no auth required.
  *
+ * Design: intended for a **single** UI consumer (e.g. one BuildStamp per page). Multiple
+ * simultaneous pollers duplicate traffic — callers should not mount several stamps at once.
+ *
  * @returns {Promise<Date | null>}
  */
 export async function fetchServerDate() {

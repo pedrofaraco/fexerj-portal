@@ -280,6 +280,29 @@ describe('RunPage', () => {
     expect(screen.getByText('Second problem from server')).toBeInTheDocument()
   })
 
+  it('displays 422 errors when detail is FastAPI-style objects with msg', async () => {
+    await uploadAllFiles(user)
+
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () =>
+          Promise.resolve({
+            detail: [{ msg: 'campo inválido: first' }, { msg: 'campo inválido: count' }],
+          }),
+      })
+    )
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByText(/o servidor rejeitou a execução/i)).toBeInTheDocument()
+    )
+    expect(screen.getByText('campo inválido: first')).toBeInTheDocument()
+    expect(screen.getByText('campo inválido: count')).toBeInTheDocument()
+  })
+
   it('returns to the login page on a 401 response', async () => {
     await uploadAllFiles(user)
 

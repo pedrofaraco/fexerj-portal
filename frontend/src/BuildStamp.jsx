@@ -31,6 +31,7 @@ export default function BuildStamp({ className = '' }) {
   const [serverInstant, setServerInstant] = useState(null)
   const [copyFeedback, setCopyFeedback] = useState(false)
 
+  // One BuildStamp per page: each mount starts a 60s /health polling loop (server clock).
   useEffect(() => {
     let cancelled = false
 
