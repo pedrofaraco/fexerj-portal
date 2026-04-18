@@ -114,7 +114,7 @@ export function PlayerRow({ player, index }) {
           <DetailLine label="K × diferença (obtido − esperado)" value={formatOptionalNumber(player.kDw)} />
           <DetailLine label="Total de jogos após o torneio" value={formatOptionalNumber(player.newTotalGames)} />
           <DetailLine label="Pontos por partida (P)" value={formatOptionalNumber(player.pRatio)} />
-          <DetailLine label="Nº no torneio (mesa)" value={formatOptionalNumber(player.boardNo)} />
+          <DetailLine label="Número no torneio (Chess Results)" value={formatOptionalNumber(player.boardNo)} />
         </div>
       )}
     </div>
