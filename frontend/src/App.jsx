@@ -279,11 +279,11 @@ export default function App() {
 
 function LoginPage({ onLogin, loginStatus, loginError }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="portal-page flex flex-col">
       <div className="flex flex-1 items-center justify-center px-4 py-10">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Portal FEXERJ</h1>
-          <p className="text-sm text-gray-500 mb-6">Acesso restrito à equipe</p>
+        <div className="surface-card surface-card--login">
+          <h1 className="text-2xl font-semibold t-fg mb-1">Portal FEXERJ</h1>
+          <p className="text-sm t-muted mb-6">Acesso restrito à equipe</p>
 
           <form onSubmit={onLogin} className="flex flex-col gap-4">
             <Field label="Usuário">
@@ -295,7 +295,7 @@ function LoginPage({ onLogin, loginStatus, loginError }) {
             </Field>
 
             {loginStatus === 'error' && loginError && (
-              <p className="text-sm text-red-600">{loginError}</p>
+              <p className="login-error">{loginError}</p>
             )}
 
             <button
@@ -334,20 +334,17 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
     validationErrors.length === 0
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">Portal FEXERJ</h1>
-        <button
-          onClick={onLogout}
-          className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-        >
+    <div className="portal-page">
+      <header className="portal-header">
+        <h1 className="portal-title-lg">Portal FEXERJ</h1>
+        <button type="button" onClick={onLogout} className="portal-nav-btn">
           Sair
         </button>
       </header>
 
       <main className="max-w-xl mx-auto px-4 py-10">
-        <h2 className="text-xl font-semibold text-gray-900 mb-1">Execução do Ciclo de Rating</h2>
-        <p className="text-sm text-gray-500 mb-6">
+        <h2 className="portal-heading">Execução do Ciclo de Rating</h2>
+        <p className="portal-lede">
           Carregue os arquivos de entrada, defina o intervalo e execute o ciclo. Depois da execução,
           você verá um resumo na tela e poderá baixar o arquivo ZIP com as listas e auditorias.
         </p>
@@ -414,37 +411,37 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
           </div>
 
           {validationStatus === 'checking' && (
-            <p className="text-sm text-gray-500">Validando arquivos…</p>
+            <p className="status-muted">Validando arquivos…</p>
           )}
 
           {validationStatus === 'failed' && validationRequestError && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-              <p className="font-medium mb-1">Não foi possível validar os arquivos</p>
-              <p>{validationRequestError}</p>
+            <div className="alert-error" role="alert">
+              <p className="alert-title">Não foi possível validar os arquivos</p>
+              <p className="m-0">{validationRequestError}</p>
             </div>
           )}
 
           {validationStatus === 'done' && validationErrors.length > 0 && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-              <p className="font-medium mb-1">Corrija os erros abaixo antes de executar:</p>
-              <ul className="list-disc list-inside space-y-0.5">
+            <div className="alert-error" role="alert">
+              <p className="alert-title">Corrija os erros abaixo antes de executar:</p>
+              <ul className="list-disc list-inside space-y-0.5 m-0 pl-0">
                 {validationErrors.map((err, i) => <li key={i}>{err}</li>)}
               </ul>
             </div>
           )}
 
           {validationStatus === 'done' && validationErrors.length === 0 && (
-            <p className="text-sm text-green-600">Arquivos validados com sucesso.</p>
+            <p className="alert-success">Arquivos validados com sucesso.</p>
           )}
 
           {status === 'error' && runErrors.length > 0 && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="alert-error" role="alert">
               {runErrors.length === 1 ? (
-                <p>{runErrors[0]}</p>
+                <p className="m-0">{runErrors[0]}</p>
               ) : (
                 <>
-                  <p className="font-medium mb-1">O servidor rejeitou a execução:</p>
-                  <ul className="list-disc list-inside space-y-0.5">
+                  <p className="alert-title">O servidor rejeitou a execução:</p>
+                  <ul className="list-disc list-inside space-y-0.5 m-0">
                     {runErrors.map((err, i) => <li key={i}>{err}</li>)}
                   </ul>
                 </>
@@ -464,7 +461,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
               type="button"
               onClick={onClearForm}
               disabled={status === 'loading'}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+              className="btn-secondary box-border min-h-[2.75rem] disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:min-h-0"
             >
               Limpar formulário
             </button>
@@ -505,26 +502,23 @@ function HelpSection() {
   const contentId = 'help-section-content'
 
   return (
-    <div className="mb-8 rounded-lg border border-gray-200 bg-white">
+    <div className="help-shell">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-controls={contentId}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors rounded-lg"
+        className="help-toggle"
       >
         <span>Como usar</span>
-        <span className="text-gray-400">{open ? '▲' : '▼'}</span>
+        <span className="t-soft">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
-        <div
-          id={contentId}
-          className="px-4 pb-4 text-sm text-gray-600 space-y-4 border-t border-gray-100 pt-4"
-        >
+        <div id={contentId} className="help-body space-y-4">
           <Section title="1. Acesso">
             Informe o usuário e senha fornecidos pelo administrador e clique em <strong>Entrar</strong>.
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs t-muted">
               Observação: devido ao uso de autenticação HTTP Basic, <strong>evite emojis</strong> ou caracteres especiais incomuns na senha.
             </p>
           </Section>
@@ -540,7 +534,7 @@ function HelpSection() {
 
           <Section title="3. Carregar os arquivos">
             <p className="mb-2">Selecione cada arquivo no campo correspondente.</p>
-            <p className="rounded bg-yellow-50 border border-yellow-200 px-3 py-2 text-yellow-800">
+            <p className="alert-warning-block">
               ⚠️ <strong>Atenção:</strong> Informe o <strong>número do primeiro torneio</strong> a processar e a <strong>quantidade de torneios</strong>.
               Esses dois campos determinam quais torneios serão processados. Valores incorretos resultarão em processamento errado ou ausência de resultados.
             </p>
@@ -567,7 +561,7 @@ function HelpSection() {
 function Section({ title, children }) {
   return (
     <div>
-      <p className="font-semibold text-gray-700 mb-1">{title}</p>
+      <p className="section-title">{title}</p>
       <div>{children}</div>
     </div>
   )
@@ -584,9 +578,9 @@ Section.propTypes = {
 
 function Field({ label, hint, className = '', children }) {
   return (
-    <label className={`flex flex-col gap-1 ${className}`}>
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      {hint && <span className="text-xs text-gray-400">{hint}</span>}
+    <label className={`flex flex-col gap-1.5 ${className}`}>
+      <span className="field-label">{label}</span>
+      {hint && <span className="field-hint">{hint}</span>}
       {children}
     </label>
   )
