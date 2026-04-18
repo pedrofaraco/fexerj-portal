@@ -145,6 +145,8 @@ export function parseAuditCsv(auditCsvText) {
     throw new Error('Arquivo de auditoria com cabeçalho inesperado.')
   }
   const players = []
+  // Propagate — one malformed row fails the whole tournament parse intentionally:
+  // a partial player list would silently misrepresent the engine output.
   for (const row of rows) {
     if (row.every(c => c === '' || c === undefined)) continue
     players.push(mapAuditRowToPlayer(row))
