@@ -77,7 +77,7 @@ export default function BuildStamp({ className = '' }) {
   return (
     <footer
       className={`build-stamp ${className}`.trim()}
-      title="Commit e horários: build do bundle (ET) e relógio do servidor via cabeçalho HTTP (ET, EDT/EST)."
+      title="Commit do bundle. Server Time = cabeçalho HTTP Date (ET). Copiar inclui horário de build e servidor."
     >
       <div className="build-stamp-left">
         <span className="build-stamp-label">Frontend</span>{' '}
@@ -90,10 +90,6 @@ export default function BuildStamp({ className = '' }) {
         >
           <CopyIcon />
         </button>
-        <span className="build-stamp-sep" aria-hidden>
-          ·
-        </span>
-        <span className="tabular-nums">{buildWhen}</span>
         {copyFeedback && (
           <span className="build-stamp-copied" role="status">
             Copiado
