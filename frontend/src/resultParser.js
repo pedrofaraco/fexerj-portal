@@ -4,6 +4,9 @@ import JSZip from 'jszip'
 export const AUDIT_FILE_HEADER =
   'Id_Fexerj;Name;No;Ro;Ind;K;PG;N;Erm;Rm;Dif;We;Nwe;Dw;kDw;Rn;Nind;P;Calc_Rule'
 
+/** Must match calculator `calculator/classes.py` `_AUDIT_FILE_PREAMBLE` */
+export const AUDIT_PREAMBLE = '# audit_v1'
+
 const AUDIT_FILENAME_RE = /^Audit_of_Tournament_(\d+)\.csv$/i
 
 /** @param {string} text */
@@ -139,7 +142,22 @@ export function mapAuditRowToPlayer(cells) {
  * @param {string} auditCsvText
  */
 export function parseAuditCsv(auditCsvText) {
-  const { headers, rows } = parseSemicolonCsv(auditCsvText)
+  const rawLines = stripUtf8Bom(auditCsvText)
+    .split(/\r?\n/)
+    .map(l => l.trimEnd())
+    .filter(line => line.length > 0)
+
+  const actual = rawLines[0] ?? ''
+  if (actual !== AUDIT_PREAMBLE) {
+    const shown = actual.length > 80 ? `${actual.slice(0, 80)}…` : actual
+    throw new Error(
+      `Versão do arquivo de auditoria não reconhecida. Esperado "${AUDIT_PREAMBLE}"; encontrado "${shown}".\n` +
+        'O ZIP pode ser baixado normalmente; o resumo na tela não está disponível.',
+    )
+  }
+
+  // Parse the semicolon CSV starting at the header line (line 1), so `parseSemicolonCsv` stays unchanged.
+  const { headers, rows } = parseSemicolonCsv(rawLines.slice(1).join('\n'))
   const headerLine = headers.join(';')
   if (headerLine !== AUDIT_FILE_HEADER && !headerLine.startsWith('Id_Fexerj;')) {
     throw new Error('Arquivo de auditoria com cabeçalho inesperado.')

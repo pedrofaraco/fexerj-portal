@@ -3,7 +3,7 @@ import { render, screen, within, fireEvent, waitFor } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import JSZip from 'jszip'
 import ResultsPage from './ResultsPage'
-import { AUDIT_FILE_HEADER, parseRunResult } from './resultParser'
+import { AUDIT_FILE_HEADER, AUDIT_PREAMBLE, parseRunResult } from './resultParser'
 
 const TOURNAMENTS_CSV = `Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
 1;11111;Copa A;2025-01-01;RR;0;1
@@ -18,8 +18,8 @@ const ROW_200_T2 =
 
 async function runResultFromZips() {
   const z = new JSZip()
-  z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
-  z.file('Audit_of_Tournament_2.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T2}\n${ROW_200_T2}`)
+  z.file('Audit_of_Tournament_1.csv', `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
+  z.file('Audit_of_Tournament_2.csv', `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${ROW_100_T2}\n${ROW_200_T2}`)
   const blob = await z.generateAsync({ type: 'blob' })
   return parseRunResult(blob, TOURNAMENTS_CSV)
 }
@@ -152,7 +152,7 @@ describe('ResultsPage', () => {
     const decimalRow =
       '100;João Silva;1;1800.25;50;25;3.5;5;8750;1750;50;0.59;2.95;0.55;13.75;1823.75;55;0.7;NORMAL'
     const z = new JSZip()
-    z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${decimalRow}`)
+    z.file('Audit_of_Tournament_1.csv', `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${decimalRow}`)
     const blob = await z.generateAsync({ type: 'blob' })
     const rr = await parseRunResult(blob, TOURNAMENTS_CSV.split('\n').slice(0, 2).join('\n'))
     const user = userEvent.setup()
@@ -286,7 +286,7 @@ describe('ResultsPage', () => {
 
   it('shows 1 torneio singular when player has one tournament only', async () => {
     const z = new JSZip()
-    z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
+    z.file('Audit_of_Tournament_1.csv', `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
     const blob = await z.generateAsync({ type: 'blob' })
     const single = await parseRunResult(
       blob,

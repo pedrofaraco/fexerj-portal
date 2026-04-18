@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import JSZip from 'jszip'
 import App from '../App'
 import ErrorBoundary from '../ErrorBoundary'
-import { AUDIT_FILE_HEADER } from '../resultParser'
+import { AUDIT_FILE_HEADER, AUDIT_PREAMBLE } from '../resultParser'
 
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
@@ -54,7 +54,7 @@ async function fixtureRunZipBlob() {
   const auditRow =
     '100;João Silva;1;1800;50;25;3.5;5;8750;1750;50;0.59;2.95;0.55;13.75;1823;55;0.7;NORMAL'
   const z = new JSZip()
-  z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${auditRow}`)
+  z.file('Audit_of_Tournament_1.csv', `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${auditRow}`)
   return z.generateAsync({ type: 'blob' })
 }
 

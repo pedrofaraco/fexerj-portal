@@ -224,7 +224,8 @@ class TestWriteTournamentAudit:
         t = _make_tournament()
         t.players = {}
         output = t.write_tournament_audit()
-        assert output.splitlines()[0] == _AUDIT_FILE_HEADER
+        assert output.splitlines()[0] == "# audit_v1"
+        assert output.splitlines()[1] == _AUDIT_FILE_HEADER
 
     def test_one_line_per_player(self):
         t = _make_tournament()
@@ -233,13 +234,13 @@ class TestWriteTournamentAudit:
             2: _make_calculated_tp(t, fexerj_id=102),
         }
         lines = [row for row in t.write_tournament_audit().splitlines() if row]
-        assert len(lines) == 3  # header + 2 players
+        assert len(lines) == 4  # preamble + header + 2 players
 
     def test_correct_number_of_fields_per_line(self):
         t = _make_tournament()
         t.players = {1: _make_calculated_tp(t)}
         lines = t.write_tournament_audit().splitlines()
-        assert len(lines[1].split(";")) == 19
+        assert len(lines[2].split(";")) == 19
 
     def test_player_values_in_output(self):
         t = _make_tournament()
@@ -257,6 +258,7 @@ class TestWriteTournamentAudit:
                                   new_rating=1500, new_total_games=50, calc_rule=None)
         t.players = {1: tp}
         reader = csv.reader(io.StringIO(t.write_tournament_audit()), delimiter=";")
+        next(reader)  # skip preamble
         next(reader)  # skip header
         row = next(reader)
         assert row[11] == "None"   # We

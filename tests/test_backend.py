@@ -73,11 +73,17 @@ def _post_run(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
     )
 
 
-def _parse_csv_from_zip(zip_bytes, filename):
-    """Return data rows (header excluded) as semicolon-split lists."""
+def _parse_csv_from_zip(zip_bytes, filename, *, skip_lines=1):
+    """Return data rows (header excluded) as semicolon-split lists.
+
+    Args:
+        zip_bytes: Full zip file bytes.
+        filename: Entry name inside the zip.
+        skip_lines: Number of leading lines to skip (1 for normal CSV header, 2 for audit preamble+header).
+    """
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         content = zf.read(filename).decode()
-    return [line.split(';') for line in content.splitlines()[1:] if line]
+    return [line.split(';') for line in content.splitlines()[skip_lines:] if line]
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +324,13 @@ class TestRunSuccess:
         response = _post_run()
         with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
             content = zf.read("Audit_of_Tournament_1.csv").decode()
-        assert content.splitlines()[0].startswith("Id_Fexerj")
+        assert content.splitlines()[1].startswith("Id_Fexerj")
+
+    def test_audit_has_version_preamble(self):
+        response = _post_run()
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            content = zf.read("Audit_of_Tournament_1.csv").decode()
+        assert content.splitlines()[0] == "# audit_v1"
 
     def test_bom_encoded_csv_is_accepted(self):
         """utf-8-sig BOM prefix (common in Windows-exported CSVs) must be handled."""
@@ -375,14 +387,14 @@ class TestRunRatingValues:
     def test_audit_each_player_played_at_least_one_game(self):
         """Every player in a round-robin must have at least one valid rated game (N >= 1)."""
         response = _post_run()
-        rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv")
+        rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv", skip_lines=2)
         for row in rows:
             assert int(row[7]) >= 1  # N column: valid games in this tournament
 
     def test_new_total_games_exceeds_prior_for_active_players(self):
         """Players with valid games must have a higher game count in the output rating list."""
         response = _post_run()
-        audit_rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv")
+        audit_rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv", skip_lines=2)
         rl_rows = _parse_csv_from_zip(response.content, "RatingList_after_1.csv")
         new_games_by_id = {int(row[0]): int(row[9]) for row in rl_rows}  # Id_No → TotalNumGames
         for row in audit_rows:

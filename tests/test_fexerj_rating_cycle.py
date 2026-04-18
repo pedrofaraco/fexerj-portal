@@ -170,8 +170,9 @@ class TestRunCycle:
             _TURX_TOURNAMENTS_CSV, 1, 1, _TURX_PLAYERS_CSV, _TURX_BINARY_FILES
         )
         output = cycle.run_cycle()
-        first_line = output["Audit_of_Tournament_1.csv"].splitlines()[0]
-        assert first_line.startswith("Id_Fexerj")
+        lines = output["Audit_of_Tournament_1.csv"].splitlines()
+        assert lines[0] == "# audit_v1"
+        assert lines[1].startswith("Id_Fexerj")
 
     def test_audit_output_has_one_line_per_player(self):
         cycle = FexerjRatingCycle(
@@ -179,7 +180,7 @@ class TestRunCycle:
         )
         output = cycle.run_cycle()
         lines = [row for row in output["Audit_of_Tournament_1.csv"].splitlines() if row]
-        assert len(lines) == 7  # header + 6 players
+        assert len(lines) == 8  # preamble + header + 6 players
 
     def test_ratings_change_after_cycle(self):
         """At least some players should have a different rating after the tournament."""
