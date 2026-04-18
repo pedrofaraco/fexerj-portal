@@ -11,11 +11,11 @@ export default function BuildStamp({ className = '' }) {
 
   return (
     <footer
-      className={`border-t border-gray-200 bg-gray-50 px-4 py-2 text-center text-[11px] text-gray-400 tabular-nums select-all ${className}`.trim()}
+      className={`build-stamp ${className}`.trim()}
       title="Commit e horário do build do frontend (compare com git no servidor)."
     >
-      Frontend <span className="font-mono text-gray-600">{BUILD_COMMIT}</span>
-      <span className="mx-1.5 text-gray-300">·</span>
+      Frontend <span className="build-stamp-mono">{BUILD_COMMIT}</span>
+      <span className="build-stamp-sep">·</span>
       <span>{when}</span>
     </footer>
   )
