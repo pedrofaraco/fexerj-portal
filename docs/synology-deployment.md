@@ -132,34 +132,14 @@ Identical to `docker-compose.yml` except Nginx exposes port 8080 instead of 8090
 
 #### `docker/nginx.conf`
 
-```nginx
-server {
-    listen 80;
+Serves the built SPA and proxies API paths to the backend. **Authoritative copy:** `docker/nginx.conf` in the repo.
 
-    # Align with backend upload limits to avoid nginx returning a generic 413
-    # before the backend can provide a user-friendly message.
-    client_max_body_size 100m;
+Cache behavior (avoids stale UI after deploy without a hard refresh):
 
-    root /usr/share/nginx/html;
-    index index.html;
+- **`/assets/`** — fingerprinted Vite bundles: long cache (`expires 1y`).
+- **`index.html`** — short/no cache (`expires epoch`) so each visit gets the HTML that references the current hashed chunks.
 
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location ~ ^/(health|me|validate|run)$ {
-        proxy_pass http://backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # /run can take time; keep proxy timeouts generous.
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
-    }
-}
-```
+Security headers use `add_header` at the `server` level; cache tuning uses only `expires` in `location` blocks so nginx still inherits those headers (using `add_header` in nested locations would drop them).
 
 - Serves frontend static files for all routes (SPA routing)
 - Proxies only the four known API endpoints to the backend by name
