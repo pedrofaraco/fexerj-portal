@@ -364,11 +364,16 @@ class Tournament:
         self.rating_cycle = rating_cycle
 
     def complete_players_info(self):
+        missing: list[str] = []
         for snr, tp in self.players.items():
-            if self.is_irt:
-                fp = self.rating_cycle.rating_list[self.rating_cycle.cbx_to_fexerj[tp.id]]
-            else:
-                fp = self.rating_cycle.rating_list[tp.id]
+            try:
+                if self.is_irt:
+                    fp = self.rating_cycle.rating_list[self.rating_cycle.cbx_to_fexerj[tp.id]]
+                else:
+                    fp = self.rating_cycle.rating_list[tp.id]
+            except KeyError:
+                missing.append(f"{tp.id} ({tp.name or 'sem nome'})")
+                continue
             tp.last_rating = int(fp.last_rating)
             tp.last_total_games = int(fp.total_games)
             tp.last_sum_oppon_ratings = int(fp.sum_opponents_ratings)
@@ -381,6 +386,13 @@ class Tournament:
                 tp.is_temp = True
             else:
                 self.established_keys.append(snr)
+
+        if missing:
+            raise ValueError(
+                f"Torneio {self.ord} ({self.name}): jogador(es) presente(s) no arquivo "
+                f"binário mas ausente(s) da lista de rating (players.csv): "
+                f"{', '.join(missing)}."
+            )
 
         # Replace opponent name/score entries with TournamentPlayer references
         for snr, tp in self.players.items():

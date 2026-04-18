@@ -184,6 +184,36 @@ class TestCompletePlersInfo:
         assert t.temp_keys == [2]
         assert t.established_keys == [3]
 
+    def test_unknown_fexerj_id_raises_value_error(self):
+        fp = _make_fexerj_player(1, total_games=50, last_rating=1500)
+        t = _make_tournament(rating_list={1: fp})
+        tp = _make_tp(t, fexerj_id=9999, snr=1)
+        tp.name = "Fulano de Tal"
+        t.players = {1: tp}
+        with pytest.raises(ValueError, match=r"9999.*Fulano de Tal"):
+            t.complete_players_info()
+
+    def test_unknown_cbx_id_in_irt_tournament_raises_value_error(self):
+        fp = _make_fexerj_player(10, total_games=50, last_rating=1800)
+        t = _make_tournament(is_irt=1, rating_list={10: fp}, cbx_to_fexerj={99: 10})
+        tp = _make_tp(t, fexerj_id=123, snr=1)
+        t.players = {1: tp}
+        with pytest.raises(ValueError, match=r"123"):
+            t.complete_players_info()
+
+    def test_missing_player_error_lists_all_unknown_ids(self):
+        fp = _make_fexerj_player(1, total_games=50, last_rating=1500)
+        t = _make_tournament(rating_list={1: fp})
+        tp_ok = _make_tp(t, fexerj_id=1, snr=1)
+        tp_bad1 = _make_tp(t, fexerj_id=9999, snr=2)
+        tp_bad2 = _make_tp(t, fexerj_id=8888, snr=3)
+        t.players = {1: tp_ok, 2: tp_bad1, 3: tp_bad2}
+        with pytest.raises(ValueError) as exc:
+            t.complete_players_info()
+        message = str(exc.value)
+        assert "9999" in message
+        assert "8888" in message
+
 
 # ---------------------------------------------------------------------------
 # write_tournament_audit
