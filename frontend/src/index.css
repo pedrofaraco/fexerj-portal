@@ -311,15 +311,38 @@ body {
   margin: 0 0 0.25rem;
 }
 
+/* Build stamp — merged #92 (hex footer) + #93 (flex layout, copy control) */
 .build-stamp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1.25rem;
   border-top: 1px solid #e5e7eb;
   background-color: #f9fafb;
   padding: 0.5rem 1rem;
-  text-align: center;
   font-size: 11px;
   color: #9ca3af;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   user-select: all;
+}
+
+.build-stamp-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  min-width: 0;
+}
+
+.build-stamp-right {
+  color: #6b7280;
+  margin-left: auto;
+}
+
+.build-stamp-label {
+  color: #9ca3af;
 }
 
 .build-stamp-mono {
@@ -328,8 +351,32 @@ body {
 }
 
 .build-stamp-sep {
-  margin: 0 0.35rem;
+  margin: 0 0.15rem;
   color: #d1d5db;
+}
+
+.build-stamp-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+}
+
+.build-stamp-copy-btn:hover {
+  color: #111827;
+  background-color: #f3f4f6;
+}
+
+.build-stamp-copied {
+  margin-left: 0.35rem;
+  font-size: 10px;
+  color: #15803d;
 }
 
 /* Results: cards & text (hex) */
