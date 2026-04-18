@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 
 import BuildStamp from './BuildStamp'
 import { buildPlayerIndex } from './resultParser'
+import { filterPlayersForSearch, filterTournamentsForSearch } from './searchUtils'
 
 function formatRating(n) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'
@@ -254,16 +255,30 @@ DetailLine.propTypes = {
 }
 
 const TAB_IDS = ['tab-results-tournament', 'tab-results-player']
+const RESULTS_FILTER_INPUT_ID = 'results-filter-q'
 
 export default function ResultsPage({ runResult, onNewRun, onLogout }) {
   const [blobUrl, setBlobUrl] = useState('')
   const [activeTab, setActiveTab] = useState('tournament')
+  const [resultsFilter, setResultsFilter] = useState('')
   const tabRefs = useRef([null, null])
 
   const playersByPlayer = useMemo(
     () => buildPlayerIndex(runResult.tournaments ?? []),
     [runResult.tournaments],
   )
+
+  const filteredTournaments = useMemo(
+    () => filterTournamentsForSearch(runResult.tournaments ?? [], resultsFilter),
+    [runResult.tournaments, resultsFilter],
+  )
+
+  const filteredPlayers = useMemo(
+    () => filterPlayersForSearch(playersByPlayer, resultsFilter),
+    [playersByPlayer, resultsFilter],
+  )
+
+  const filterHasTerm = resultsFilter.trim().length > 0
 
   useEffect(() => {
     const blob = runResult?.zipBlob
@@ -401,6 +416,23 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
               </button>
             </div>
 
+            <div className="mb-4">
+              <label
+                htmlFor={RESULTS_FILTER_INPUT_ID}
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Filtrar por nome ou ID
+              </label>
+              <input
+                id={RESULTS_FILTER_INPUT_ID}
+                type="search"
+                className="input"
+                value={resultsFilter}
+                onChange={e => setResultsFilter(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+
             <div
               id="panel-results-tournament"
               role="tabpanel"
@@ -408,9 +440,11 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
               hidden={activeTab !== 'tournament'}
               className="space-y-3"
             >
-              {(runResult.tournaments ?? []).map(t => (
-                <TournamentAccordion key={t.ord} tournament={t} />
-              ))}
+              {filterHasTerm && filteredTournaments.length === 0 ? (
+                <p className="text-sm text-gray-600 py-2">Nenhum resultado encontrado.</p>
+              ) : (
+                filteredTournaments.map(t => <TournamentAccordion key={t.ord} tournament={t} />)
+              )}
             </div>
 
             <div
@@ -420,9 +454,11 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
               hidden={activeTab !== 'player'}
               className="space-y-3"
             >
-              {playersByPlayer.map(p => (
-                <PlayerAccordion key={p.groupKey} player={p} />
-              ))}
+              {filterHasTerm && filteredPlayers.length === 0 ? (
+                <p className="text-sm text-gray-600 py-2">Nenhum resultado encontrado.</p>
+              ) : (
+                filteredPlayers.map(p => <PlayerAccordion key={p.groupKey} player={p} />)
+              )}
             </div>
           </>
         )}

@@ -213,6 +213,77 @@ describe('ResultsPage', () => {
     clickSpy.mockRestore()
   })
 
+  it('filters Por torneio accordions via shared search input', async () => {
+    const user = userEvent.setup()
+    render(
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+
+    const tournamentPanel = document.getElementById('panel-results-tournament')
+    const filter = screen.getByLabelText(/filtrar por nome ou ID/i)
+    await user.type(filter, 'Copa B')
+    expect(within(tournamentPanel).getByText(/2 — Copa B/)).toBeInTheDocument()
+    expect(within(tournamentPanel).queryByText(/1 — Copa A/)).not.toBeInTheDocument()
+  })
+
+  it('filters Por jogador accordions via same search input', async () => {
+    const user = userEvent.setup()
+    render(
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('tab', { name: /por jogador/i }))
+    const playerPanel = document.getElementById('panel-results-player')
+    const filter = screen.getByLabelText(/filtrar por nome ou ID/i)
+    await user.type(filter, 'Ana')
+    expect(within(playerPanel).getByText(/Ana Costa/)).toBeInTheDocument()
+    expect(within(playerPanel).queryByText(/João Silva/)).not.toBeInTheDocument()
+  })
+
+  it('shows empty state inside each tabpanel when filter matches nothing', async () => {
+    const user = userEvent.setup()
+    render(
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+
+    const filter = screen.getByLabelText(/filtrar por nome ou ID/i)
+    await user.type(filter, '__nomatch__')
+    const tournamentPanel = document.getElementById('panel-results-tournament')
+    const playerPanel = document.getElementById('panel-results-player')
+    expect(within(tournamentPanel).getByText(/nenhum resultado encontrado/i)).toBeInTheDocument()
+    expect(within(playerPanel).getByText(/nenhum resultado encontrado/i)).toBeInTheDocument()
+  })
+
+  it('keeps search text when switching tabs', async () => {
+    const user = userEvent.setup()
+    render(
+      <ResultsPage
+        runResult={{ ...runResult, parseError: undefined, zipFilename: 'x.zip' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+
+    const filter = screen.getByLabelText(/filtrar por nome ou ID/i)
+    await user.type(filter, 'Copa B')
+    await user.click(screen.getByRole('tab', { name: /por jogador/i }))
+    expect(filter).toHaveValue('Copa B')
+    await user.click(screen.getByRole('tab', { name: /por torneio/i }))
+    expect(filter).toHaveValue('Copa B')
+  })
+
   it('shows 1 torneio singular when player has one tournament only', async () => {
     const z = new JSZip()
     z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${ROW_100_T1}`)
