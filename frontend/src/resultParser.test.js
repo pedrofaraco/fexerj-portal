@@ -61,9 +61,45 @@ describe('mapAuditRowToPlayer', () => {
     expect(p.calcRule).toBe('NORMAL')
     expect(p.fexerjId).toBe(100)
   })
+
+  it('throws when row has fewer than 19 columns', () => {
+    expect(() => mapAuditRowToPlayer(['1', '2', '3'])).toThrow(/19 colunas/)
+  })
+
+  it('maps None and invalid Id to null fields', () => {
+    const base = SAMPLE_AUDIT_ROW.split(';')
+    base[0] = 'not-an-id'
+    base[18] = 'None'
+    const p = mapAuditRowToPlayer(base)
+    expect(p.fexerjId).toBe(null)
+    expect(p.calcRule).toBe(null)
+  })
+
+  it('leaves delta null when Ro or Rn is missing', () => {
+    const base = SAMPLE_AUDIT_ROW.split(';')
+    base[3] = ''
+    base[15] = '1823'
+    const p = mapAuditRowToPlayer(base)
+    expect(p.delta).toBe(null)
+  })
 })
 
 describe('parseAuditCsv', () => {
+  it('accepts a header that matches Id_Fexerj prefix but not the strict calculator header', () => {
+    const looseHeader = `${AUDIT_FILE_HEADER}X`
+    const text = `${looseHeader}\n${SAMPLE_AUDIT_ROW}`
+    const players = parseAuditCsv(text)
+    expect(players).toHaveLength(1)
+    expect(players[0].fexerjId).toBe(100)
+  })
+
+  it('skips rows that are entirely empty cells', () => {
+    const emptyRow = Array(19).fill('').join(';')
+    const text = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}\n${emptyRow}`
+    const players = parseAuditCsv(text)
+    expect(players).toHaveLength(1)
+  })
+
   it('preserves row order', () => {
     const row2 =
       '101;Maria;2;1650;40;20;2;4;7200;1800;-150;0.5;2.0;-0.25;-5;1658;44;0.5;NORMAL'
@@ -85,6 +121,11 @@ describe('parseRatingListAfterCsv', () => {
     const text = `${RATING_LIST_HEADER}\n100;;M;João;1823;;;;;;55;;;`
     const m = parseRatingListAfterCsv(text)
     expect(m.get(100)).toBe(1823)
+  })
+
+  it('returns empty map when required columns are missing', () => {
+    const m = parseRatingListAfterCsv('Foo;Bar\n1;2')
+    expect(m.size).toBe(0)
   })
 })
 
@@ -119,6 +160,30 @@ describe('parseRunResult', () => {
   it('throws when ZIP has no audit CSVs', async () => {
     const blob = await zipFromEntries({ readme: 'x' })
     await expect(parseRunResult(blob, TOURNAMENTS_CSV)).rejects.toThrow(/nenhum Audit/)
+  })
+
+  it('finds audit files inside a nested folder in the ZIP', async () => {
+    const audit = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const z = new JSZip()
+    z.folder('out').file('Audit_of_Tournament_1.csv', audit)
+    const blob = await z.generateAsync({ type: 'blob' })
+    const result = await parseRunResult(blob, TOURNAMENTS_CSV)
+    expect(result.tournaments[0].players).toHaveLength(1)
+  })
+
+  it('wraps parseAuditCsv failures with tournament context', async () => {
+    const blob = await zipFromEntries({
+      'Audit_of_Tournament_1.csv': 'not-a-valid-audit\n',
+    })
+    await expect(parseRunResult(blob, TOURNAMENTS_CSV)).rejects.toThrow(/Audit_of_Tournament_1/)
+  })
+
+  it('uses Torneio ord when tournaments.csv has no row for that Ord', async () => {
+    const audit = `${AUDIT_FILE_HEADER}\n${SAMPLE_AUDIT_ROW}`
+    const blob = await zipFromEntries({ 'Audit_of_Tournament_7.csv': audit })
+    const result = await parseRunResult(blob, TOURNAMENTS_CSV)
+    expect(result.tournaments[0].ord).toBe(7)
+    expect(result.tournaments[0].name).toBe('Torneio 7')
   })
 
   it('audit Rn matches RatingList_after Rtg_Nat for every player (regression guard)', async () => {

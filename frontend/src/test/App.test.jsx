@@ -403,6 +403,26 @@ describe('Results page flow', () => {
 
     expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
   })
+
+  it('shows parse error banner when ZIP cannot be summarized but still allows download', async () => {
+    const emptyZipBlob = await new JSZip().generateAsync({ type: 'blob' })
+
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetchWithSuccessfulRun(emptyZipBlob)
+
+    await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByText(/não foi possível exibir o resumo/i)).toBeInTheDocument(),
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /baixar zip/i })).toBeEnabled(),
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

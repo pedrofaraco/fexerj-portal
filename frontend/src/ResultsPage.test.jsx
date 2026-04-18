@@ -133,4 +133,18 @@ describe('PlayerRow', () => {
     expect(btn).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText(/Jogos anteriores/i)).toBeInTheDocument()
   })
+
+  it('formats non-integer ratings and non-positive deltas', () => {
+    const player = {
+      ...RUN_RESULT_OK.tournaments[0].players[0],
+      oldRating: 1800.25,
+      newRating: 1802.75,
+      delta: -3.5,
+      calcRule: 'NORMAL',
+    }
+    render(<PlayerRow player={player} index={0} />)
+    expect(screen.getByText(/1800\.25/)).toBeInTheDocument()
+    expect(screen.getByText(/1802\.75/)).toBeInTheDocument()
+    expect(screen.getByText(/\(-3\.5\)/)).toBeInTheDocument()
+  })
 })
