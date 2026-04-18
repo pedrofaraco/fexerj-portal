@@ -433,11 +433,11 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
             </div>
           )}
 
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <button
               type="submit"
               disabled={!isReady || status === 'loading'}
-              className="btn-primary min-w-0 w-full disabled:opacity-50 disabled:cursor-not-allowed sm:flex-1 sm:w-auto"
+              className="btn-primary box-border min-h-[2.75rem] w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {status === 'loading' ? 'Executando…' : 'Executar'}
             </button>
@@ -445,7 +445,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
               type="button"
               onClick={onClearForm}
               disabled={status === 'loading'}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto shrink-0"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
             >
               Limpar formulário
             </button>
