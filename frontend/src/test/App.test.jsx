@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import JSZip from 'jszip'
 import App from '../App'
 import ErrorBoundary from '../ErrorBoundary'
+import { AUDIT_FILE_HEADER } from '../resultParser'
 
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
@@ -41,6 +43,48 @@ function binaryFile(name) {
   return new File([new Uint8Array([0x00, 0x01])], name, { type: 'application/octet-stream' })
 }
 
+const TOURNAMENTS_CSV_FIXTURE = `Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+1;99999;Copa Fixture;2025-01-01;RR;0;1`
+
+function tournamentsCsvFixtureFile() {
+  return new File([TOURNAMENTS_CSV_FIXTURE], 'tournaments.csv', { type: 'text/csv' })
+}
+
+async function fixtureRunZipBlob() {
+  const auditRow =
+    '100;João Silva;1;1800;50;25;3.5;5;8750;1750;50;0.59;2.95;0.55;13.75;1823;55;0.7;NORMAL'
+  const z = new JSZip()
+  z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${auditRow}`)
+  return z.generateAsync({ type: 'blob' })
+}
+
+function mockFetchWithSuccessfulRun(zipBlob) {
+  globalThis.fetch = vi.fn(url => {
+    if (url === '/me') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ok: true }),
+      })
+    }
+    if (url === '/validate') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ errors: [] }),
+      })
+    }
+    if (url === '/run') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        blob: () => Promise.resolve(zipBlob),
+      })
+    }
+    return new Promise(() => {})
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Interaction helpers
 // ---------------------------------------------------------------------------
@@ -55,9 +99,12 @@ async function login(user) {
   )
 }
 
-async function uploadAllFiles(user) {
+async function uploadAllFiles(user, { tournamentsFile } = {}) {
   await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-  await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+  await user.upload(
+    screen.getByLabelText(/arquivo de torneios/i),
+    tournamentsFile ?? csvFile('tournaments.csv'),
+  )
   await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /^executar$/i })).toBeEnabled()
@@ -295,6 +342,86 @@ describe('RunPage', () => {
   it('sign out button returns to the login page', async () => {
     await user.click(screen.getByRole('button', { name: /sair/i }))
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Results page flow
+// ---------------------------------------------------------------------------
+
+describe('Results page flow', () => {
+  it('shows results summary after successful run (no auto-download)', async () => {
+    const zipBlob = await fixtureRunZipBlob()
+
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetchWithSuccessfulRun(zipBlob)
+
+    await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /resultado do ciclo de rating/i })).toBeInTheDocument(),
+    )
+    expect(screen.getByText(/Copa Fixture/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /baixar zip/i })).toBeInTheDocument()
+  })
+
+  it('Nova execução returns to upload page with files preserved', async () => {
+    const zipBlob = await fixtureRunZipBlob()
+
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetchWithSuccessfulRun(zipBlob)
+
+    await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
+
+    submitRunForm()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /resultado do ciclo de rating/i })).toBeInTheDocument(),
+    )
+
+    await user.click(screen.getByRole('button', { name: /nova execução/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeEnabled()
+  })
+
+  it('Limpar formulário resets inputs and disables run', async () => {
+    mockFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
+
+    await user.click(screen.getByRole('button', { name: /limpar formulário/i }))
+
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+  })
+
+  it('shows parse error banner when ZIP cannot be summarized but still allows download', async () => {
+    const emptyZipBlob = await new JSZip().generateAsync({ type: 'blob' })
+
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetchWithSuccessfulRun(emptyZipBlob)
+
+    await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByText(/não foi possível exibir o resumo/i)).toBeInTheDocument(),
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /baixar zip/i })).toBeEnabled(),
+    )
   })
 })
 

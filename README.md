@@ -4,7 +4,7 @@ Web portal for the FEXERJ chess community — rating lists, player database, and
 
 ## Features
 
-- **Rating Cycle Runner** — Portuguese-language staff interface to upload tournament files, validate inputs, and download updated rating lists as a zip archive
+- **Rating Cycle Runner** — Portuguese-language staff interface to upload tournament files, validate inputs, view an on-screen summary of processed tournaments (players and audit-style details), and download the resulting ZIP when ready
 - Public rating lists and player database *(planned)*
 
 ## Tech Stack
