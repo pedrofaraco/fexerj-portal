@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 
+import BuildStamp from './BuildStamp'
+
 function formatRating(n) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'
   const r = Math.round(n * 100) / 100
@@ -215,6 +217,7 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
           </div>
         )}
       </main>
+      <BuildStamp />
     </div>
   )
 }
