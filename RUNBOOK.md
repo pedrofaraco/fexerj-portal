@@ -190,8 +190,13 @@ Manual rollback to a specific commit:
 
 ```bash
 cd fexerj-portal
-git checkout <commit-sha> -- .
-bash scripts/update.sh
+git fetch origin
+git reset --hard <commit-sha>
+source .venv/bin/activate
+pip install -r requirements.txt
+cd frontend && npm ci --silent && npm run build && cd ..
+sudo systemctl restart fexerj-portal
+sudo systemctl reload nginx
 ```
 
 ---
