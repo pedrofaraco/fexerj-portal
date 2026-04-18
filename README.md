@@ -24,7 +24,7 @@ frontend/     # React frontend (Vite)
 tests/        # Backend and validator test suite (pytest)
 ```
 
-**Calculator overview:** see `docs/calculator.md` for a plain-language walkthrough of the rating cycle,
+**Calculator overview:** see `calculator.md` for a plain-language walkthrough of the rating cycle,
 the Swiss Manager binary layout the code expects, how rating rules are chosen, and how to read the
 audit CSV.
 
