@@ -26,7 +26,12 @@ PREVIOUS_COMMIT="$(git rev-parse HEAD)"
 
 rollback() {
     info "Update failed — rolling back to ${PREVIOUS_COMMIT}..."
-    git checkout "${PREVIOUS_COMMIT}" -- .
+    # Use `git reset --hard` (not `git checkout <sha> -- .`) so HEAD actually
+    # moves back to the known-good commit. With `checkout -- .` only the
+    # working tree is rewritten; HEAD stays at the broken commit, which
+    # leaves `git log` misleading and causes the next `git pull` to see
+    # the reverted files as local "modifications" to re-apply.
+    git reset --hard "${PREVIOUS_COMMIT}"
     # shellcheck source=/dev/null
     source .venv/bin/activate
     pip install --quiet -r requirements.txt
