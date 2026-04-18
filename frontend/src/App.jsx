@@ -17,6 +17,9 @@ const INITIAL_FORM = {
 export default function App() {
   const [credentials, setCredentials] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
+  // Bumped whenever the form is cleared so file inputs remount and
+  // actually drop their selected filenames (file inputs are uncontrolled).
+  const [formResetKey, setFormResetKey] = useState(0)
   const [status, setStatus] = useState('idle') // idle | loading | error
   const [runErrors, setRunErrors] = useState([])
   const [validationErrors, setValidationErrors] = useState([])
@@ -256,7 +259,16 @@ export default function App() {
       validationStatus={validationStatus}
       onRun={handleRun}
       onLogout={handleLogout}
-      onClearForm={() => setForm(INITIAL_FORM)}
+      onClearForm={() => {
+        setForm(INITIAL_FORM)
+        setValidationErrors([])
+        setValidationRequestError('')
+        setValidationStatus('idle')
+        setRunErrors([])
+        setStatus('idle')
+        setFormResetKey(k => k + 1)
+      }}
+      formResetKey={formResetKey}
     />
   )
 }
@@ -311,7 +323,7 @@ LoginPage.propTypes = {
 // Run page
 // ---------------------------------------------------------------------------
 
-function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout, onClearForm }) {
+function RunPage({ form, setForm, status, runErrors, validationErrors, validationRequestError, validationStatus, onRun, onLogout, onClearForm, formResetKey }) {
   const isReady =
     form.playersCsv &&
     form.tournamentsCsv &&
@@ -345,6 +357,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
         <form onSubmit={onRun} className="flex flex-col gap-6">
           <Field label="Lista de Jogadores" hint="players.csv — lista de rating inicial">
             <input
+              key={`players-${formResetKey}`}
               type="file"
               accept=".csv"
               required
@@ -355,6 +368,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
 
           <Field label="Arquivo de Torneios" hint="tournaments.csv — lista de torneios a processar">
             <input
+              key={`tournaments-${formResetKey}`}
               type="file"
               accept=".csv"
               required
@@ -365,6 +379,7 @@ function RunPage({ form, setForm, status, runErrors, validationErrors, validatio
 
           <Field label="Arquivos Binários" hint=".TUNX / .TURX / .TUMX — um ou mais arquivos">
             <input
+              key={`binaries-${formResetKey}`}
               type="file"
               accept=".TUNX,.TURX,.TUMX"
               multiple
@@ -478,6 +493,7 @@ RunPage.propTypes = {
   onRun: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
   onClearForm: PropTypes.func.isRequired,
+  formResetKey: PropTypes.number.isRequired,
 }
 
 // ---------------------------------------------------------------------------

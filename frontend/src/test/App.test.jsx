@@ -399,9 +399,19 @@ describe('Results page flow', () => {
     await login(user)
     await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
 
+    const playersInput = screen.getByLabelText(/lista de jogadores/i)
+    const tournamentsInput = screen.getByLabelText(/arquivo de torneios/i)
+    const binariesInput = screen.getByLabelText(/arquivos binários/i)
+    expect(playersInput.files).toHaveLength(1)
+    expect(tournamentsInput.files).toHaveLength(1)
+    expect(binariesInput.files).toHaveLength(1)
+
     await user.click(screen.getByRole('button', { name: /limpar formulário/i }))
 
     expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+    expect(screen.getByLabelText(/lista de jogadores/i).files).toHaveLength(0)
+    expect(screen.getByLabelText(/arquivo de torneios/i).files).toHaveLength(0)
+    expect(screen.getByLabelText(/arquivos binários/i).files).toHaveLength(0)
   })
 
   it('shows parse error banner when ZIP cannot be summarized but still allows download', async () => {
