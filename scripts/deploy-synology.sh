@@ -70,24 +70,34 @@ if [[ -n "${PREVIOUS_COMMIT}" ]]; then
 fi
 
 rollback_nas() {
-    # If a rollback step fails, ``set -e`` exits immediately: the NAS may be
-    # left inconsistent and the shell exit code reflects the rollback failure,
-    # not ``exit_code`` below.
-    local exit_code=$?
-    trap - ERR
+    local original_exit=$?
+    trap - ERR # prevent recursive invocation
+
     if [[ -z "${PREVIOUS_COMMIT}" ]]; then
-        echo "[ERROR] Deploy failed (exit ${exit_code}). No prior Git commit to roll back to." >&2
-        echo "[ERROR] Inspect ${DEPLOY_DIR} on the NAS (typical on first install if clone/npm/Docker failed)." >&2
-        exit "${exit_code}"
+        echo "" >&2
+        echo "[ERROR] Deploy failed (exit ${original_exit}). No prior commit to roll back to." >&2
+        echo "[ERROR] Inspect ${DEPLOY_DIR} on the NAS (typical on first install)." >&2
+        exit "${original_exit}"
     fi
-    info "Deploy failed (exit ${exit_code}) — rolling back to ${PREVIOUS_COMMIT}..."
-    nas_ssh "set -euo pipefail; cd ${DEPLOY_DIR}; git reset --hard ${PREVIOUS_COMMIT}"
-    info "Rebuilding frontend at rolled-back revision..."
-    nas_ssh "set -euo pipefail; cd ${DEPLOY_DIR}/frontend; npm ci --silent; npm run build"
-    info "Restarting Docker stack after rollback..."
-    nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
-    echo "[ERROR] Rollback complete; previous revision is restored. Original deploy failed (exit ${exit_code})." >&2
-    exit "${exit_code}"
+
+    echo "" >&2
+    echo "[INFO]  Deploy failed (exit ${original_exit}) — rolling back to ${PREVIOUS_COMMIT}..." >&2
+
+    if ! nas_ssh "set -euo pipefail; cd ${DEPLOY_DIR}; git reset --hard ${PREVIOUS_COMMIT}"; then
+        echo "[ERROR] Rollback: git reset --hard failed. NAS may be inconsistent." >&2
+        echo "[ERROR] Manual intervention required." >&2
+        exit "${original_exit}"
+    fi
+
+    echo "[INFO]  Restarting Docker stack at rolled-back revision..." >&2
+    if ! nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"; then
+        echo "[ERROR] Rollback: docker compose up failed. Service may be down." >&2
+        echo "[ERROR] Manual intervention required." >&2
+        exit "${original_exit}"
+    fi
+
+    echo "[ERROR] Rollback complete; previous revision restored. Original deploy failed (exit ${original_exit})." >&2
+    exit "${original_exit}"
 }
 
 # ── First-run credential setup ────────────────────────────────────────────────

@@ -25,23 +25,50 @@ cd "${REPO_DIR}"
 PREVIOUS_COMMIT="$(git rev-parse HEAD)"
 
 rollback() {
-    info "Update failed — rolling back to ${PREVIOUS_COMMIT}..."
+    local original_exit=$?
+    trap - ERR # prevent recursive invocation if a rollback step itself fails
+
+    echo "" >&2
+    echo "[ERROR] Update failed (exit ${original_exit}) — rolling back to ${PREVIOUS_COMMIT}..." >&2
+
     # Use `git reset --hard` (not `git checkout <sha> -- .`) so HEAD actually
     # moves back to the known-good commit. With `checkout -- .` only the
     # working tree is rewritten; HEAD stays at the broken commit, which
     # leaves `git log` misleading and causes the next `git pull` to see
     # the reverted files as local "modifications" to re-apply.
-    git reset --hard "${PREVIOUS_COMMIT}"
+    if ! git reset --hard "${PREVIOUS_COMMIT}"; then
+        echo "[ERROR] Rollback: git reset --hard failed. Working tree may be inconsistent." >&2
+        echo "[ERROR] Manual intervention required." >&2
+        exit "${original_exit}"
+    fi
+
     # shellcheck source=/dev/null
-    source .venv/bin/activate
-    pip install --quiet -r requirements.txt
-    cd "${REPO_DIR}/frontend"
-    npm ci --silent
-    npm run build
-    cd "${REPO_DIR}"
-    sudo systemctl restart "${SERVICE_NAME}"
-    sudo systemctl reload nginx
-    info "Rollback complete. Previous version restored."
+    if ! source .venv/bin/activate; then
+        echo "[ERROR] Rollback: could not activate venv. Manual intervention required." >&2
+        exit "${original_exit}"
+    fi
+
+    if ! pip install --quiet -r requirements.txt; then
+        echo "[WARN]  Rollback: pip install failed — service may run with stale dependencies." >&2
+    fi
+
+    if ! (cd "${REPO_DIR}/frontend" && npm ci --silent && npm run build); then
+        echo "[WARN]  Rollback: frontend rebuild failed — users may see stale UI." >&2
+    fi
+
+    if ! sudo systemctl restart "${SERVICE_NAME}"; then
+        echo "[ERROR] Rollback: service restart failed. Service is likely down." >&2
+        echo "[ERROR] Manual intervention required." >&2
+        exit "${original_exit}"
+    fi
+
+    if ! sudo systemctl reload nginx; then
+        echo "[WARN]  Rollback: nginx reload failed — config may be stale." >&2
+    fi
+
+    echo "[INFO]  Rollback complete. Previous version restored." >&2
+    echo "[ERROR] Original update failed (exit ${original_exit})." >&2
+    exit "${original_exit}"
 }
 
 trap rollback ERR

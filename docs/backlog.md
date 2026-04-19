@@ -4,6 +4,7 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 
 ## Recently shipped (do not re-track)
 
+- **Deploy scripts**: **`scripts/update.sh`** **`rollback()`** and **`scripts/deploy-synology.sh`** **`rollback_nas()`** preserve the **original deploy exit code**, clear **`ERR`** trap recursion, classify strict vs best-effort steps; NAS rollback no longer runs redundant **`npm ci`/`build`** (frontend is built in Docker multi-stage image).
 - **`calculator/`**: **`print()`** replaced with **`logging`** (warnings via **`logger.warning`**; correlated with backend JSON logs in production).
 - **Frontend**: **`X-Request-ID`** surfaced on amber/red operator error banners (validation HTTP/parse failures, run HTTP errors, ZIP parse failures on results) with copy-to-clipboard — greppable server logs.
 - **Frontend**: `App.jsx` split into pages/hooks/components; **`postMultipart`** + UTF-8 Basic auth; debounced validation.
