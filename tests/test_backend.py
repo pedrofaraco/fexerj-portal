@@ -1,4 +1,5 @@
 """Tests for the FastAPI backend (/health, /me, /validate, and /run endpoints)."""
+import asyncio
 import io
 import pathlib
 import re
@@ -11,7 +12,7 @@ from fastapi.testclient import TestClient
 
 import backend.main as main_module
 from backend.config import settings
-from backend.main import app
+from backend.main import _RunConcurrencyGuard, app
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
 TURX_DATA = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
@@ -35,6 +36,14 @@ TOURNAMENTS_CSV = textwrap.dedent("""\
 VALID_AUTH = (settings.portal_user, settings.portal_password)
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _reset_singleton_run_guard():
+    """Keep module-level `_run_busy` idle between tests (covers 503 paths that skip `leave`)."""
+    main_module._run_busy._busy = False
+    yield
+    main_module._run_busy._busy = False
 
 
 @pytest.fixture
@@ -131,6 +140,50 @@ class TestHealthEndpoint:
         """Health endpoint must be publicly accessible for uptime monitoring."""
         response = client.get("/health")
         assert response.status_code == 200
+
+
+class TestRunConcurrencyGuard:
+    def test_guard_try_enter_fails_while_held(self):
+        async def exercise():
+            guard = _RunConcurrencyGuard()
+            assert await guard.try_enter() is True
+            assert await guard.try_enter() is False
+            await guard.leave()
+            assert await guard.try_enter() is True
+            await guard.leave()
+
+        asyncio.run(exercise())
+
+    def test_returns_503_when_run_already_in_progress(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert response.status_code == 503
+
+    def test_503_includes_retry_after_header(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert response.headers.get("retry-after") is not None
+
+    def test_503_detail_mentions_execution_in_progress(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert "andamento" in response.json()["detail"]
+
+    def test_run_clears_busy_flag_after_success(self):
+        _post_run()
+        assert main_module._run_busy._busy is False
+
+    def test_run_clears_busy_flag_after_error(self, monkeypatch):
+        class _FailingCycle:
+            def __init__(self, **kwargs):
+                pass
+
+            def run_cycle(self):
+                raise ValueError("boom")
+
+        monkeypatch.setattr(main_module, "FexerjRatingCycle", _FailingCycle)
+        _post_run()
+        assert main_module._run_busy._busy is False
 
 
 # ---------------------------------------------------------------------------
