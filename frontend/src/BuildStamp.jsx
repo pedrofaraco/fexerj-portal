@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 
 import CopyIcon from './components/CopyIcon'
-import { BUILD_COMMIT } from './buildMeta'
+import { BUILD_COMMIT, FRONTEND_SNAPSHOT } from './buildMeta'
 import { formatBuildStampClipboard } from './buildStampClipboard'
 import { fetchServerDate } from './buildStampServerTime'
 import { formatInstantEastern } from './buildStampTime'
@@ -32,7 +32,7 @@ export default function BuildStamp({ className = '' }) {
   const serverWhen = serverInstant ? formatInstantEastern(serverInstant) : '—'
 
   const handleCopy = useCallback(async () => {
-    const text = formatBuildStampClipboard(BUILD_COMMIT)
+    const text = formatBuildStampClipboard(FRONTEND_SNAPSHOT, BUILD_COMMIT)
 
     try {
       await navigator.clipboard.writeText(text)
@@ -58,16 +58,16 @@ export default function BuildStamp({ className = '' }) {
   return (
     <footer
       className={`build-stamp ${className}`.trim()}
-      title="Identificador do código do frontend (commit Git curto). O mesmo valor em UAT e prod indica o mesmo bundle. Server Time = cabeçalho HTTP Date (ET)."
+      title={`Árvore frontend (HEAD:frontend). O mesmo valor em UAT e prod indica os mesmos ficheiros na pasta frontend — mesmo quando o commit Git do branch differe. Commit atual: ${BUILD_COMMIT}. Server Time = cabeçalho HTTP Date (ET).`}
     >
       <div className="build-stamp-left">
         <span className="build-stamp-label">Frontend</span>{' '}
-        <span className="build-stamp-mono">{BUILD_COMMIT}</span>
+        <span className="build-stamp-mono">{FRONTEND_SNAPSHOT}</span>
         <button
           type="button"
           className="build-stamp-copy-btn"
           onClick={handleCopy}
-          aria-label="Copiar identificador do frontend (hash do commit)"
+          aria-label="Copiar identificador da árvore frontend e do commit"
         >
           <CopyIcon />
         </button>

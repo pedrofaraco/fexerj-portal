@@ -96,7 +96,7 @@ rollback_nas() {
     fi
 
     echo "[INFO]  Restarting Docker stack at rolled-back revision..." >&2
-    if ! nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; export BUILD_COMMIT=\$(git rev-parse --short HEAD); docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"; then
+    if ! nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; export BUILD_COMMIT=\$(git rev-parse --short HEAD); export BUILD_FRONTEND_SNAPSHOT=\$(git rev-parse --short HEAD:frontend); docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"; then
         echo "[ERROR] Rollback: docker compose up failed. Service may be down." >&2
         echo "[ERROR] Manual intervention required." >&2
         exit "${original_exit}"
@@ -161,7 +161,7 @@ nas_ssh "
 # ── Build and restart containers ──────────────────────────────────────────────
 
 info "Building and starting Docker containers..."
-nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; export BUILD_COMMIT=\$(git rev-parse --short HEAD); docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
+nas_ssh_sudo "bash -lc 'export PATH=${NAS_PATH}; set -euo pipefail; cd ${DEPLOY_DIR}; export BUILD_COMMIT=\$(git rev-parse --short HEAD); export BUILD_FRONTEND_SNAPSHOT=\$(git rev-parse --short HEAD:frontend); docker compose -f ${COMPOSE_FILE} -p ${PROJECT_NAME} up -d --build'"
 
 trap - ERR
 
