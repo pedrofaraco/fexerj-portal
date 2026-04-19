@@ -18,7 +18,7 @@ htmlcov
 # Tests and docs (not used by backend image)
 tests/
 
-# Frontend (not COPY'd by current Dockerfile; keeps build context small for future multi-stage)
+# Frontend — backend image does not COPY these; nginx image builds from frontend/ via docker/Dockerfile.nginx
 frontend/node_modules
 frontend/dist
 
