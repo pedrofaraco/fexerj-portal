@@ -1,9 +1,12 @@
 import csv
 import io
+import logging
 import math
 from enum import Enum
 
 from .tunx_parser import parse_tunx_from_bytes
+
+logger = logging.getLogger(__name__)
 
 _CSV_DELIMITER = ';'
 _RATING_LIST_HEADER = 'Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating' \
@@ -302,7 +305,10 @@ class TournamentPlayer:
         elif self.this_games == 7:
             return self.this_points_above_expected >= 2.16
         else:
-            print("WARNING: Unknown condition for RP rule with more than 7 games. Assuming FALSE for Rating Performance.")
+            logger.warning(
+                "Unknown condition for RP rule: this_games=%d (>7). Assuming FALSE for Rating Performance.",
+                self.this_games,
+            )
             return False
 
     def check_double_k_rule(self):
@@ -317,7 +323,10 @@ class TournamentPlayer:
         elif self.this_games == 7:
             return self.this_points_above_expected >= 1.69
         else:
-            print("WARNING: Unknown condition for DK rule with more than 7 games. Assuming FALSE for Double K.")
+            logger.warning(
+                "Unknown condition for DK rule: this_games=%d (>7). Assuming FALSE for Double K.",
+                self.this_games,
+            )
             return False
 
     def get_current_k(self):
