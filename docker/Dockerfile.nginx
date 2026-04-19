@@ -6,6 +6,9 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+# No .git in context — bake commit from host (compose / deploy sets BUILD_COMMIT).
+ARG BUILD_COMMIT=
+ENV BUILD_COMMIT=${BUILD_COMMIT}
 RUN npm run build
 
 # Stage 2 — serve with nginx
