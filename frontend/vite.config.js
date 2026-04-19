@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import { dirname } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -9,6 +10,9 @@ import tailwindcss from '@tailwindcss/vite'
 const frontendDir = dirname(fileURLToPath(import.meta.url))
 
 function gitCommitShort() {
+  const fromEnv = process.env.BUILD_COMMIT?.trim()
+  if (fromEnv) return fromEnv
+
   try {
     return execSync('git rev-parse --short HEAD', {
       encoding: 'utf8',
