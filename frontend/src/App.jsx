@@ -26,13 +26,17 @@ export default function App() {
 
   const clearCredentials = useCallback(() => setCredentials(null), [])
 
-  const { validationErrors, validationRequestError, validationStatus } = useCycleValidation(
-    form,
-    credentials,
-    { onAuthError: clearCredentials, debounceMs: import.meta.env.MODE === 'test' ? 0 : 300 },
-  )
+  const {
+    validationErrors,
+    validationRequestError,
+    validationRequestId,
+    validationStatus,
+  } = useCycleValidation(form, credentials, {
+    onAuthError: clearCredentials,
+    debounceMs: import.meta.env.MODE === 'test' ? 0 : 300,
+  })
 
-  const { handleRun, status, runErrors, runResult, clearRunResult, abort } = useRunCycle(
+  const { handleRun, status, runErrors, runRequestId, runResult, clearRunResult, abort } = useRunCycle(
     form,
     credentials,
     { onAuthError: clearCredentials },
@@ -95,7 +99,9 @@ export default function App() {
       runErrors={runErrors}
       validationErrors={validationErrors}
       validationRequestError={validationRequestError}
+      validationRequestId={validationRequestId ?? undefined}
       validationStatus={validationStatus}
+      runRequestId={runRequestId ?? undefined}
       onRun={handleRun}
       onLogout={handleLogout}
       onClearForm={() => {

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import BuildStamp from '../BuildStamp'
 import Field from '../components/Field'
 import HelpSection from '../components/HelpSection'
+import RequestIdLine from '../components/RequestIdLine'
 
 export default function RunPage({
   form,
@@ -11,7 +12,9 @@ export default function RunPage({
   runErrors,
   validationErrors,
   validationRequestError,
+  validationRequestId,
   validationStatus,
+  runRequestId,
   onRun,
   onLogout,
   onClearForm,
@@ -111,6 +114,7 @@ export default function RunPage({
             <div className="alert-error" role="alert">
               <p className="alert-title">Não foi possível validar os arquivos</p>
               <p className="m-0">{validationRequestError}</p>
+              {validationRequestId && <RequestIdLine requestId={validationRequestId} />}
             </div>
           )}
 
@@ -139,6 +143,7 @@ export default function RunPage({
                   </ul>
                 </>
               )}
+              {runRequestId && <RequestIdLine requestId={runRequestId} />}
             </div>
           )}
 
@@ -179,7 +184,9 @@ RunPage.propTypes = {
   runErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
   validationErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
   validationRequestError: PropTypes.string.isRequired,
+  validationRequestId: PropTypes.string,
   validationStatus: PropTypes.oneOf(['idle', 'checking', 'done', 'failed']).isRequired,
+  runRequestId: PropTypes.string,
   onRun: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
   onClearForm: PropTypes.func.isRequired,

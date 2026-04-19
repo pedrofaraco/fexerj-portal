@@ -4,6 +4,8 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 
 ## Recently shipped (do not re-track)
 
+- **`calculator/`**: **`print()`** replaced with **`logging`** (warnings via **`logger.warning`**; correlated with backend JSON logs in production).
+- **Frontend**: **`X-Request-ID`** surfaced on amber/red operator error banners (validation HTTP/parse failures, run HTTP errors, ZIP parse failures on results) with copy-to-clipboard — greppable server logs.
 - **Frontend**: `App.jsx` split into pages/hooks/components; **`postMultipart`** + UTF-8 Basic auth; debounced validation.
 - **Backend / edge**: **`limit_upload_body`** documents chunked / missing `Content-Length` path; nginx **`limit_req`** on `/validate` and `/run`; **`POST /run`** single-flight (**503** + **`Retry-After`**).
 - **Nginx / Docker**: full **CSP** + **`X-XSS-Protection: 0`**; **multi-stage** `docker/Dockerfile.nginx`; backend **HEALTHCHECK**; compose **`depends_on: service_healthy`** (no bind-mount `dist`).
@@ -11,8 +13,7 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 
 ## Next — production hygiene (recommended order)
 
-1. **`calculator/`**: replace **`print()`** with **`logging`** (structured, correlatable with backend JSON logs in production).
-2. **Frontend**: surface **`X-Request-ID`** (from response headers) on **amber/red error banners** so operators can grep logs.
+_No open P1/P2 hygiene items._
 
 ## P3 — UX and accessibility (lower urgency)
 
