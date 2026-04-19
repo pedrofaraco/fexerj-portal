@@ -5,6 +5,10 @@ import Field from '../components/Field'
 import HelpSection from '../components/HelpSection'
 import RequestIdLine from '../components/RequestIdLine'
 
+// Upload limit — keep in sync with PORTAL_MAX_UPLOAD_MEGABYTES (backend/config.py)
+// and client_max_body_size (docker/nginx.conf). Applies to the full request body.
+const MAX_UPLOAD_MB = 100
+
 export default function RunPage({
   form,
   setForm,
@@ -70,7 +74,10 @@ export default function RunPage({
             />
           </Field>
 
-          <Field label="Arquivos Binários" hint=".TUNX / .TURX / .TUMX — um ou mais arquivos">
+          <Field
+            label="Arquivos Binários"
+            hint={`.TUNX / .TURX / .TUMX — um ou mais arquivos · máx. ${MAX_UPLOAD_MB} MB no total`}
+          >
             <input
               key={`binaries-${formResetKey}`}
               type="file"
