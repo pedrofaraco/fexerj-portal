@@ -18,6 +18,7 @@ export default defineConfig([
       globals: {
         ...globals.browser,
         __BUILD_COMMIT__: 'readonly',
+        __FRONTEND_SNAPSHOT__: 'readonly',
         __BUILD_TIME__: 'readonly',
       },
       parserOptions: {
