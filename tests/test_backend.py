@@ -1,4 +1,5 @@
 """Tests for the FastAPI backend (/health, /me, /validate, and /run endpoints)."""
+import asyncio
 import io
 import pathlib
 import re
@@ -11,7 +12,7 @@ from fastapi.testclient import TestClient
 
 import backend.main as main_module
 from backend.config import settings
-from backend.main import app
+from backend.main import _RunConcurrencyGuard, app
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
 TURX_DATA = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
@@ -131,6 +132,19 @@ class TestHealthEndpoint:
         """Health endpoint must be publicly accessible for uptime monitoring."""
         response = client.get("/health")
         assert response.status_code == 200
+
+
+class TestRunConcurrencyGuard:
+    def test_try_enter_second_call_returns_false_until_leave(self):
+        async def exercise():
+            guard = _RunConcurrencyGuard()
+            assert await guard.try_enter() is True
+            assert await guard.try_enter() is False
+            await guard.leave()
+            assert await guard.try_enter() is True
+            await guard.leave()
+
+        asyncio.run(exercise())
 
 
 # ---------------------------------------------------------------------------

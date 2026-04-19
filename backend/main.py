@@ -10,6 +10,7 @@ Exposes authenticated endpoints:
   returns a zip archive containing one rating-list CSV and one audit CSV per
   processed tournament.
 """
+import asyncio
 import io
 import logging
 import secrets
@@ -39,6 +40,30 @@ _security = HTTPBasic(auto_error=False)
 _UPLOAD_PATHS = frozenset({"/validate", "/run"})
 
 
+class _RunConcurrencyGuard:
+    """At most one concurrent POST /run; additional requests fail fast with 503."""
+
+    __slots__ = ("_busy", "_lock")
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._busy = False
+
+    async def try_enter(self) -> bool:
+        async with self._lock:
+            if self._busy:
+                return False
+            self._busy = True
+            return True
+
+    async def leave(self) -> None:
+        async with self._lock:
+            self._busy = False
+
+
+_run_busy = _RunConcurrencyGuard()
+
+
 @app.middleware("http")
 async def limit_upload_body(request: Request, call_next):
     """Reject oversized multipart uploads before the body is fully parsed."""
@@ -47,6 +72,10 @@ async def limit_upload_body(request: Request, call_next):
     max_bytes = settings.portal_max_upload_bytes
     cl = request.headers.get("content-length")
     if cl is None:
+        # Chunked transfer or missing Content-Length: nginx enforces
+        # client_max_body_size upstream, so this path is unreachable in the
+        # docker nginx→backend topology. Keeps defense-in-depth for direct
+        # backend access (e.g. tests, local dev without nginx).
         return await call_next(request)
     try:
         content_length = int(cl)
@@ -184,74 +213,83 @@ async def run(
     is **422** with ``detail`` set to the **full list** of error strings, not
     only the first one.
     """
-    logger.info(
-        "POST /run — first=%d count=%d files=%d",
-        first,
-        count,
-        len(binary_files),
-        extra={
-            "event": "run_start",
-            "path": "/run",
-            "first": first,
-            "count": count,
-            "binary_file_count": len(binary_files),
-        },
-    )
-    players_content = (await players_csv.read()).decode("utf-8-sig")
-    tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
-
-    binary_files_dict: dict[str, bytes] = {
-        f.filename: await f.read() for f in binary_files if f.filename is not None
-    }
-
-    errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
-    if errors:
+    if not await _run_busy.try_enter():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=errors,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Uma execução já está em andamento. Tente novamente em instantes.",
+            headers={"Retry-After": "5"},
         )
-
     try:
-        cycle = FexerjRatingCycle(
-            tournaments_csv=tournaments_content,
-            first_item=first,
-            items_to_process=count,
-            initial_rating_csv=players_content,
-            binary_files=binary_files_dict,
+        logger.info(
+            "POST /run — first=%d count=%d files=%d",
+            first,
+            count,
+            len(binary_files),
+            extra={
+                "event": "run_start",
+                "path": "/run",
+                "first": first,
+                "count": count,
+                "binary_file_count": len(binary_files),
+            },
         )
-        output_files = cycle.run_cycle()
-    except ValueError as e:
-        logger.error(
-            "Erro no ciclo de rating: %s",
-            e,
-            exc_info=True,
-            extra={"event": "rating_cycle_failed", "path": "/run"},
+        players_content = (await players_csv.read()).decode("utf-8-sig")
+        tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
+
+        binary_files_dict: dict[str, bytes] = {
+            f.filename: await f.read() for f in binary_files if f.filename is not None
+        }
+
+        errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
+        if errors:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=errors,
+            )
+
+        try:
+            cycle = FexerjRatingCycle(
+                tournaments_csv=tournaments_content,
+                first_item=first,
+                items_to_process=count,
+                initial_rating_csv=players_content,
+                binary_files=binary_files_dict,
+            )
+            output_files = cycle.run_cycle()
+        except ValueError as e:
+            logger.error(
+                "Erro no ciclo de rating: %s",
+                e,
+                exc_info=True,
+                extra={"event": "rating_cycle_failed", "path": "/run"},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Erro ao processar ciclo de rating: {e}",
+            ) from e
+
+        if not output_files:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Nenhum torneio encontrado no intervalo primeiro={first}, quantidade={count}.",
+            )
+
+        logger.info(
+            "POST /run — ciclo concluído, %d arquivo(s) gerados",
+            len(output_files),
+            extra={"event": "run_done", "path": "/run", "output_file_count": len(output_files)},
         )
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Erro ao processar ciclo de rating: {e}",
-        ) from e
 
-    if not output_files:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Nenhum torneio encontrado no intervalo primeiro={first}, quantidade={count}.",
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for filename, content in output_files.items():
+                zf.writestr(filename, content)
+        zip_buffer.seek(0)
+
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=rating_cycle_output.zip"},
         )
-
-    logger.info(
-        "POST /run — ciclo concluído, %d arquivo(s) gerados",
-        len(output_files),
-        extra={"event": "run_done", "path": "/run", "output_file_count": len(output_files)},
-    )
-
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for filename, content in output_files.items():
-            zf.writestr(filename, content)
-    zip_buffer.seek(0)
-
-    return StreamingResponse(
-        zip_buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=rating_cycle_output.zip"},
-    )
+    finally:
+        await _run_busy.leave()
