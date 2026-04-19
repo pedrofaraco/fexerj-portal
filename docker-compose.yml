@@ -12,6 +12,7 @@ services:
       dockerfile: docker/Dockerfile.nginx
       args:
         BUILD_COMMIT: ${BUILD_COMMIT:-}
+        BUILD_FRONTEND_SNAPSHOT: ${BUILD_FRONTEND_SNAPSHOT:-}
     ports:
       - "8090:80"
     depends_on:

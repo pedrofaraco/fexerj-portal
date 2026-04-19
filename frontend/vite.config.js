@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -23,6 +23,25 @@ function gitCommitShort() {
   }
 }
 
+/**
+ * Short hash of the Git tree for `frontend/` at HEAD — same on UAT and prod when
+ * that folder matches, even if branch tips (commit SHAs) differ.
+ */
+function frontendTreeSnapshotShort() {
+  const fromEnv = process.env.BUILD_FRONTEND_SNAPSHOT?.trim()
+  if (fromEnv) return fromEnv
+
+  const repoRoot = join(frontendDir, '..')
+  try {
+    return execSync('git rev-parse --short HEAD:frontend', {
+      encoding: 'utf8',
+      cwd: repoRoot,
+    }).trim()
+  } catch {
+    return 'unknown'
+  }
+}
+
 /** Injects git SHA + ISO time so the UI can show which bundle is running. */
 function injectBuildMeta() {
   return {
@@ -32,6 +51,7 @@ function injectBuildMeta() {
       config.define = {
         ...config.define,
         __BUILD_COMMIT__: JSON.stringify(gitCommitShort()),
+        __FRONTEND_SNAPSHOT__: JSON.stringify(frontendTreeSnapshotShort()),
         __BUILD_TIME__: JSON.stringify(buildTime),
       }
     },

@@ -37,7 +37,7 @@ describe('BuildStamp', () => {
     })
 
     await user.click(
-      screen.getByRole('button', { name: /copiar identificador do frontend/i }),
+      screen.getByRole('button', { name: /copiar identificador da árvore frontend/i }),
     )
 
     await waitFor(() => {
@@ -61,7 +61,7 @@ describe('BuildStamp', () => {
 
     try {
       await user.click(
-        screen.getByRole('button', { name: /copiar identificador do frontend/i }),
+        screen.getByRole('button', { name: /copiar identificador da árvore frontend/i }),
       )
 
       await waitFor(() => {
