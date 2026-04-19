@@ -1,4 +1,5 @@
 """Tests for the FastAPI backend (/health, /me, /validate, and /run endpoints)."""
+import asyncio
 import io
 import pathlib
 import re
@@ -11,7 +12,7 @@ from fastapi.testclient import TestClient
 
 import backend.main as main_module
 from backend.config import settings
-from backend.main import app
+from backend.main import _RunConcurrencyGuard, app
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
 TURX_DATA = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
@@ -35,6 +36,14 @@ TOURNAMENTS_CSV = textwrap.dedent("""\
 VALID_AUTH = (settings.portal_user, settings.portal_password)
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _reset_singleton_run_guard():
+    """Keep module-level `_run_busy` idle between tests (covers 503 paths that skip `leave`)."""
+    main_module._run_busy._busy = False
+    yield
+    main_module._run_busy._busy = False
 
 
 @pytest.fixture
@@ -73,11 +82,17 @@ def _post_run(players=PLAYERS_CSV, tournaments=TOURNAMENTS_CSV,
     )
 
 
-def _parse_csv_from_zip(zip_bytes, filename):
-    """Return data rows (header excluded) as semicolon-split lists."""
+def _parse_csv_from_zip(zip_bytes, filename, *, skip_lines=1):
+    """Return data rows (header excluded) as semicolon-split lists.
+
+    Args:
+        zip_bytes: Full zip file bytes.
+        filename: Entry name inside the zip.
+        skip_lines: Number of leading lines to skip (1 for normal CSV header, 2 for audit preamble+header).
+    """
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         content = zf.read(filename).decode()
-    return [line.split(';') for line in content.splitlines()[1:] if line]
+    return [line.split(';') for line in content.splitlines()[skip_lines:] if line]
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +140,50 @@ class TestHealthEndpoint:
         """Health endpoint must be publicly accessible for uptime monitoring."""
         response = client.get("/health")
         assert response.status_code == 200
+
+
+class TestRunConcurrencyGuard:
+    def test_guard_try_enter_fails_while_held(self):
+        async def exercise():
+            guard = _RunConcurrencyGuard()
+            assert await guard.try_enter() is True
+            assert await guard.try_enter() is False
+            await guard.leave()
+            assert await guard.try_enter() is True
+            await guard.leave()
+
+        asyncio.run(exercise())
+
+    def test_returns_503_when_run_already_in_progress(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert response.status_code == 503
+
+    def test_503_includes_retry_after_header(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert response.headers.get("retry-after") is not None
+
+    def test_503_detail_mentions_execution_in_progress(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert "andamento" in response.json()["detail"]
+
+    def test_run_clears_busy_flag_after_success(self):
+        _post_run()
+        assert main_module._run_busy._busy is False
+
+    def test_run_clears_busy_flag_after_error(self, monkeypatch):
+        class _FailingCycle:
+            def __init__(self, **kwargs):
+                pass
+
+            def run_cycle(self):
+                raise ValueError("boom")
+
+        monkeypatch.setattr(main_module, "FexerjRatingCycle", _FailingCycle)
+        _post_run()
+        assert main_module._run_busy._busy is False
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +377,13 @@ class TestRunSuccess:
         response = _post_run()
         with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
             content = zf.read("Audit_of_Tournament_1.csv").decode()
-        assert content.splitlines()[0].startswith("Id_Fexerj")
+        assert content.splitlines()[1].startswith("Id_Fexerj")
+
+    def test_audit_has_version_preamble(self):
+        response = _post_run()
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            content = zf.read("Audit_of_Tournament_1.csv").decode()
+        assert content.splitlines()[0] == "# audit_v1"
 
     def test_bom_encoded_csv_is_accepted(self):
         """utf-8-sig BOM prefix (common in Windows-exported CSVs) must be handled."""
@@ -375,14 +440,14 @@ class TestRunRatingValues:
     def test_audit_each_player_played_at_least_one_game(self):
         """Every player in a round-robin must have at least one valid rated game (N >= 1)."""
         response = _post_run()
-        rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv")
+        rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv", skip_lines=2)
         for row in rows:
             assert int(row[7]) >= 1  # N column: valid games in this tournament
 
     def test_new_total_games_exceeds_prior_for_active_players(self):
         """Players with valid games must have a higher game count in the output rating list."""
         response = _post_run()
-        audit_rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv")
+        audit_rows = _parse_csv_from_zip(response.content, "Audit_of_Tournament_1.csv", skip_lines=2)
         rl_rows = _parse_csv_from_zip(response.content, "RatingList_after_1.csv")
         new_games_by_id = {int(row[0]): int(row[9]) for row in rl_rows}  # Id_No → TotalNumGames
         for row in audit_rows:

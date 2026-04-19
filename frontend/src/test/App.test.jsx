@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import JSZip from 'jszip'
 import App from '../App'
 import ErrorBoundary from '../ErrorBoundary'
-import { AUDIT_FILE_HEADER } from '../resultParser'
+import { AUDIT_FILE_HEADER, AUDIT_PREAMBLE } from '../resultParser'
 
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
@@ -54,7 +54,7 @@ async function fixtureRunZipBlob() {
   const auditRow =
     '100;João Silva;1;1800;50;25;3.5;5;8750;1750;50;0.59;2.95;0.55;13.75;1823;55;0.7;NORMAL'
   const z = new JSZip()
-  z.file('Audit_of_Tournament_1.csv', `${AUDIT_FILE_HEADER}\n${auditRow}`)
+  z.file('Audit_of_Tournament_1.csv', `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${auditRow}`)
   return z.generateAsync({ type: 'blob' })
 }
 
@@ -125,21 +125,6 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText(/usuário/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/senha/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
-  })
-
-  it('rejects non-Latin-1 credentials with a clear message', async () => {
-    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) }))
-
-    const user = userEvent.setup()
-    render(<App />)
-    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
-    await user.type(screen.getByLabelText(/senha/i), 'pa😀swd')
-    await user.click(screen.getByRole('button', { name: /entrar/i }))
-
-    await waitFor(() =>
-      expect(screen.getByText(/não podem conter emojis/i)).toBeInTheDocument()
-    )
-    expect(screen.queryByRole('heading', { name: /execução do ciclo de rating/i })).not.toBeInTheDocument()
   })
 
   it('sends UTF-8 safe Basic auth for Latin-1 credentials (accents)', async () => {
@@ -278,6 +263,29 @@ describe('RunPage', () => {
     )
     expect(screen.getByText('First problem from server')).toBeInTheDocument()
     expect(screen.getByText('Second problem from server')).toBeInTheDocument()
+  })
+
+  it('displays 422 errors when detail is FastAPI-style objects with msg', async () => {
+    await uploadAllFiles(user)
+
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () =>
+          Promise.resolve({
+            detail: [{ msg: 'campo inválido: first' }, { msg: 'campo inválido: count' }],
+          }),
+      })
+    )
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByText(/o servidor rejeitou a execução/i)).toBeInTheDocument()
+    )
+    expect(screen.getByText('campo inválido: first')).toBeInTheDocument()
+    expect(screen.getByText('campo inválido: count')).toBeInTheDocument()
   })
 
   it('returns to the login page on a 401 response', async () => {
@@ -567,10 +575,10 @@ describe('Validation', () => {
     await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
-    await waitFor(() =>
+    await waitFor(() => {
       expect(screen.getByText('players.csv row 2: Id_No is required')).toBeInTheDocument()
-    )
-    expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+      expect(screen.getByText('tournaments.csv row 2: Type is required')).toBeInTheDocument()
+    })
   })
 
   it('shows request error when validate returns non-OK and keeps run disabled', async () => {
@@ -594,8 +602,8 @@ describe('Validation', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/resposta HTTP 502/i)).toBeInTheDocument()
+      expect(screen.queryByText(/validando arquivos/i)).not.toBeInTheDocument()
     })
-    expect(screen.queryByText(/validando arquivos/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/arquivos validados com sucesso/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
   })

@@ -1,10 +1,12 @@
 import csv
 import io
+import logging
 import math
 from enum import Enum
 
 from .tunx_parser import parse_tunx_from_bytes
-from .name_utils import normalize_name, name_similarity
+
+logger = logging.getLogger(__name__)
 
 _CSV_DELIMITER = ';'
 _RATING_LIST_HEADER = 'Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating' \
@@ -30,6 +32,7 @@ _RATING_LIST_HEADER = 'Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed
 # P = PG / N
 # Calc_Rule = Calculation Rule used (NORMAL, TEMPORARY, RATING_PERFORMANCE or DOUBLE_K)
 _AUDIT_FILE_HEADER = 'Id_Fexerj;Name;No;Ro;Ind;K;PG;N;Erm;Rm;Dif;We;Nwe;Dw;kDw;Rn;Nind;P;Calc_Rule'
+_AUDIT_FILE_PREAMBLE = '# audit_v1'
 _MAX_NUM_GAMES_TEMP_RATING = 15
 
 
@@ -302,7 +305,10 @@ class TournamentPlayer:
         elif self.this_games == 7:
             return self.this_points_above_expected >= 2.16
         else:
-            print("WARNING: Unknown condition for RP rule with more than 7 games. Assuming FALSE for Rating Performance.")
+            logger.warning(
+                "Unknown condition for RP rule: this_games=%d (>7). Assuming FALSE for Rating Performance.",
+                self.this_games,
+            )
             return False
 
     def check_double_k_rule(self):
@@ -317,7 +323,10 @@ class TournamentPlayer:
         elif self.this_games == 7:
             return self.this_points_above_expected >= 1.69
         else:
-            print("WARNING: Unknown condition for DK rule with more than 7 games. Assuming FALSE for Double K.")
+            logger.warning(
+                "Unknown condition for DK rule: this_games=%d (>7). Assuming FALSE for Double K.",
+                self.this_games,
+            )
             return False
 
     def get_current_k(self):
@@ -456,6 +465,7 @@ class Tournament:
 
     def write_tournament_audit(self) -> str:
         buf = io.StringIO()
+        print(_AUDIT_FILE_PREAMBLE, file=buf)
         print(_AUDIT_FILE_HEADER, file=buf)
         for snr, tp in self.players.items():
             line_list = [str(tp.id),

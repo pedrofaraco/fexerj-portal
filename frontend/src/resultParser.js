@@ -4,6 +4,9 @@ import JSZip from 'jszip'
 export const AUDIT_FILE_HEADER =
   'Id_Fexerj;Name;No;Ro;Ind;K;PG;N;Erm;Rm;Dif;We;Nwe;Dw;kDw;Rn;Nind;P;Calc_Rule'
 
+/** Must match calculator `calculator/classes.py` `_AUDIT_FILE_PREAMBLE` */
+export const AUDIT_PREAMBLE = '# audit_v1'
+
 const AUDIT_FILENAME_RE = /^Audit_of_Tournament_(\d+)\.csv$/i
 
 /** @param {string} text */
@@ -139,7 +142,22 @@ export function mapAuditRowToPlayer(cells) {
  * @param {string} auditCsvText
  */
 export function parseAuditCsv(auditCsvText) {
-  const { headers, rows } = parseSemicolonCsv(auditCsvText)
+  const rawLines = stripUtf8Bom(auditCsvText)
+    .split(/\r?\n/)
+    .map(l => l.trimEnd())
+    .filter(line => line.length > 0)
+
+  const actual = rawLines[0] ?? ''
+  if (actual !== AUDIT_PREAMBLE) {
+    const shown = actual.length > 80 ? `${actual.slice(0, 80)}…` : actual
+    throw new Error(
+      `Versão do arquivo de auditoria não reconhecida. Esperado "${AUDIT_PREAMBLE}"; encontrado "${shown}".\n` +
+        'O ZIP pode ser baixado normalmente; o resumo na tela não está disponível.',
+    )
+  }
+
+  // Parse the semicolon CSV starting at the header line (line 1), so `parseSemicolonCsv` stays unchanged.
+  const { headers, rows } = parseSemicolonCsv(rawLines.slice(1).join('\n'))
   const headerLine = headers.join(';')
   if (headerLine !== AUDIT_FILE_HEADER && !headerLine.startsWith('Id_Fexerj;')) {
     throw new Error('Arquivo de auditoria com cabeçalho inesperado.')
@@ -190,12 +208,13 @@ export async function parseRunResult(zipBlob, tournamentsCsvText) {
     const ord = Number.parseInt(ordStr, 10)
     const meta = tournamentMap.get(ord)
     const csvText = await file.async('string')
-    let players = []
+    let players
     try {
       players = parseAuditCsv(csvText)
     } catch (e) {
       throw new Error(
         `Erro ao ler Audit_of_Tournament_${ord}.csv: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
       )
     }
 
@@ -218,4 +237,74 @@ export async function parseRunResult(zipBlob, tournamentsCsvText) {
     zipFilename: 'rating_cycle_output.zip',
     tournaments,
   }
+}
+
+/**
+ * Group audit rows by player (FEXERJ id, or name fallback) for the "Por jogador" view.
+ * `tournaments` must be in `ord` ascending order (as returned by `parseRunResult`).
+ *
+ * @param {Array<{ ord: number, name: string, typeLabelPt: string, crId: number|null, type: string, endDate: string, isFexerj: boolean, isIrt: boolean, players: object[] }>} tournaments
+ * @returns {Array<{ groupKey: string, fexerjId: number|null, name: string, initialRating: number|null, finalRating: number|null, netDelta: number|null, tournaments: object[] }>}
+ */
+export function buildPlayerIndex(tournaments) {
+  /** @type {Map<string, { fexerjId: number|null, name: string, tournaments: object[] }>} */
+  const groups = new Map()
+
+  for (const t of tournaments ?? []) {
+    const meta = {
+      ord: t.ord,
+      tournamentName: t.name,
+      crId: t.crId ?? null,
+      type: t.type ?? '',
+      typeLabelPt: t.typeLabelPt ?? '',
+      endDate: t.endDate ?? '',
+      isFexerj: Boolean(t.isFexerj),
+      isIrt: Boolean(t.isIrt),
+    }
+
+    for (const p of t.players ?? []) {
+      const groupKey =
+        p.fexerjId != null ? `id:${p.fexerjId}` : `name:${String(p.name ?? '').trim()}`
+      let g = groups.get(groupKey)
+      if (!g) {
+        g = { fexerjId: p.fexerjId, name: p.name ?? '', tournaments: [] }
+        groups.set(groupKey, g)
+      }
+      g.tournaments.push({ ...meta, ...p })
+    }
+  }
+
+  /** @type {Array<{ groupKey: string, fexerjId: number|null, name: string, initialRating: number|null, finalRating: number|null, netDelta: number|null, tournaments: object[] }>} */
+  const out = []
+
+  for (const [groupKey, g] of groups) {
+    const rounds = [...g.tournaments].sort((a, b) => a.ord - b.ord)
+    const initialRating = rounds.length > 0 ? rounds[0].oldRating ?? null : null
+    const finalRating = rounds.length > 0 ? rounds[rounds.length - 1].newRating ?? null : null
+    let netDelta = null
+    if (initialRating !== null && finalRating !== null) netDelta = finalRating - initialRating
+
+    out.push({
+      groupKey,
+      fexerjId: g.fexerjId,
+      name: g.name,
+      initialRating,
+      finalRating,
+      netDelta,
+      tournaments: rounds,
+    })
+  }
+
+  out.sort((a, b) => {
+    const cmp = (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+    if (cmp !== 0) return cmp
+    const ida = a.fexerjId
+    const idb = b.fexerjId
+    if (ida != null && idb != null) return ida - idb
+    if (ida != null) return -1
+    if (idb != null) return 1
+    return a.groupKey.localeCompare(b.groupKey)
+  })
+
+  return out
 }
