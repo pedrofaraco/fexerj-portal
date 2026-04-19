@@ -6,6 +6,7 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 
 - **Deploy scripts**: **`scripts/update.sh`** **`rollback()`** and **`scripts/deploy-synology.sh`** **`rollback_nas()`** preserve the **original deploy exit code**, clear **`ERR`** trap recursion, classify strict vs best-effort steps; NAS rollback no longer runs redundant **`npm ci`/`build`** (frontend is built in Docker multi-stage image).
 - **`calculator/`**: **`print()`** replaced with **`logging`** (warnings via **`logger.warning`**; correlated with backend JSON logs in production).
+- **Frontend**: upload **size hint** on RunPage binary field (**`MAX_UPLOAD_MB`**, documented sync with **`PORTAL_MAX_UPLOAD_MEGABYTES`** / **`client_max_body_size`**).
 - **Frontend**: **`X-Request-ID`** surfaced on amber/red operator error banners (validation HTTP/parse failures, run HTTP errors, ZIP parse failures on results) with copy-to-clipboard — greppable server logs.
 - **Frontend**: `App.jsx` split into pages/hooks/components; **`postMultipart`** + UTF-8 Basic auth; debounced validation.
 - **Backend / edge**: **`limit_upload_body`** documents chunked / missing `Content-Length` path; nginx **`limit_req`** on `/validate` and `/run`; **`POST /run`** single-flight (**503** + **`Retry-After`**).
@@ -19,7 +20,6 @@ _No open P1/P2 hygiene items._
 ## P3 — UX and accessibility (lower urgency)
 
 - **a11y**: keyboard-focused pass on collapsible help — **`aria-*`** already present; revisit only if keyboard-only flows are broken.
-- Optional **client-side file size hint** before upload (aligned with server/nginx limit).
 
 ## P4 — Scale and observability (when needed)
 
