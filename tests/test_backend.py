@@ -38,6 +38,14 @@ VALID_AUTH = (settings.portal_user, settings.portal_password)
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _reset_singleton_run_guard():
+    """Keep module-level `_run_busy` idle between tests (covers 503 paths that skip `leave`)."""
+    main_module._run_busy._busy = False
+    yield
+    main_module._run_busy._busy = False
+
+
 @pytest.fixture
 def upload_limit_1_mib(monkeypatch):
     """Temporarily cap POST /validate and /run body size to 1 MiB for 413 tests."""
@@ -135,7 +143,7 @@ class TestHealthEndpoint:
 
 
 class TestRunConcurrencyGuard:
-    def test_try_enter_second_call_returns_false_until_leave(self):
+    def test_guard_try_enter_fails_while_held(self):
         async def exercise():
             guard = _RunConcurrencyGuard()
             assert await guard.try_enter() is True
@@ -145,6 +153,37 @@ class TestRunConcurrencyGuard:
             await guard.leave()
 
         asyncio.run(exercise())
+
+    def test_returns_503_when_run_already_in_progress(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert response.status_code == 503
+
+    def test_503_includes_retry_after_header(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert response.headers.get("retry-after") is not None
+
+    def test_503_detail_mentions_execution_in_progress(self, monkeypatch):
+        monkeypatch.setattr(main_module._run_busy, "_busy", True)
+        response = _post_run()
+        assert "andamento" in response.json()["detail"]
+
+    def test_run_clears_busy_flag_after_success(self):
+        _post_run()
+        assert main_module._run_busy._busy is False
+
+    def test_run_clears_busy_flag_after_error(self, monkeypatch):
+        class _FailingCycle:
+            def __init__(self, **kwargs):
+                pass
+
+            def run_cycle(self):
+                raise ValueError("boom")
+
+        monkeypatch.setattr(main_module, "FexerjRatingCycle", _FailingCycle)
+        _post_run()
+        assert main_module._run_busy._busy is False
 
 
 # ---------------------------------------------------------------------------
