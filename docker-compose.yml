@@ -10,6 +10,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.nginx
+      args:
+        BUILD_COMMIT: ${BUILD_COMMIT:-}
     ports:
       - "8090:80"
     depends_on:
