@@ -27,8 +27,14 @@ nas_ssh_sudo() {
 
     info "sudo password required on NAS for: $*"
     local nas_sudo_pass
-    read -rsp "NAS sudo password: " nas_sudo_pass
-    echo
+    # Read from the controlling tty so we still get the prompt when stdin is
+    # not the terminal (IDE tasks, pipes, or nested invocations).
+    if [[ -r /dev/tty ]]; then
+        read -rsp "NAS sudo password: " nas_sudo_pass </dev/tty
+    else
+        read -rsp "NAS sudo password: " nas_sudo_pass
+    fi
+    echo >&2
     [[ -n "$nas_sudo_pass" ]] || error "Empty sudo password; aborting."
 
     # Feed the password via stdin (-S) and silence the prompt (-p '') to avoid
