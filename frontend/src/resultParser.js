@@ -208,12 +208,13 @@ export async function parseRunResult(zipBlob, tournamentsCsvText) {
     const ord = Number.parseInt(ordStr, 10)
     const meta = tournamentMap.get(ord)
     const csvText = await file.async('string')
-    let players = []
+    let players
     try {
       players = parseAuditCsv(csvText)
     } catch (e) {
       throw new Error(
         `Erro ao ler Audit_of_Tournament_${ord}.csv: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
       )
     }
 
