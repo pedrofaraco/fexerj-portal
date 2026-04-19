@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 
 import BuildStamp from './BuildStamp'
+import RequestIdLine from './components/RequestIdLine'
 import { buildPlayerIndex } from './resultParser'
 import { filterPlayersForSearch, filterTournamentsForSearch } from './searchUtils'
 
@@ -364,6 +365,9 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
             <p className="alert-muted m-0">
               Use <strong>Baixar ZIP</strong> para obter os arquivos gerados.
             </p>
+            {runResult.requestId && (
+              <RequestIdLine requestId={runResult.requestId} />
+            )}
           </div>
         )}
 
@@ -469,6 +473,7 @@ ResultsPage.propTypes = {
     zipFilename: PropTypes.string.isRequired,
     tournaments: PropTypes.array,
     parseError: PropTypes.string,
+    requestId: PropTypes.string,
   }).isRequired,
   onNewRun: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
