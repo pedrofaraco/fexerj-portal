@@ -58,7 +58,7 @@ export default function BuildStamp({ className = '' }) {
   return (
     <footer
       className={`build-stamp ${className}`.trim()}
-      title="Commit do bundle. Server Time = cabeçalho HTTP Date (ET). Copiar cola só o identificador do frontend."
+      title="Identificador do código do frontend (commit Git curto). O mesmo valor em UAT e prod indica o mesmo bundle. Server Time = cabeçalho HTTP Date (ET)."
     >
       <div className="build-stamp-left">
         <span className="build-stamp-label">Frontend</span>{' '}
@@ -67,7 +67,7 @@ export default function BuildStamp({ className = '' }) {
           type="button"
           className="build-stamp-copy-btn"
           onClick={handleCopy}
-          aria-label="Copiar identificador do frontend (ex.: Frontend e hash do commit)"
+          aria-label="Copiar identificador do frontend (hash do commit)"
         >
           <CopyIcon />
         </button>
