@@ -4,6 +4,7 @@ import BuildStamp from '../BuildStamp'
 import Field from '../components/Field'
 import HelpSection from '../components/HelpSection'
 import RequestIdLine from '../components/RequestIdLine'
+import SelectedFilesLine from '../components/SelectedFilesLine'
 
 // Upload limit — keep in sync with PORTAL_MAX_UPLOAD_MEGABYTES (backend/config.py)
 // and client_max_body_size (docker/nginx.conf). Applies to the full request body.
@@ -61,6 +62,7 @@ export default function RunPage({
               className="file-input"
               onChange={e => setForm(f => ({ ...f, playersCsv: e.target.files[0] ?? null }))}
             />
+            <SelectedFilesLine files={form.playersCsv} />
           </Field>
 
           <Field label="Arquivo de Torneios" hint="tournaments.csv — lista de torneios a processar">
@@ -72,6 +74,7 @@ export default function RunPage({
               className="file-input"
               onChange={e => setForm(f => ({ ...f, tournamentsCsv: e.target.files[0] ?? null }))}
             />
+            <SelectedFilesLine files={form.tournamentsCsv} />
           </Field>
 
           <Field
@@ -87,6 +90,7 @@ export default function RunPage({
               className="file-input"
               onChange={e => setForm(f => ({ ...f, binaryFiles: Array.from(e.target.files) }))}
             />
+            <SelectedFilesLine files={form.binaryFiles} />
           </Field>
 
           <div className="flex gap-4">

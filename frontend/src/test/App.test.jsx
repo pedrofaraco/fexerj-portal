@@ -398,6 +398,9 @@ describe('Results page flow', () => {
       expect(screen.getByRole('heading', { name: /execução do ciclo de rating/i })).toBeInTheDocument(),
     )
     expect(screen.getByRole('button', { name: /^executar$/i })).toBeEnabled()
+    expect(screen.getByText(/arquivo selecionado: players\.csv/i)).toBeInTheDocument()
+    expect(screen.getByText(/arquivo selecionado: tournaments\.csv/i)).toBeInTheDocument()
+    expect(screen.getByText(/arquivo selecionado: 1-99999\.turx/i)).toBeInTheDocument()
   })
 
   it('Limpar formulário resets inputs and disables run', async () => {
@@ -420,6 +423,7 @@ describe('Results page flow', () => {
     expect(screen.getByLabelText(/lista de jogadores/i).files).toHaveLength(0)
     expect(screen.getByLabelText(/arquivo de torneios/i).files).toHaveLength(0)
     expect(screen.getByLabelText(/arquivos binários/i).files).toHaveLength(0)
+    expect(screen.queryByText(/arquivo selecionado:/i)).not.toBeInTheDocument()
   })
 
   it('shows parse error banner when ZIP cannot be summarized but still allows download', async () => {
