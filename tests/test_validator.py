@@ -1,8 +1,9 @@
 """Tests for the input validator module."""
 import pathlib
 import textwrap
+from unittest.mock import patch
 
-from backend.validator import _validate_binary_files, validate_inputs
+from backend.validator import _validate_binary_content, _validate_binary_files, validate_inputs
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 BINARY_DIR = pathlib.Path(__file__).parent / "binary"
@@ -302,6 +303,16 @@ class TestBinaryFileValidation:
             binaries={"1-12345.TUNX": TUNX_MISSING_ID},
         )
         assert any("ID FEXERJ" in e for e in errors)
+
+    def test_file_with_zero_fexerj_id_returns_error(self):
+        data = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
+        with patch(
+            "backend.validator.parse_bio_section",
+            return_value={1: {"name": "Test Player", "fexerj_id": "0"}},
+        ):
+            errors = _validate_binary_content("1-12345.TUNX", data)
+        assert any("ID FEXERJ" in e for e in errors)
+        assert any("Test Player" in e for e in errors)
 
     def test_only_validates_files_in_range(self):
         """Tournaments outside [first, first+count) must not require binary files."""
