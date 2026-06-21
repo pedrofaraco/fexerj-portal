@@ -43,11 +43,21 @@ def validate_inputs(
     tournaments_content = tournaments_content.lstrip("\ufeff")
 
     errors: list[str] = []
-    errors.extend(_validate_players_csv(players_content))
+    players_errors = _validate_players_csv(players_content)
+    errors.extend(players_errors)
     tournaments_errors = _validate_tournaments_csv(tournaments_content)
     errors.extend(tournaments_errors)
     if not tournaments_errors:
-        errors.extend(_validate_binary_files(tournaments_content, binary_files, first, count))
+        players_index = _build_players_index(players_content) if not players_errors else None
+        errors.extend(
+            _validate_binary_files(
+                tournaments_content,
+                binary_files,
+                first,
+                count,
+                players_index=players_index,
+            )
+        )
     return errors
 
 
@@ -157,6 +167,29 @@ def _validate_players_csv(content: str) -> list[str]:
     return errors
 
 
+def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
+    """Return FEXERJ ids and CBX→FEXERJ mapping from players.csv data rows."""
+    fexerj_ids: set[int] = set()
+    cbx_to_fexerj: dict[int, int] = {}
+    reader = csv.reader(io.StringIO(content), delimiter=";")
+    next(reader, None)  # skip header
+    for row in reader:
+        if not any(cell.strip() for cell in row) or len(row) != 12:
+            continue
+        try:
+            fexerj_id = int(row[0].strip())
+        except ValueError:
+            continue
+        fexerj_ids.add(fexerj_id)
+        cbx_id = row[1].strip()
+        if cbx_id:
+            try:
+                cbx_to_fexerj[int(cbx_id)] = fexerj_id
+            except ValueError:
+                continue
+    return fexerj_ids, cbx_to_fexerj
+
+
 # ---------------------------------------------------------------------------
 # Tournaments CSV
 # ---------------------------------------------------------------------------
@@ -231,13 +264,18 @@ def _validate_binary_files(
     binary_files: dict[str, bytes],
     first: int,
     count: int,
+    players_index: tuple[set[int], dict[int, int]] | None = None,
 ) -> list[str]:
     errors: list[str] = []
+    fexerj_ids: set[int] | None = None
+    cbx_to_fexerj: dict[int, int] | None = None
+    if players_index is not None:
+        fexerj_ids, cbx_to_fexerj = players_index
     reader = csv.reader(io.StringIO(tournaments_content), delimiter=";")
     next(reader)  # skip header
 
     for row in reader:
-        if not any(cell.strip() for cell in row) or len(row) < 5:
+        if not any(cell.strip() for cell in row) or len(row) < 7:
             continue
 
         try:
@@ -255,17 +293,38 @@ def _validate_binary_files(
         cbx_id   = row[1].strip()
         ext      = _TYPE_TO_EXT[type_]
         filename = f"{row[0].strip()}-{cbx_id}.{ext}"
+        tournament_name = row[2].strip()
+        is_irt = row[5].strip() == "1"
 
         if filename not in binary_files:
             errors.append(f"Arquivo binário '{filename}' não encontrado")
             continue
 
-        errors.extend(_validate_binary_content(filename, binary_files[filename]))
+        errors.extend(
+            _validate_binary_content(
+                filename,
+                binary_files[filename],
+                tournament_ord=trn_id,
+                tournament_name=tournament_name,
+                is_irt=is_irt,
+                fexerj_ids=fexerj_ids,
+                cbx_to_fexerj=cbx_to_fexerj,
+            )
+        )
 
     return errors
 
 
-def _validate_binary_content(filename: str, data: bytes) -> list[str]:
+def _validate_binary_content(
+    filename: str,
+    data: bytes,
+    *,
+    tournament_ord: int | None = None,
+    tournament_name: str | None = None,
+    is_irt: bool = False,
+    fexerj_ids: set[int] | None = None,
+    cbx_to_fexerj: dict[int, int] | None = None,
+) -> list[str]:
     errors: list[str] = []
 
     if BIO_MARKER not in data:
@@ -282,6 +341,7 @@ def _validate_binary_content(filename: str, data: bytes) -> list[str]:
         errors.append(f"{filename}: nenhum jogador encontrado na seção BIO")
         return errors
 
+    missing_from_rating_list: list[str] = []
     for snr, info in bio.items():
         raw_id = info.get("fexerj_id", "")
         try:
@@ -293,5 +353,26 @@ def _validate_binary_content(filename: str, data: bytes) -> list[str]:
                 f"{filename}: jogador '{info['name']}' (posição inicial {snr}) "
                 f"não possui ID FEXERJ"
             )
+            continue
+        if fexerj_ids is None or cbx_to_fexerj is None:
+            continue
+        try:
+            player_id = int(raw_id)
+        except ValueError:
+            continue
+        if is_irt:
+            in_rating_list = player_id in cbx_to_fexerj
+        else:
+            in_rating_list = player_id in fexerj_ids
+        if not in_rating_list:
+            missing_from_rating_list.append(f"{player_id} ({info['name']})")
+
+    if missing_from_rating_list and tournament_ord is not None:
+        name_part = f" ({tournament_name})" if tournament_name else ""
+        errors.append(
+            f"{filename}: Torneio {tournament_ord}{name_part}: jogador(es) presente(s) "
+            f"no arquivo binário mas ausente(s) da lista de rating (players.csv): "
+            f"{', '.join(missing_from_rating_list)}."
+        )
 
     return errors

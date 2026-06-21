@@ -109,8 +109,7 @@ Important details:
 - Names are read as **UTF‑16LE** text (a two-byte-per-character encoding Swiss Manager uses).
 - Sometimes there is a stray `'*'` field before an abbreviation; the parser skips that case.
 
-Every player must end up with a **FEXERJ id**. Empty ids raise an error. The portal validator also
-checks “every BIO line has an id” so the message is easier to act on.
+Every player must end up with a **FEXERJ id** that exists in the rating list (`players.csv`; CBX id for IRT tournaments). Empty ids raise an error. The portal validator checks BIO ids and this cross-file match before run so the message is easier to act on.
 
 ### PAIRING block (games)
 

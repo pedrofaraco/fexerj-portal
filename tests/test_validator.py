@@ -12,8 +12,12 @@ TUNX_MISSING_ID = (BINARY_DIR / "swiss_system_18players.TUNX").read_bytes()
 
 _VALID_PLAYERS = textwrap.dedent("""\
     Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
-    1;;;Player One;1500;CLUB A;01/01/1990;M;BRA;50;0;0
-    2;36633;;Player Two;1800;CLUB B;15/06/1985;M;BRA;100;0;0
+    3741;;;Roberto Oliveira Lima, Marcio;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    643;;;Petrenko, Willy;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    1979;;;De Castro Coutinho, Marco;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    2831;;;Cesar Ourique Schlobach, Ernesto;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    3541;;;Teixeira Azeredo Martins, Claudio;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    5400;;;Batista Rodrigues, Tairon;1500;CLUB A;01/01/1990;M;BRA;50;0;0
 """)
 
 _VALID_TOURNAMENTS = textwrap.dedent("""\
@@ -145,7 +149,7 @@ class TestPlayersCSVValidation:
             1;;;Player One;1500;;01/01/1990;M;BRA;50;0;0
             2;;;Player Two;1600;;01/01/1991;M;BRA;60;0;0
         """)
-        assert _validate(players=csv) == []
+        assert _validate(players=csv, binaries={}, first=99, count=1) == []
 
     def test_optional_fields_may_be_empty(self):
         csv = textwrap.dedent("""\
@@ -163,7 +167,7 @@ class TestPlayersCSVValidation:
 
             2;;;Player Two;1600;;01/01/1991;M;BRA;60;0;0
         """)
-        assert _validate(players=csv) == []
+        assert _validate(players=csv, binaries={}, first=99, count=1) == []
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +317,74 @@ class TestBinaryFileValidation:
             errors = _validate_binary_content("1-12345.TUNX", data)
         assert any("ID FEXERJ" in e for e in errors)
         assert any("Test Player" in e for e in errors)
+
+    def test_binary_player_missing_from_players_csv_returns_error(self):
+        tournaments = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            1;99999;Copa Teste;;RR;0;1
+        """)
+        players = textwrap.dedent("""\
+            Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+            3741;;;Known Player;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+        """)
+        data = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
+        with patch(
+            "backend.validator.parse_bio_section",
+            return_value={
+                1: {"name": "Known Player", "fexerj_id": "3741"},
+                2: {"name": "Unknown Player", "fexerj_id": "9999"},
+            },
+        ):
+            errors = _validate(
+                players=players,
+                tournaments=tournaments,
+                binaries={"1-99999.TURX": data},
+            )
+        assert any("ausente(s) da lista de rating" in e for e in errors)
+        assert any("9999 (Unknown Player)" in e for e in errors)
+        assert any("1-99999.TURX" in e for e in errors)
+
+    def test_irt_binary_player_missing_cbx_from_players_csv_returns_error(self):
+        tournaments = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            19;12345;IRT Memorial;;SS;1;1
+        """)
+        players = textwrap.dedent("""\
+            Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
+            1;36633;;Listed Player;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+        """)
+        data = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
+        with patch(
+            "backend.validator.parse_bio_section",
+            return_value={
+                1: {"name": "Vinicius Vieira, Simoes Marinho", "fexerj_id": "108367"},
+                2: {"name": "Giulliano A, De Alcantara", "fexerj_id": "90568"},
+            },
+        ):
+            errors = _validate(
+                players=players,
+                tournaments=tournaments,
+                binaries={"19-12345.TUNX": data},
+                first=19,
+                count=1,
+            )
+        assert len([e for e in errors if "ausente(s) da lista de rating" in e]) == 1
+        msg = next(e for e in errors if "ausente(s) da lista de rating" in e)
+        assert "108367 (Vinicius Vieira, Simoes Marinho)" in msg
+        assert "90568 (Giulliano A, De Alcantara)" in msg
+        assert "Torneio 19 (IRT Memorial)" in msg
+
+    def test_binary_players_present_in_players_csv_returns_no_cross_check_error(self):
+        data = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
+        with patch(
+            "backend.validator.parse_bio_section",
+            return_value={
+                1: {"name": "Player One", "fexerj_id": "3741"},
+                2: {"name": "Player Two", "fexerj_id": "643"},
+            },
+        ):
+            errors = _validate(binaries={"1-99999.TURX": data})
+        assert not any("ausente(s) da lista de rating" in e for e in errors)
 
     def test_only_validates_files_in_range(self):
         """Tournaments outside [first, first+count) must not require binary files."""
