@@ -50,6 +50,25 @@ The script SSHs into the NAS, fast-forwards the checked-out branch, rebuilds the
 
 First-time run per environment: prompts for `PORTAL_USER` / `PORTAL_PASSWORD` and writes them to `<deploy_dir>/.env` (chmod 600).
 
+#### Synology “container stopped unexpectedly” after deploy
+
+Every `docker compose up -d --build` **stops the old backend container** and starts a new one with the rebuilt image. Synology Container Manager treats any main-process exit (Docker `die` event) as *unexpected*, **even when the stop is intentional and exit code is 0**. You may get an email such as:
+
+> Container fexerj-prod-backend-1 in Container Manager stopped unexpectedly
+
+This is **normal during deploy**, not a crash. After the alert, confirm the stack is healthy:
+
+```bash
+sudo docker inspect fexerj-prod-backend-1 --format 'Status={{.State.Status}} Restarts={{.RestartCount}}'
+curl -sS https://<env-domain>/health
+```
+
+`Status=running` and `Restarts=0` with `{"status":"ok"}` means the deploy succeeded.
+
+To stop these emails on every release: **Control Panel → Notifications → Rules** → edit your rule → **Container Manager** → uncheck **Unexpectedly stopped** (wording may vary by DSM language).
+
+A **real** failure looks different: repeated alerts, `Restarts` increasing, portal down, or error tracebacks in `docker compose ... logs backend`.
+
 ---
 
 ### Confirm the new code is actually running
