@@ -181,11 +181,15 @@ async def validate(
             "binary_file_count": len(binary_files),
         },
     )
-    players_content, players_err = decode_csv_upload(await players_csv.read(), "players.csv")
-    tournaments_content, tournaments_err = decode_csv_upload(
-        await tournaments_csv.read(), "tournaments.csv"
-    )
-    decode_errors = [e for e in (players_err, tournaments_err) if e]
+    decode_errors: list[str] = []
+    try:
+        players_content = decode_csv_upload(await players_csv.read(), "players.csv")
+    except ValueError as exc:
+        decode_errors.append(str(exc))
+    try:
+        tournaments_content = decode_csv_upload(await tournaments_csv.read(), "tournaments.csv")
+    except ValueError as exc:
+        decode_errors.append(str(exc))
     if decode_errors:
         return {"errors": decode_errors}
 
@@ -240,11 +244,17 @@ async def run(
                 "binary_file_count": len(binary_files),
             },
         )
-        players_content, players_err = decode_csv_upload(await players_csv.read(), "players.csv")
-        tournaments_content, tournaments_err = decode_csv_upload(
-            await tournaments_csv.read(), "tournaments.csv"
-        )
-        decode_errors = [e for e in (players_err, tournaments_err) if e]
+        decode_errors: list[str] = []
+        try:
+            players_content = decode_csv_upload(await players_csv.read(), "players.csv")
+        except ValueError as exc:
+            decode_errors.append(str(exc))
+        try:
+            tournaments_content = decode_csv_upload(
+                await tournaments_csv.read(), "tournaments.csv"
+            )
+        except ValueError as exc:
+            decode_errors.append(str(exc))
         if decode_errors:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
