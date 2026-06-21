@@ -26,6 +26,7 @@ from starlette.responses import JSONResponse
 from backend.config import settings
 from backend.logging_setup import configure_logging
 from backend.request_id import request_id_middleware
+from backend.upload_text import decode_csv_upload
 from backend.validator import validate_inputs
 from calculator import FexerjRatingCycle
 
@@ -180,8 +181,18 @@ async def validate(
             "binary_file_count": len(binary_files),
         },
     )
-    players_content = (await players_csv.read()).decode("utf-8-sig")
-    tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
+    decode_errors: list[str] = []
+    try:
+        players_content = decode_csv_upload(await players_csv.read(), "players.csv")
+    except ValueError as exc:
+        decode_errors.append(str(exc))
+    try:
+        tournaments_content = decode_csv_upload(await tournaments_csv.read(), "tournaments.csv")
+    except ValueError as exc:
+        decode_errors.append(str(exc))
+    if decode_errors:
+        return {"errors": decode_errors}
+
     binary_files_dict: dict[str, bytes] = {
         f.filename: await f.read() for f in binary_files if f.filename is not None
     }
@@ -233,8 +244,22 @@ async def run(
                 "binary_file_count": len(binary_files),
             },
         )
-        players_content = (await players_csv.read()).decode("utf-8-sig")
-        tournaments_content = (await tournaments_csv.read()).decode("utf-8-sig")
+        decode_errors: list[str] = []
+        try:
+            players_content = decode_csv_upload(await players_csv.read(), "players.csv")
+        except ValueError as exc:
+            decode_errors.append(str(exc))
+        try:
+            tournaments_content = decode_csv_upload(
+                await tournaments_csv.read(), "tournaments.csv"
+            )
+        except ValueError as exc:
+            decode_errors.append(str(exc))
+        if decode_errors:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=decode_errors,
+            )
 
         binary_files_dict: dict[str, bytes] = {
             f.filename: await f.read() for f in binary_files if f.filename is not None
