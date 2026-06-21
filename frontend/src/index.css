@@ -98,6 +98,12 @@ body {
   cursor: pointer;
 }
 
+.file-selection {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
 /* Results page tabs — explicit hex (Chrome 109 cannot rely on Tailwind oklch tokens). */
 .results-tab {
   display: inline-block;

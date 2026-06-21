@@ -283,7 +283,12 @@ def _validate_binary_content(filename: str, data: bytes) -> list[str]:
         return errors
 
     for snr, info in bio.items():
-        if not info.get("fexerj_id"):
+        raw_id = info.get("fexerj_id", "")
+        try:
+            missing_id = not (int(raw_id) if raw_id else 0)
+        except ValueError:
+            missing_id = False
+        if missing_id:
             errors.append(
                 f"{filename}: jogador '{info['name']}' (posição inicial {snr}) "
                 f"não possui ID FEXERJ"
