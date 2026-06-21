@@ -230,6 +230,25 @@ class TestValidateEndpoint:
         assert response.status_code == 200
         assert response.json() == {"errors": []}
 
+    def test_cp1252_players_csv_is_accepted(self):
+        """Windows Excel exports often use cp1252; must not 500 on /validate."""
+        cp1252_players = PLAYERS_CSV.replace("Carlos Mendes", "Carlos\u00a0Mendes").encode("cp1252")
+        assert b"\xa0" in cp1252_players
+        with pytest.raises(UnicodeDecodeError):
+            cp1252_players.decode("utf-8-sig")
+        response = client.post(
+            "/validate",
+            data={"first": 1, "count": 1},
+            files=[
+                ("players_csv", ("players.csv", cp1252_players, "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", TOURNAMENTS_CSV.encode(), "text/csv")),
+                ("binary_files", ("1-99999.TURX", TURX_DATA, "application/octet-stream")),
+            ],
+            auth=VALID_AUTH,
+        )
+        assert response.status_code == 200
+        assert response.json() == {"errors": []}
+
     def test_no_credentials_returns_401(self):
         response = client.post("/validate")
         assert response.status_code == 401
