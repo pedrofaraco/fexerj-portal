@@ -108,6 +108,17 @@ class TestGetRatingList:
         assert set(cycle.rating_list.keys()) == {10, 11, 12}
         assert cycle.cbx_to_fexerj == {99: 11}
 
+    def test_all_empty_data_row_is_skipped(self):
+        """Trailing Excel rows with 12 empty columns must not crash int('')."""
+        csv = (
+            "Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints\n"
+            "10;;;PLAYER A;1500;C;01/01/1990;M;BRA;50;0;0\n"
+            ";;;;;;;;;;;;\n"
+        )
+        cycle = FexerjRatingCycle("", 1, 1, csv, {})
+        cycle.get_rating_list(csv)
+        assert set(cycle.rating_list.keys()) == {10}
+
 
 # ---------------------------------------------------------------------------
 # TournamentType
@@ -148,6 +159,14 @@ class TestRunCycle:
         output = cycle.run_cycle()
         assert "RatingList_after_1.csv" in output
         assert "Audit_of_Tournament_1.csv" in output
+
+    def test_run_cycle_tolerates_trailing_all_empty_players_row(self):
+        players = _TURX_PLAYERS_CSV.rstrip() + "\n;;;;;;;;;;;;\n"
+        cycle = FexerjRatingCycle(
+            _TURX_TOURNAMENTS_CSV, 1, 1, players, _TURX_BINARY_FILES
+        )
+        output = cycle.run_cycle()
+        assert "RatingList_after_1.csv" in output
 
     def test_rating_list_output_has_header(self):
         cycle = FexerjRatingCycle(
