@@ -69,7 +69,7 @@ describe('ResultsPage', () => {
     await user.click(screen.getByRole('tab', { name: /por jogador/i }))
 
     expect(screen.getByRole('tab', { name: /por jogador/i })).toHaveAttribute('aria-selected', 'true')
-    // João: 1800 → 1840, 2 torneios; name sort: Ana before João
+    // João: 1800 → 1840, 2 torneios; list sorted by FEXERJ id (100 before 200)
     expect(screen.getByText(/2 torneios/)).toBeInTheDocument()
     expect(screen.getByText(/1800/)).toBeInTheDocument()
     expect(screen.getByText(/1840/)).toBeInTheDocument()

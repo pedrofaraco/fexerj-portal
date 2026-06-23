@@ -4,8 +4,10 @@ import {
   AUDIT_FILE_HEADER,
   AUDIT_PREAMBLE,
   buildPlayerIndex,
+  enrichPlayerFromPlayersCsv,
   mapAuditRowToPlayer,
   parseAuditCsv,
+  parsePlayersCsv,
   parseRatingListAfterCsv,
   parseRunResult,
   parseSemicolonCsv,
@@ -181,7 +183,7 @@ describe('buildPlayerIndex', () => {
     expect(idx[0].tournaments[0].tournamentName).toBe('Torneio 1')
   })
 
-  it('sorts players alphabetically by name (pt-BR), tiebreak by fexerjId', () => {
+  it('sorts players by fexerjId ascending (null ids last)', () => {
     const rowAna =
       '200;Ana Costa;1;1700;30;15;2;4;6800;1700;0;0.5;2;0;0;1710;34;0.5;NORMAL'
     const rowJoao = SAMPLE_AUDIT_ROW
@@ -191,7 +193,7 @@ describe('buildPlayerIndex', () => {
       mkTournament(1, [pJoao]),
       mkTournament(2, [pAna]),
     ])
-    expect(idx.map(x => x.fexerjId)).toEqual([200, 100])
+    expect(idx.map(x => x.fexerjId)).toEqual([100, 200])
   })
 
   it('aggregates initial/final across non-contiguous tournament ords', () => {
@@ -272,6 +274,81 @@ describe('buildPlayerIndex', () => {
     expect(noId.fexerjId).toBe(null)
     const idx = buildPlayerIndex([mkTournament(1, [noId, withId])])
     expect(idx.map(x => x.fexerjId)).toEqual([10, null])
+  })
+})
+
+describe('parsePlayersCsv and IRT enrichment', () => {
+  it('parsePlayersCsv builds FEXERJ name and CBX maps', () => {
+    const csv = `${RATING_LIST_HEADER}
+5500;90107;;Alice Nome Oficial;1315;CLUB;;;;50;0;0`
+    const { fexerjNames, cbxToFexerj } = parsePlayersCsv(csv)
+    expect(fexerjNames.get(5500)).toBe('Alice Nome Oficial')
+    expect(cbxToFexerj.get(90107)).toBe(5500)
+  })
+
+  it('enrichPlayerFromPlayersCsv maps IRT CBX audit id to FEXERJ id and name', () => {
+    const csv = `${RATING_LIST_HEADER}
+5500;90107;;Alice Nome Oficial;1315;CLUB;;;;50;0;0`
+    const lookups = parsePlayersCsv(csv)
+    const audit = mapAuditRowToPlayer(
+      '90107;Monteiro, Alice;1;1315;10;15;1;3;4000;1300;0;0.5;1;0;0;1298;13;0.33;NORMAL'.split(
+        ';',
+      ),
+    )
+    const enriched = enrichPlayerFromPlayersCsv(audit, { isIrt: true }, lookups)
+    expect(enriched.fexerjId).toBe(5500)
+    expect(enriched.name).toBe('Alice Nome Oficial')
+  })
+
+  it('parsePlayersCsv maps CBX id when Id_CBX has cp1252 NBSP misread as UTF-8', () => {
+    const csv = `${RATING_LIST_HEADER}
+5304;\uFFFD95178;;CALEB ELIAS HUSSIN GUALBERTO;1446;AFLUX;;;;51;0;0`
+    const { fexerjNames, cbxToFexerj } = parsePlayersCsv(csv)
+    expect(fexerjNames.get(5304)).toBe('CALEB ELIAS HUSSIN GUALBERTO')
+    expect(cbxToFexerj.get(95178)).toBe(5304)
+  })
+
+  it('enrichPlayerFromPlayersCsv maps Caleb IRT row after cp1252 Id_CBX fix', () => {
+    const csv = `${RATING_LIST_HEADER}
+5304;\uFFFD95178;;CALEB ELIAS HUSSIN GUALBERTO;1446;AFLUX;;;;51;0;0`
+    const lookups = parsePlayersCsv(csv)
+    const audit = mapAuditRowToPlayer(
+      '95178;Caleb Elias Hussin, Gualberto;26;1446;51;15;1.5;5;8458;1691.6;-245.6;0.19;0.97;0.52;7.82;1454;56;0.3;NORMAL'.split(
+        ';',
+      ),
+    )
+    const enriched = enrichPlayerFromPlayersCsv(audit, { isIrt: true }, lookups)
+    expect(enriched.fexerjId).toBe(5304)
+    expect(enriched.name).toBe('CALEB ELIAS HUSSIN GUALBERTO')
+  })
+
+  it('enrichPlayerFromPlayersCsv uses players.csv name for non-IRT tournaments', () => {
+    const csv = `${RATING_LIST_HEADER}
+1782;;;Alexandre Nome CSV;2100;CLUB;;;;50;0;0`
+    const lookups = parsePlayersCsv(csv)
+    const audit = mapAuditRowToPlayer(
+      '1782;Ferreira, Alexandre;1;2102;80;15;2;4;6800;1700;0;0.5;2;0;0;2104;84;0.5;NORMAL'.split(
+        ';',
+      ),
+    )
+    const enriched = enrichPlayerFromPlayersCsv(audit, { isIrt: false }, lookups)
+    expect(enriched.fexerjId).toBe(1782)
+    expect(enriched.name).toBe('Alexandre Nome CSV')
+  })
+
+  it('parseRunResult enriches IRT tournament players from players.csv', async () => {
+    const playersCsv = `${RATING_LIST_HEADER}
+5500;90107;;Alice Nome Oficial;1315;CLUB;;;;50;0;0`
+    const auditRow =
+      '90107;Monteiro, Alice;1;1315;10;15;1;3;4000;1300;0;0.5;1;0;0;1298;13;0.33;NORMAL'
+    const tournamentsCsv = `Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+1;12345;IRT Open;;SS;1;1`
+    const blob = await zipFromEntries({
+      'Audit_of_Tournament_1.csv': `${AUDIT_PREAMBLE}\n${AUDIT_FILE_HEADER}\n${auditRow}`,
+    })
+    const result = await parseRunResult(blob, tournamentsCsv, playersCsv)
+    expect(result.tournaments[0].players[0].fexerjId).toBe(5500)
+    expect(result.tournaments[0].players[0].name).toBe('Alice Nome Oficial')
   })
 })
 

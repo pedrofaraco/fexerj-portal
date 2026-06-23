@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 import App from '../App'
 import ErrorBoundary from '../ErrorBoundary'
 import { AUDIT_FILE_HEADER, AUDIT_PREAMBLE } from '../resultParser'
+import { PLAYERS_HEADER, TOURNAMENTS_HEADER } from '../csvUploadValidation'
 
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
@@ -35,15 +36,22 @@ function mockFetch({ validateErrors = [], runResponse = null, loginOk = true } =
 // File helpers
 // ---------------------------------------------------------------------------
 
-function csvFile(name) {
-  return new File(['id;name\n1;test'], name, { type: 'text/csv' })
+function csvFile(name, content = 'id;name\n1;test') {
+  return new File([content], name, { type: 'text/csv' })
 }
 
 function binaryFile(name) {
   return new File([new Uint8Array([0x00, 0x01])], name, { type: 'application/octet-stream' })
 }
 
-const TOURNAMENTS_CSV_FIXTURE = `Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+const PLAYERS_CSV_FIXTURE = `${PLAYERS_HEADER}
+3741;;;Roberto Oliveira Lima, Marcio;1500;CLUB A;01/01/1990;M;BRA;50;0;0`
+
+function playersCsvFixtureFile() {
+  return new File([PLAYERS_CSV_FIXTURE], 'players.csv', { type: 'text/csv' })
+}
+
+const TOURNAMENTS_CSV_FIXTURE = `${TOURNAMENTS_HEADER}
 1;99999;Copa Fixture;2025-01-01;RR;0;1`
 
 function tournamentsCsvFixtureFile() {
@@ -99,11 +107,14 @@ async function login(user) {
   )
 }
 
-async function uploadAllFiles(user, { tournamentsFile } = {}) {
-  await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
+async function uploadAllFiles(user, { tournamentsFile, playersFile } = {}) {
+  await user.upload(
+    screen.getByLabelText(/lista de jogadores/i),
+    playersFile ?? playersCsvFixtureFile(),
+  )
   await user.upload(
     screen.getByLabelText(/arquivo de torneios/i),
-    tournamentsFile ?? csvFile('tournaments.csv'),
+    tournamentsFile ?? tournamentsCsvFixtureFile(),
   )
   await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
   await waitFor(() =>
@@ -493,8 +504,8 @@ describe('Validation', () => {
   it('shows "Validando arquivos…" while validation is in flight', async () => {
     globalThis.fetch = vi.fn(() => new Promise(() => {})) // /validate never resolves
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() =>
@@ -527,8 +538,8 @@ describe('Validation', () => {
       return new Promise(() => {})
     })
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() =>
@@ -543,10 +554,33 @@ describe('Validation', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('shows frontend CSV errors when tournaments file has wrong column count', async () => {
+    mockFetch()
+    await user.upload(
+      screen.getByLabelText(/arquivo de torneios/i),
+      csvFile('bad-tournaments.csv', `${TOURNAMENTS_HEADER}\n1;99999;Copa\n`),
+    )
+    await waitFor(() =>
+      expect(screen.getByText(/tournaments.csv linha 2: esperadas 7 colunas/)).toBeInTheDocument(),
+    )
+  })
+
+  it('shows frontend CSV errors when players file has invalid header', async () => {
+    mockFetch()
+    await user.upload(
+      screen.getByLabelText(/lista de jogadores/i),
+      csvFile('bad-players.csv', 'Id_No;Name\n1;Test\n'),
+    )
+    await waitFor(() =>
+      expect(screen.getByText(/players.csv: cabeçalho inválido/)).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: /^executar$/i })).toBeDisabled()
+  })
+
   it('shows "Arquivos validados com sucesso." when validation returns no errors', async () => {
     mockFetch()
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() =>
@@ -557,8 +591,8 @@ describe('Validation', () => {
   it('shows validation errors and keeps run button disabled', async () => {
     mockFetch({ validateErrors: ['players.csv row 2: Id_No is required'] })
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() =>
@@ -575,8 +609,8 @@ describe('Validation', () => {
       ],
     })
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() => {
@@ -600,8 +634,8 @@ describe('Validation', () => {
       return new Promise(() => {})
     })
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() => {
@@ -627,8 +661,8 @@ describe('Validation', () => {
       return new Promise(() => {})
     })
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() => {
@@ -656,8 +690,8 @@ describe('Validation', () => {
       return new Promise(() => {})
     })
 
-    await user.upload(screen.getByLabelText(/lista de jogadores/i), csvFile('players.csv'))
-    await user.upload(screen.getByLabelText(/arquivo de torneios/i), csvFile('tournaments.csv'))
+    await user.upload(screen.getByLabelText(/lista de jogadores/i), playersCsvFixtureFile())
+    await user.upload(screen.getByLabelText(/arquivo de torneios/i), tournamentsCsvFixtureFile())
     await user.upload(screen.getByLabelText(/arquivos binários/i), binaryFile('1-99999.TURX'))
 
     await waitFor(() => {

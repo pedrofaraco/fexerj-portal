@@ -93,6 +93,8 @@ class FexerjRatingCycle:
         current_rating_csv = self.initial_rating_csv
 
         for tournament_row in tournaments:
+            if not any(cell.strip() for cell in tournament_row):
+                continue
             if int(tournament_row[0]) in range(self.first_item, self.first_item + self.items_to_process):
                 rating_list_filename = "RatingList_after_%s.csv" % tournament_row[0]
                 audit_filename = "Audit_of_Tournament_%s.csv" % tournament_row[0]
@@ -129,6 +131,8 @@ class FexerjRatingCycle:
         reader = csv.reader(io.StringIO(rating_csv), delimiter=_CSV_DELIMITER)
         next(reader, None)  # Skip the headers
         for row in reader:
+            if not any(cell.strip() for cell in row):
+                continue
             player = FexerjPlayer(int(row[0]),  # ID FEXERJ
                                   row[1],  # ID CBX
                                   row[2],  # TITLE
