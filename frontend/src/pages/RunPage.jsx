@@ -210,8 +210,18 @@ RunPage.propTypes = {
   setForm: PropTypes.func.isRequired,
   status: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
   runErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
-  playersCsvErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
-  tournamentsCsvErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  playersCsvErrors: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({ message: PropTypes.string.isRequired }),
+    ]),
+  ).isRequired,
+  tournamentsCsvErrors: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({ message: PropTypes.string.isRequired }),
+    ]),
+  ).isRequired,
   playersCsvStatus: PropTypes.oneOf(['idle', 'checking', 'done']).isRequired,
   tournamentsCsvStatus: PropTypes.oneOf(['idle', 'checking', 'done']).isRequired,
   csvFilesValid: PropTypes.bool.isRequired,
