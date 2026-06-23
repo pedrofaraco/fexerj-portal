@@ -63,6 +63,54 @@ export function parseTournamentsCsv(tournamentsCsvText) {
 }
 
 /**
+ * @param {string} playersCsvText Initial players.csv (same file uploaded to /run).
+ * @returns {{ fexerjNames: Map<number, string>, cbxToFexerj: Map<number, number> }}
+ */
+export function parsePlayersCsv(playersCsvText) {
+  const { headers, rows } = parseSemicolonCsv(playersCsvText ?? '')
+  const iId = headers.findIndex(h => h.trim() === 'Id_No')
+  const iCbx = headers.findIndex(h => h.trim() === 'Id_CBX')
+  const iName = headers.findIndex(h => h.trim() === 'Name')
+  /** @type {Map<number, string>} */
+  const fexerjNames = new Map()
+  /** @type {Map<number, number>} */
+  const cbxToFexerj = new Map()
+  if (iId < 0) return { fexerjNames, cbxToFexerj }
+
+  for (const row of rows) {
+    if (row.every(c => c === '' || c === undefined)) continue
+    const fexerjId = parseIntCell(row[iId])
+    if (fexerjId == null) continue
+    const name = (row[iName] ?? '').trim()
+    if (name) fexerjNames.set(fexerjId, name)
+    if (iCbx >= 0) {
+      const cbxId = parseIntCell(row[iCbx])
+      if (cbxId != null) cbxToFexerj.set(cbxId, fexerjId)
+    }
+  }
+  return { fexerjNames, cbxToFexerj }
+}
+
+/**
+ * Resolve FEXERJ id and canonical name from players.csv for one audit row.
+ * @param {ReturnType<typeof mapAuditRowToPlayer>} player
+ * @param {{ isIrt: boolean }} tournament
+ * @param {{ fexerjNames: Map<number, string>, cbxToFexerj: Map<number, number> }} lookups
+ */
+export function enrichPlayerFromPlayersCsv(player, tournament, lookups) {
+  let fexerjId = player.fexerjId
+  if (tournament.isIrt && fexerjId != null) {
+    const mapped = lookups.cbxToFexerj.get(fexerjId)
+    if (mapped != null) fexerjId = mapped
+  }
+  const canonicalName =
+    fexerjId != null && lookups.fexerjNames.has(fexerjId)
+      ? lookups.fexerjNames.get(fexerjId)
+      : player.name
+  return { ...player, fexerjId, name: canonicalName ?? player.name }
+}
+
+/**
  * @param {string} text RatingList_after_*.csv body
  * @returns {Map<number, number>} Id_No -> Rtg_Nat
  */
@@ -181,10 +229,12 @@ const TYPE_LABEL_PT = {
 /**
  * @param {Blob} zipBlob
  * @param {string} tournamentsCsvText
+ * @param {string} [playersCsvText]
  */
-export async function parseRunResult(zipBlob, tournamentsCsvText) {
+export async function parseRunResult(zipBlob, tournamentsCsvText, playersCsvText = '') {
   const zip = await JSZip.loadAsync(zipBlob)
   const tournamentMap = parseTournamentsCsv(tournamentsCsvText)
+  const playerLookups = parsePlayersCsv(playersCsvText)
 
   const auditEntries = []
   for (const [path, entry] of Object.entries(zip.files)) {
@@ -219,6 +269,10 @@ export async function parseRunResult(zipBlob, tournamentsCsvText) {
     }
 
     const typeCode = meta?.type ?? ''
+    const isIrt = meta?.isIrt ?? false
+    const enrichedPlayers = players.map(p =>
+      enrichPlayerFromPlayersCsv(p, { isIrt }, playerLookups),
+    )
     tournaments.push({
       ord,
       crId: meta?.crId ?? null,
@@ -227,8 +281,8 @@ export async function parseRunResult(zipBlob, tournamentsCsvText) {
       typeLabelPt: TYPE_LABEL_PT[typeCode] ?? typeCode,
       endDate: meta?.endDate ?? '',
       isFexerj: meta?.isFexerj ?? false,
-      isIrt: meta?.isIrt ?? false,
-      players,
+      isIrt,
+      players: enrichedPlayers,
     })
   }
 
@@ -296,13 +350,13 @@ export function buildPlayerIndex(tournaments) {
   }
 
   out.sort((a, b) => {
-    const cmp = (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
-    if (cmp !== 0) return cmp
     const ida = a.fexerjId
     const idb = b.fexerjId
     if (ida != null && idb != null) return ida - idb
     if (ida != null) return -1
     if (idb != null) return 1
+    const cmp = (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+    if (cmp !== 0) return cmp
     return a.groupKey.localeCompare(b.groupKey)
   })
 
