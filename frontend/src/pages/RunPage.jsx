@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 
 import BuildStamp from '../BuildStamp'
+import CsvValidationErrors from '../components/CsvValidationErrors'
 import Field from '../components/Field'
 import HelpSection from '../components/HelpSection'
 import RequestIdLine from '../components/RequestIdLine'
@@ -15,6 +16,12 @@ export default function RunPage({
   setForm,
   status,
   runErrors,
+  playersCsvErrors,
+  tournamentsCsvErrors,
+  playersCsvStatus,
+  tournamentsCsvStatus,
+  csvFilesValid,
+  csvFilesChecking,
   validationErrors,
   validationRequestError,
   validationRequestId,
@@ -31,6 +38,8 @@ export default function RunPage({
     form.binaryFiles.length > 0 &&
     Number(form.first) >= 1 &&
     Number(form.count) >= 1 &&
+    csvFilesValid &&
+    !csvFilesChecking &&
     validationStatus === 'done' &&
     validationErrors.length === 0
 
@@ -63,6 +72,10 @@ export default function RunPage({
               onChange={e => setForm(f => ({ ...f, playersCsv: e.target.files[0] ?? null }))}
             />
             <SelectedFilesLine files={form.playersCsv} />
+            <CsvValidationErrors
+              errors={playersCsvErrors}
+              checking={playersCsvStatus === 'checking'}
+            />
           </Field>
 
           <Field label="Arquivo de Torneios" hint="tournaments.csv — lista de torneios a processar">
@@ -75,6 +88,10 @@ export default function RunPage({
               onChange={e => setForm(f => ({ ...f, tournamentsCsv: e.target.files[0] ?? null }))}
             />
             <SelectedFilesLine files={form.tournamentsCsv} />
+            <CsvValidationErrors
+              errors={tournamentsCsvErrors}
+              checking={tournamentsCsvStatus === 'checking'}
+            />
           </Field>
 
           <Field
@@ -193,6 +210,12 @@ RunPage.propTypes = {
   setForm: PropTypes.func.isRequired,
   status: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,
   runErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  playersCsvErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  tournamentsCsvErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
+  playersCsvStatus: PropTypes.oneOf(['idle', 'checking', 'done']).isRequired,
+  tournamentsCsvStatus: PropTypes.oneOf(['idle', 'checking', 'done']).isRequired,
+  csvFilesValid: PropTypes.bool.isRequired,
+  csvFilesChecking: PropTypes.bool.isRequired,
   validationErrors: PropTypes.arrayOf(PropTypes.string).isRequired,
   validationRequestError: PropTypes.string.isRequired,
   validationRequestId: PropTypes.string,

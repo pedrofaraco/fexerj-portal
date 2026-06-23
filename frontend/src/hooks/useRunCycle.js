@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 
 import { buildCycleFormData, postMultipart } from '../portalApi'
+import { readCsvFile } from '../csvUploadValidation'
 import { parseRunResult } from '../resultParser'
 
 export default function useRunCycle(form, credentials, { onAuthError } = {}) {
@@ -29,8 +30,8 @@ export default function useRunCycle(form, credentials, { onAuthError } = {}) {
     setRunRequestId(null)
 
     const body = buildCycleFormData(form)
-    const tournamentsCsvText = form.tournamentsCsv ? await form.tournamentsCsv.text() : ''
-    const playersCsvText = form.playersCsv ? await form.playersCsv.text() : ''
+    const tournamentsCsvText = form.tournamentsCsv ? await readCsvFile(form.tournamentsCsv) : ''
+    const playersCsvText = form.playersCsv ? await readCsvFile(form.playersCsv) : ''
 
     try {
       const response = await postMultipart('/run', body, credentials, { signal: ac.signal })
