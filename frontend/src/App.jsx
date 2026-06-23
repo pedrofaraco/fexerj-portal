@@ -4,6 +4,7 @@ import { buildBasicAuthHeader } from './portalApi'
 import ResultsPage from './ResultsPage'
 import LoginPage from './pages/LoginPage'
 import RunPage from './pages/RunPage'
+import useCsvFileValidation from './hooks/useCsvFileValidation'
 import useCycleValidation from './hooks/useCycleValidation'
 import useRunCycle from './hooks/useRunCycle'
 
@@ -27,6 +28,15 @@ export default function App() {
   const clearCredentials = useCallback(() => setCredentials(null), [])
 
   const {
+    playersCsvErrors,
+    tournamentsCsvErrors,
+    playersCsvStatus,
+    tournamentsCsvStatus,
+    csvFilesValid,
+    csvFilesChecking,
+  } = useCsvFileValidation(form.playersCsv, form.tournamentsCsv)
+
+  const {
     validationErrors,
     validationRequestError,
     validationRequestId,
@@ -34,6 +44,7 @@ export default function App() {
   } = useCycleValidation(form, credentials, {
     onAuthError: clearCredentials,
     debounceMs: import.meta.env.MODE === 'test' ? 0 : 300,
+    skip: !csvFilesValid,
   })
 
   const { handleRun, status, runErrors, runRequestId, runResult, clearRunResult, abort } = useRunCycle(
@@ -97,6 +108,12 @@ export default function App() {
       setForm={setForm}
       status={status}
       runErrors={runErrors}
+      playersCsvErrors={playersCsvErrors}
+      tournamentsCsvErrors={tournamentsCsvErrors}
+      playersCsvStatus={playersCsvStatus}
+      tournamentsCsvStatus={tournamentsCsvStatus}
+      csvFilesValid={csvFilesValid}
+      csvFilesChecking={csvFilesChecking}
       validationErrors={validationErrors}
       validationRequestError={validationRequestError}
       validationRequestId={validationRequestId ?? undefined}

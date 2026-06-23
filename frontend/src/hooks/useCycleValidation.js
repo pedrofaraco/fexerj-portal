@@ -2,14 +2,20 @@ import { useEffect, useState } from 'react'
 
 import { buildCycleFormData, postMultipart } from '../portalApi'
 
-export default function useCycleValidation(form, credentials, { onAuthError, debounceMs = 300 } = {}) {
+export default function useCycleValidation(form, credentials, { onAuthError, debounceMs = 300, skip = false } = {}) {
   const [validationErrors, setValidationErrors] = useState([])
   const [validationRequestError, setValidationRequestError] = useState('')
   const [validationRequestId, setValidationRequestId] = useState(null)
   const [validationStatus, setValidationStatus] = useState('idle') // idle | checking | done | failed
 
   useEffect(() => {
-    if (!credentials || !form.playersCsv || !form.tournamentsCsv || form.binaryFiles.length === 0) {
+    if (
+      skip ||
+      !credentials ||
+      !form.playersCsv ||
+      !form.tournamentsCsv ||
+      form.binaryFiles.length === 0
+    ) {
       let resetCancelled = false
       queueMicrotask(() => {
         if (resetCancelled) return
@@ -84,7 +90,7 @@ export default function useCycleValidation(form, credentials, { onAuthError, deb
       clearTimeout(timer)
       ac.abort()
     }
-  }, [form, credentials, onAuthError, debounceMs])
+  }, [form, credentials, onAuthError, debounceMs, skip])
 
   return { validationErrors, validationRequestError, validationRequestId, validationStatus }
 }

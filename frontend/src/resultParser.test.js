@@ -300,6 +300,28 @@ describe('parsePlayersCsv and IRT enrichment', () => {
     expect(enriched.name).toBe('Alice Nome Oficial')
   })
 
+  it('parsePlayersCsv maps CBX id when Id_CBX has cp1252 NBSP misread as UTF-8', () => {
+    const csv = `${RATING_LIST_HEADER}
+5304;\uFFFD95178;;CALEB ELIAS HUSSIN GUALBERTO;1446;AFLUX;;;;51;0;0`
+    const { fexerjNames, cbxToFexerj } = parsePlayersCsv(csv)
+    expect(fexerjNames.get(5304)).toBe('CALEB ELIAS HUSSIN GUALBERTO')
+    expect(cbxToFexerj.get(95178)).toBe(5304)
+  })
+
+  it('enrichPlayerFromPlayersCsv maps Caleb IRT row after cp1252 Id_CBX fix', () => {
+    const csv = `${RATING_LIST_HEADER}
+5304;\uFFFD95178;;CALEB ELIAS HUSSIN GUALBERTO;1446;AFLUX;;;;51;0;0`
+    const lookups = parsePlayersCsv(csv)
+    const audit = mapAuditRowToPlayer(
+      '95178;Caleb Elias Hussin, Gualberto;26;1446;51;15;1.5;5;8458;1691.6;-245.6;0.19;0.97;0.52;7.82;1454;56;0.3;NORMAL'.split(
+        ';',
+      ),
+    )
+    const enriched = enrichPlayerFromPlayersCsv(audit, { isIrt: true }, lookups)
+    expect(enriched.fexerjId).toBe(5304)
+    expect(enriched.name).toBe('CALEB ELIAS HUSSIN GUALBERTO')
+  })
+
   it('enrichPlayerFromPlayersCsv uses players.csv name for non-IRT tournaments', () => {
     const csv = `${RATING_LIST_HEADER}
 1782;;;Alexandre Nome CSV;2100;CLUB;;;;50;0;0`

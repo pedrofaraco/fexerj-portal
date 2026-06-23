@@ -79,12 +79,12 @@ export function parsePlayersCsv(playersCsvText) {
 
   for (const row of rows) {
     if (row.every(c => c === '' || c === undefined)) continue
-    const fexerjId = parseIntCell(row[iId])
+    const fexerjId = parseIdCell(row[iId])
     if (fexerjId == null) continue
     const name = (row[iName] ?? '').trim()
     if (name) fexerjNames.set(fexerjId, name)
     if (iCbx >= 0) {
-      const cbxId = parseIntCell(row[iCbx])
+      const cbxId = parseIdCell(row[iCbx])
       if (cbxId != null) cbxToFexerj.set(cbxId, fexerjId)
     }
   }
@@ -142,6 +142,15 @@ function parseIntCell(raw) {
   const s = String(raw).trim()
   if (s === 'None') return null
   const n = Number.parseInt(s, 10)
+  return Number.isNaN(n) ? null : n
+}
+
+/** Parse FEXERJ/CBX id cells; tolerates NBSP/garbage prefixes from Excel cp1252 exports. */
+function parseIdCell(raw) {
+  if (raw === undefined || raw === null || raw === '') return null
+  const digits = String(raw).replace(/\D/g, '')
+  if (!digits) return null
+  const n = Number.parseInt(digits, 10)
   return Number.isNaN(n) ? null : n
 }
 
