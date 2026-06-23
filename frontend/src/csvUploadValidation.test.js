@@ -21,6 +21,11 @@ function tournamentsCsv(...rows) {
   return [TOURNAMENTS_HEADER, ...rows].join('\n')
 }
 
+/** @param {import('./csvUploadValidation').CsvValidationError | string} error */
+function errorMessage(error) {
+  return typeof error === 'string' ? error : error.message
+}
+
 describe('decodeCsvUpload', () => {
   it('decodes UTF-8 with BOM', () => {
     const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('a;b')])
@@ -39,17 +44,21 @@ describe('validatePlayersCsv', () => {
   })
 
   it('rejects empty file', () => {
-    expect(validatePlayersCsv('')).toEqual(['players.csv: arquivo vazio'])
+    expect(errorMessage(validatePlayersCsv('')[0])).toBe('players.csv: arquivo vazio')
+    expect(validatePlayersCsv('')[0].rawLine).toBeUndefined()
   })
 
   it('rejects wrong header', () => {
     const errors = validatePlayersCsv('Id_No;Name\n1;Test\n')
-    expect(errors[0]).toMatch(/cabeçalho inválido/)
+    expect(errorMessage(errors[0])).toMatch(/cabeçalho inválido/)
+    expect(errors[0].rawLine).toBeUndefined()
   })
 
   it('rejects wrong column count', () => {
-    const errors = validatePlayersCsv(playersCsv('1;Player One'))
-    expect(errors[0]).toMatch(/esperadas 12 colunas/)
+    const row = '1;Player One'
+    const errors = validatePlayersCsv(playersCsv(row))
+    expect(errorMessage(errors[0])).toMatch(/esperadas 12 colunas/)
+    expect(errors[0].rawLine).toBe(row)
   })
 
   it('skips blank lines', () => {
@@ -58,63 +67,72 @@ describe('validatePlayersCsv', () => {
 
   it('rejects missing Id_No', () => {
     const row = ';;;Roberto;1500;CLUB;01/01/1990;M;BRA;50;0;0'
-    expect(validatePlayersCsv(playersCsv(row)).some(e => e.includes('Id_No é obrigatório'))).toBe(
+    expect(validatePlayersCsv(playersCsv(row)).some(e => errorMessage(e).includes('Id_No é obrigatório'))).toBe(
       true,
     )
   })
 
   it('rejects duplicate Id_No', () => {
     const errors = validatePlayersCsv(playersCsv(VALID_PLAYER_ROW, VALID_PLAYER_ROW))
-    expect(errors.some(e => e.includes('Id_No duplicado'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('Id_No duplicado'))).toBe(true)
   })
 
-  it('rejects NBSP in Id_CBX', () => {
+  it('rejects NBSP in Id_CBX with the offending line and column', () => {
     const row = `5304;\u00a095178;;CALEB ELIAS;1446;CLUB;01/01/1990;M;BRA;51;0;0`
     const errors = validatePlayersCsv(playersCsv(row))
-    expect(errors.some(e => e.includes('NBSP'))).toBe(true)
+    const err = errors.find(e => errorMessage(e).includes('NBSP'))
+    expect(err?.rawLine).toBe(row)
+    expect(err?.highlightColumn).toBe(1)
   })
 
   it('rejects non-integer Rtg_Nat', () => {
     const row = '3741;;;Roberto;abc;CLUB;01/01/1990;M;BRA;50;0;0'
-    expect(validatePlayersCsv(playersCsv(row)).some(e => e.includes('Rtg_Nat'))).toBe(true)
+    expect(validatePlayersCsv(playersCsv(row)).some(e => errorMessage(e).includes('Rtg_Nat'))).toBe(true)
   })
 
   it('rejects invalid Id_No characters', () => {
     const row = 'abc;;;Roberto;1500;CLUB;01/01/1990;M;BRA;50;0;0'
     expect(
-      validatePlayersCsv(playersCsv(row)).some(e => e.includes('Id_No deve ser um número inteiro')),
+      validatePlayersCsv(playersCsv(row)).some(e =>
+        errorMessage(e).includes('Id_No deve ser um número inteiro'),
+      ),
     ).toBe(true)
   })
 
   it('rejects replacement character in Id_No', () => {
     const row = `\uFFFD123;;;Roberto;1500;CLUB;01/01/1990;M;BRA;50;0;0`
     expect(
-      validatePlayersCsv(playersCsv(row)).some(e => e.includes('Id_No contém caractere inválido')),
+      validatePlayersCsv(playersCsv(row)).some(e =>
+        errorMessage(e).includes('Id_No contém caractere inválido'),
+      ),
     ).toBe(true)
   })
 
   it('rejects missing Name and numeric fields', () => {
     const row = '3741;;; ;1500;CLUB;01/01/1990;M;BRA;;;'
     const errors = validatePlayersCsv(playersCsv(row))
-    expect(errors.some(e => e.includes('Name é obrigatório'))).toBe(true)
-    expect(errors.some(e => e.includes('TotalNumGames é obrigatório'))).toBe(true)
-    expect(errors.some(e => e.includes('SumOpponRating é obrigatório'))).toBe(true)
-    expect(errors.some(e => e.includes('TotalPoints é obrigatório'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('Name é obrigatório'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('TotalNumGames é obrigatório'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('SumOpponRating é obrigatório'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('TotalPoints é obrigatório'))).toBe(true)
   })
 
   it('rejects invalid TotalPoints', () => {
     const row = '3741;;;Roberto;1500;CLUB;01/01/1990;M;BRA;50;0;not-a-number'
     expect(
-      validatePlayersCsv(playersCsv(row)).some(e => e.includes('TotalPoints deve ser um número')),
+      validatePlayersCsv(playersCsv(row)).some(e =>
+        errorMessage(e).includes('TotalPoints deve ser um número'),
+      ),
     ).toBe(true)
   })
 
-  it('rejects duplicate Id_CBX', () => {
+  it('rejects duplicate Id_CBX with both lines', () => {
     const rowA = '3741;90107;;Player A;1500;CLUB;01/01/1990;M;BRA;50;0;0'
     const rowB = '3742;90107;;Player B;1500;CLUB;01/01/1990;M;BRA;50;0;0'
-    expect(validatePlayersCsv(playersCsv(rowA, rowB)).some(e => e.includes('Id_CBX duplicado'))).toBe(
-      true,
-    )
+    const errors = validatePlayersCsv(playersCsv(rowA, rowB))
+    const err = errors.find(e => errorMessage(e).includes('Id_CBX duplicado'))
+    expect(err?.rawLines).toEqual([rowA, rowB])
+    expect(err?.highlightColumn).toBe(1)
   })
 })
 
@@ -124,37 +142,37 @@ describe('validateTournamentsCsv', () => {
   })
 
   it('rejects empty file', () => {
-    expect(validateTournamentsCsv('')).toEqual(['tournaments.csv: arquivo vazio'])
+    expect(errorMessage(validateTournamentsCsv('')[0])).toBe('tournaments.csv: arquivo vazio')
   })
 
   it('rejects wrong header', () => {
-    expect(validateTournamentsCsv('Ord;Name\n1;Test\n')[0]).toMatch(/cabeçalho inválido/)
+    expect(errorMessage(validateTournamentsCsv('Ord;Name\n1;Test\n')[0])).toMatch(/cabeçalho inválido/)
   })
 
   it('rejects wrong column count', () => {
     const errors = validateTournamentsCsv(tournamentsCsv('1;99999;Copa'))
-    expect(errors[0]).toMatch(/esperadas 7 colunas/)
+    expect(errorMessage(errors[0])).toMatch(/esperadas 7 colunas/)
   })
 
   it('rejects invalid Type', () => {
     const errors = validateTournamentsCsv(tournamentsCsv('1;99999;Copa;;XX;0;1'))
-    expect(errors.some(e => e.includes("Type 'XX' inválido"))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes("Type 'XX' inválido"))).toBe(true)
   })
 
   it('rejects invalid IsIrt', () => {
     const errors = validateTournamentsCsv(tournamentsCsv('1;99999;Copa;;RR;2;1'))
-    expect(errors.some(e => e.includes('IsIrt deve ser 0 ou 1'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('IsIrt deve ser 0 ou 1'))).toBe(true)
   })
 
   it('rejects invalid IsFexerj and missing required fields', () => {
     const errors = validateTournamentsCsv(tournamentsCsv('1;;Copa;;RR;0;9'))
-    expect(errors.some(e => e.includes('CrId é obrigatório'))).toBe(true)
-    expect(errors.some(e => e.includes('IsFexerj deve ser 0 ou 1'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('CrId é obrigatório'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('IsFexerj deve ser 0 ou 1'))).toBe(true)
   })
 
   it('rejects invalid CrId', () => {
     const errors = validateTournamentsCsv(tournamentsCsv('1;abc;Copa;;RR;0;1'))
-    expect(errors.some(e => e.includes('CrId deve ser um número inteiro'))).toBe(true)
+    expect(errors.some(e => errorMessage(e).includes('CrId deve ser um número inteiro'))).toBe(true)
   })
 })
 

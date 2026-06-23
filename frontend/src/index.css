@@ -225,6 +225,41 @@ body {
   color: #991b1b;
 }
 
+.csv-validation-error-list {
+  list-style: disc;
+  list-style-position: inside;
+}
+
+.csv-validation-error-item {
+  margin-bottom: 0.5rem;
+}
+
+.csv-validation-error-item:last-child {
+  margin-bottom: 0;
+}
+
+.csv-error-line {
+  display: block;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #fecaca;
+  background-color: #ffffff;
+  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.csv-error-cell-bad {
+  background-color: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
 .alert-success {
   font-size: 0.875rem;
   color: #15803d;

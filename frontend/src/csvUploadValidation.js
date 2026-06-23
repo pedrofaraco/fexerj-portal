@@ -11,6 +11,45 @@ const ENCODING_ERROR_PT =
   'codificação inválida — salve o arquivo em UTF-8 (no Excel: "Salvar como" → "CSV UTF-8 (delimitado por vírgula)").'
 
 /**
+ * @typedef {Object} CsvValidationError
+ * @property {string} message
+ * @property {string} [rawLine] Single offending CSV row (semicolon-separated).
+ * @property {string[]} [rawLines] Multiple rows (e.g. duplicate id).
+ * @property {number} [highlightColumn] Zero-based column index to highlight in rawLine/rawLines.
+ */
+
+/** @param {string} message @returns {CsvValidationError} */
+export function csvMessageError(message) {
+  return { message }
+}
+
+/**
+ * @param {string} message
+ * @param {string} rawLine
+ * @param {number} [highlightColumn]
+ * @returns {CsvValidationError}
+ */
+function csvRowError(message, rawLine, highlightColumn) {
+  /** @type {CsvValidationError} */
+  const err = { message, rawLine }
+  if (highlightColumn != null) err.highlightColumn = highlightColumn
+  return err
+}
+
+/**
+ * @param {string} message
+ * @param {string[]} rawLines
+ * @param {number} [highlightColumn]
+ * @returns {CsvValidationError}
+ */
+function csvDuplicateError(message, rawLines, highlightColumn) {
+  /** @type {CsvValidationError} */
+  const err = { message, rawLines }
+  if (highlightColumn != null) err.highlightColumn = highlightColumn
+  return err
+}
+
+/**
  * Decode CSV upload bytes (UTF-8 with optional BOM, then Windows-1252).
  * Mirrors `backend/upload_text.py`.
  * @param {Uint8Array} bytes
@@ -63,55 +102,85 @@ function rowHasContent(raw) {
  * @param {string} field
  * @param {number} rowNum
  * @param {string} prefix
+ * @param {number} columnIndex
+ * @param {string} rawLine
  * @param {{ required?: boolean }} [opts]
- * @returns {string[]}
+ * @returns {CsvValidationError[]}
  */
-function validateIdCell(value, field, rowNum, prefix, { required = false } = {}) {
+function validateIdCell(
+  value,
+  field,
+  rowNum,
+  prefix,
+  columnIndex,
+  rawLine,
+  { required = false } = {},
+) {
+  /** @type {CsvValidationError[]} */
   const errors = []
   const trimmed = (value ?? '').trim()
   if (!trimmed) {
-    if (required) errors.push(`${prefix} linha ${rowNum}: ${field} é obrigatório`)
+    if (required) {
+      errors.push(
+        csvRowError(`${prefix} linha ${rowNum}: ${field} é obrigatório`, rawLine, columnIndex),
+      )
+    }
     return errors
   }
   const raw = String(value ?? '')
   if (raw.includes('\uFFFD')) {
     errors.push(
-      `${prefix} linha ${rowNum}: ${field} contém caractere inválido — ${ENCODING_ERROR_PT}`,
+      csvRowError(
+        `${prefix} linha ${rowNum}: ${field} contém caractere inválido — ${ENCODING_ERROR_PT}`,
+        rawLine,
+        columnIndex,
+      ),
     )
     return errors
   }
   if (raw.includes('\u00a0')) {
     errors.push(
-      `${prefix} linha ${rowNum}: ${field} contém espaço não separável (NBSP) — corrija a célula no Excel`,
+      csvRowError(
+        `${prefix} linha ${rowNum}: ${field} contém espaço não separável (NBSP) — corrija a célula no Excel`,
+        rawLine,
+        columnIndex,
+      ),
     )
     return errors
   }
   if (!/^\d+$/.test(trimmed)) {
-    errors.push(`${prefix} linha ${rowNum}: ${field} deve ser um número inteiro`)
+    errors.push(
+      csvRowError(
+        `${prefix} linha ${rowNum}: ${field} deve ser um número inteiro`,
+        rawLine,
+        columnIndex,
+      ),
+    )
   }
   return errors
 }
 
 /**
  * @param {string} content
- * @returns {string[]}
+ * @returns {CsvValidationError[]}
  */
 export function validatePlayersCsv(content) {
   const prefix = 'players.csv'
+  /** @type {CsvValidationError[]} */
   const errors = []
   const lines = content.split(/\r?\n/)
 
   if (lines.length === 0 || !lines.some(line => line.length > 0)) {
-    return [`${prefix}: arquivo vazio`]
+    return [csvMessageError(`${prefix}: arquivo vazio`)]
   }
 
   if (lines[0].trim() !== PLAYERS_HEADER) {
-    return [`${prefix}: cabeçalho inválido — esperado '${PLAYERS_HEADER}'`]
+    return [csvMessageError(`${prefix}: cabeçalho inválido — esperado '${PLAYERS_HEADER}'`)]
   }
 
-  /** @type {Map<string, number>} */
+  /** @type {Map<string, { rowNum: number, rawLine: string }>} */
   const idNoSeen = new Map()
-  /** @type {Map<string, number>} */
+  /** @type {Map<string, { rowNum: number, rawLine: string }>} */
   const idCbxSeen = new Map()
 
   for (let i = 1; i < lines.length; i += 1) {
@@ -121,7 +190,12 @@ export function validatePlayersCsv(content) {
 
     const row = splitCsvLine(line)
     if (row.length !== 12) {
-      errors.push(`${prefix} linha ${rowNum}: esperadas 12 colunas, encontradas ${row.length}`)
+      errors.push(
+        csvRowError(
+          `${prefix} linha ${rowNum}: esperadas 12 colunas, encontradas ${row.length}`,
+          line,
+        ),
+      )
       continue
     }
 
@@ -133,46 +207,96 @@ export function validatePlayersCsv(content) {
     const sumOppon = row[10].trim()
     const totalPoints = row[11].trim()
 
-    errors.push(...validateIdCell(row[0], 'Id_No', rowNum, prefix, { required: true }))
-    if (idCbx) errors.push(...validateIdCell(row[1], 'Id_CBX', rowNum, prefix))
+    errors.push(
+      ...validateIdCell(row[0], 'Id_No', rowNum, prefix, 0, line, { required: true }),
+    )
+    if (idCbx) errors.push(...validateIdCell(row[1], 'Id_CBX', rowNum, prefix, 1, line))
 
-    if (!name) errors.push(`${prefix} linha ${rowNum}: Name é obrigatório`)
-    if (!rtgNat) errors.push(`${prefix} linha ${rowNum}: Rtg_Nat é obrigatório`)
-    if (!totalGames) errors.push(`${prefix} linha ${rowNum}: TotalNumGames é obrigatório`)
-    if (!sumOppon) errors.push(`${prefix} linha ${rowNum}: SumOpponRating é obrigatório`)
-    if (!totalPoints) errors.push(`${prefix} linha ${rowNum}: TotalPoints é obrigatório`)
+    if (!name) {
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: Name é obrigatório`, line, 3))
+    }
+    if (!rtgNat) {
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: Rtg_Nat é obrigatório`, line, 4))
+    }
+    if (!totalGames) {
+      errors.push(
+        csvRowError(`${prefix} linha ${rowNum}: TotalNumGames é obrigatório`, line, 9),
+      )
+    }
+    if (!sumOppon) {
+      errors.push(
+        csvRowError(`${prefix} linha ${rowNum}: SumOpponRating é obrigatório`, line, 10),
+      )
+    }
+    if (!totalPoints) {
+      errors.push(
+        csvRowError(`${prefix} linha ${rowNum}: TotalPoints é obrigatório`, line, 11),
+      )
+    }
 
     if (rtgNat && !/^-?\d+$/.test(rtgNat)) {
-      errors.push(`${prefix} linha ${rowNum}: Rtg_Nat deve ser um número inteiro`)
+      errors.push(
+        csvRowError(`${prefix} linha ${rowNum}: Rtg_Nat deve ser um número inteiro`, line, 4),
+      )
     }
     if (totalGames && !/^-?\d+$/.test(totalGames)) {
-      errors.push(`${prefix} linha ${rowNum}: TotalNumGames deve ser um número inteiro`)
+      errors.push(
+        csvRowError(
+          `${prefix} linha ${rowNum}: TotalNumGames deve ser um número inteiro`,
+          line,
+          9,
+        ),
+      )
     }
     if (sumOppon && !/^-?\d+$/.test(sumOppon)) {
-      errors.push(`${prefix} linha ${rowNum}: SumOpponRating deve ser um número inteiro`)
+      errors.push(
+        csvRowError(
+          `${prefix} linha ${rowNum}: SumOpponRating deve ser um número inteiro`,
+          line,
+          10,
+        ),
+      )
     }
     if (totalPoints) {
       const n = Number.parseFloat(totalPoints.replace(',', '.'))
       if (Number.isNaN(n)) {
-        errors.push(`${prefix} linha ${rowNum}: TotalPoints deve ser um número válido`)
+        errors.push(
+          csvRowError(
+            `${prefix} linha ${rowNum}: TotalPoints deve ser um número válido`,
+            line,
+            11,
+          ),
+        )
       }
     }
 
     if (idNo) {
       const prev = idNoSeen.get(idNo)
       if (prev != null) {
-        errors.push(`${prefix}: Id_No duplicado: ${idNo} (linhas ${prev} e ${rowNum})`)
+        errors.push(
+          csvDuplicateError(
+            `${prefix}: Id_No duplicado: ${idNo} (linhas ${prev.rowNum} e ${rowNum})`,
+            [prev.rawLine, line],
+            0,
+          ),
+        )
       } else {
-        idNoSeen.set(idNo, rowNum)
+        idNoSeen.set(idNo, { rowNum, rawLine: line })
       }
     }
 
     if (idCbx) {
       const prev = idCbxSeen.get(idCbx)
       if (prev != null) {
-        errors.push(`${prefix}: Id_CBX duplicado: ${idCbx} (linhas ${prev} e ${rowNum})`)
+        errors.push(
+          csvDuplicateError(
+            `${prefix}: Id_CBX duplicado: ${idCbx} (linhas ${prev.rowNum} e ${rowNum})`,
+            [prev.rawLine, line],
+            1,
+          ),
+        )
       } else {
-        idCbxSeen.set(idCbx, rowNum)
+        idCbxSeen.set(idCbx, { rowNum, rawLine: line })
       }
     }
   }
@@ -182,19 +306,20 @@ export function validatePlayersCsv(content) {
 
 /**
  * @param {string} content
- * @returns {string[]}
+ * @returns {CsvValidationError[]}
  */
 export function validateTournamentsCsv(content) {
   const prefix = 'tournaments.csv'
+  /** @type {CsvValidationError[]} */
   const errors = []
   const lines = content.split(/\r?\n/)
 
   if (lines.length === 0 || !lines.some(line => line.length > 0)) {
-    return [`${prefix}: arquivo vazio`]
+    return [csvMessageError(`${prefix}: arquivo vazio`)]
   }
 
   if (lines[0].trim() !== TOURNAMENTS_HEADER) {
-    return [`${prefix}: cabeçalho inválido — esperado '${TOURNAMENTS_HEADER}'`]
+    return [csvMessageError(`${prefix}: cabeçalho inválido — esperado '${TOURNAMENTS_HEADER}'`)]
   }
 
   for (let i = 1; i < lines.length; i += 1) {
@@ -204,7 +329,12 @@ export function validateTournamentsCsv(content) {
 
     const row = splitCsvLine(line)
     if (row.length !== 7) {
-      errors.push(`${prefix} linha ${rowNum}: esperadas 7 colunas, encontradas ${row.length}`)
+      errors.push(
+        csvRowError(
+          `${prefix} linha ${rowNum}: esperadas 7 colunas, encontradas ${row.length}`,
+          line,
+        ),
+      )
       continue
     }
 
@@ -213,24 +343,32 @@ export function validateTournamentsCsv(content) {
     const isIrt = row[5].trim()
     const isFex = row[6].trim()
 
-    errors.push(...validateIdCell(row[0], 'Ord', rowNum, prefix, { required: true }))
-    errors.push(...validateIdCell(row[1], 'CrId', rowNum, prefix, { required: true }))
+    errors.push(...validateIdCell(row[0], 'Ord', rowNum, prefix, 0, line, { required: true }))
+    errors.push(...validateIdCell(row[1], 'CrId', rowNum, prefix, 1, line, { required: true }))
 
-    if (!name) errors.push(`${prefix} linha ${rowNum}: Name é obrigatório`)
-    if (!type) errors.push(`${prefix} linha ${rowNum}: Type é obrigatório`)
-    if (!isIrt) errors.push(`${prefix} linha ${rowNum}: IsIrt é obrigatório`)
-    if (!isFex) errors.push(`${prefix} linha ${rowNum}: IsFexerj é obrigatório`)
+    if (!name) errors.push(csvRowError(`${prefix} linha ${rowNum}: Name é obrigatório`, line, 2))
+    if (!type) errors.push(csvRowError(`${prefix} linha ${rowNum}: Type é obrigatório`, line, 4))
+    if (!isIrt) {
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: IsIrt é obrigatório`, line, 5))
+    }
+    if (!isFex) {
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: IsFexerj é obrigatório`, line, 6))
+    }
 
     if (type && !VALID_TOURNAMENT_TYPES.has(type)) {
       errors.push(
-        `${prefix} linha ${rowNum}: Type '${type}' inválido; deve ser SS, RR ou ST`,
+        csvRowError(
+          `${prefix} linha ${rowNum}: Type '${type}' inválido; deve ser SS, RR ou ST`,
+          line,
+          4,
+        ),
       )
     }
     if (isIrt && isIrt !== '0' && isIrt !== '1') {
-      errors.push(`${prefix} linha ${rowNum}: IsIrt deve ser 0 ou 1`)
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: IsIrt deve ser 0 ou 1`, line, 5))
     }
     if (isFex && isFex !== '0' && isFex !== '1') {
-      errors.push(`${prefix} linha ${rowNum}: IsFexerj deve ser 0 ou 1`)
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: IsFexerj deve ser 0 ou 1`, line, 6))
     }
   }
 
@@ -239,26 +377,26 @@ export function validateTournamentsCsv(content) {
 
 /**
  * @param {File} file
- * @returns {Promise<string[]>}
+ * @returns {Promise<CsvValidationError[]>}
  */
 export async function validatePlayersCsvFile(file) {
   try {
     const content = await readCsvFile(file)
     return validatePlayersCsv(content)
   } catch (e) {
-    return [e instanceof Error ? e.message : String(e)]
+    return [csvMessageError(e instanceof Error ? e.message : String(e))]
   }
 }
 
 /**
  * @param {File} file
- * @returns {Promise<string[]>}
+ * @returns {Promise<CsvValidationError[]>}
  */
 export async function validateTournamentsCsvFile(file) {
   try {
     const content = await readCsvFile(file)
     return validateTournamentsCsv(content)
   } catch (e) {
-    return [e instanceof Error ? e.message : String(e)]
+    return [csvMessageError(e instanceof Error ? e.message : String(e))]
   }
 }
