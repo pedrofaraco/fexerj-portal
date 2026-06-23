@@ -30,6 +30,7 @@ export default function useRunCycle(form, credentials, { onAuthError } = {}) {
 
     const body = buildCycleFormData(form)
     const tournamentsCsvText = form.tournamentsCsv ? await form.tournamentsCsv.text() : ''
+    const playersCsvText = form.playersCsv ? await form.playersCsv.text() : ''
 
     try {
       const response = await postMultipart('/run', body, credentials, { signal: ac.signal })
@@ -74,7 +75,7 @@ export default function useRunCycle(form, credentials, { onAuthError } = {}) {
       if (ac.signal.aborted) return
 
       try {
-        const parsed = await parseRunResult(blob, tournamentsCsvText)
+        const parsed = await parseRunResult(blob, tournamentsCsvText, playersCsvText)
         setRunResult({
           zipBlob: parsed.zipBlob,
           zipFilename: parsed.zipFilename,
