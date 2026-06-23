@@ -220,3 +220,6 @@ __marimo__/
 # Planning / review notes (local-only; never commit)
 CODE_REVIEW*.md
 RESULTS_SEARCH*.md
+
+# Local Claude Code instructions (personal; use ~/.claude/CLAUDE.md for sharing)
+CLAUDE.md
