@@ -228,7 +228,10 @@ class TestWriteTournamentAudit:
         assert output.splitlines()[1] == _AUDIT_FILE_HEADER
 
     def test_one_line_per_player(self):
-        t = _make_tournament()
+        t = _make_tournament(rating_list={
+            101: _make_fexerj_player(101, 50, 1500),
+            102: _make_fexerj_player(102, 50, 1500),
+        })
         t.players = {
             1: _make_calculated_tp(t, fexerj_id=101),
             2: _make_calculated_tp(t, fexerj_id=102),
@@ -237,21 +240,49 @@ class TestWriteTournamentAudit:
         assert len(lines) == 4  # preamble + header + 2 players
 
     def test_correct_number_of_fields_per_line(self):
-        t = _make_tournament()
+        t = _make_tournament(rating_list={100: _make_fexerj_player(100, 50, 1500)})
         t.players = {1: _make_calculated_tp(t)}
         lines = t.write_tournament_audit().splitlines()
         assert len(lines[2].split(";")) == 19
 
     def test_player_values_in_output(self):
-        t = _make_tournament()
+        t = _make_tournament(rating_list={100: _make_fexerj_player(100, 50, 1500)})
         t.players = {1: _make_calculated_tp(t, fexerj_id=100, new_rating=1508, calc_rule=CalcRule.NORMAL)}
         content = t.write_tournament_audit()
         assert "1508" in content
         assert "NORMAL" in content
         assert "100" in content
 
+    def test_irt_audit_uses_fexerj_id_and_players_csv_name(self):
+        fp = _make_fexerj_player(10, total_games=50, last_rating=1500, id_cbx="99")
+        fp.name = "CANONICAL NAME FROM CSV"
+        t = _make_tournament(is_irt=1, rating_list={10: fp}, cbx_to_fexerj={99: 10})
+        tp = _make_calculated_tp(t, fexerj_id=99, new_rating=1508, calc_rule=CalcRule.NORMAL)
+        tp.name = "Binary, Surname"
+        t.players = {1: tp}
+        reader = csv.reader(io.StringIO(t.write_tournament_audit()), delimiter=";")
+        next(reader)
+        next(reader)
+        row = next(reader)
+        assert row[0] == "10"
+        assert row[1] == "CANONICAL NAME FROM CSV"
+
+    def test_non_irt_audit_uses_players_csv_name_not_binary(self):
+        fp = _make_fexerj_player(1559, total_games=50, last_rating=2070)
+        fp.name = "SELMO BASTOS PINTO"
+        t = _make_tournament(rating_list={1559: fp})
+        tp = _make_calculated_tp(t, fexerj_id=1559, new_rating=2071, calc_rule=CalcRule.NORMAL)
+        tp.name = "Bastos Pinto, Selmo"
+        t.players = {1: tp}
+        reader = csv.reader(io.StringIO(t.write_tournament_audit()), delimiter=";")
+        next(reader)
+        next(reader)
+        row = next(reader)
+        assert row[0] == "1559"
+        assert row[1] == "SELMO BASTOS PINTO"
+
     def test_zero_games_player_we_and_p_are_none(self):
-        t = _make_tournament()
+        t = _make_tournament(rating_list={100: _make_fexerj_player(100, 50, 1500)})
         tp = _make_calculated_tp(t, this_games=0, this_pts=None,
                                   this_sum_oppon=None, this_avg_oppon=None,
                                   this_expected=None, this_points_above=None,
