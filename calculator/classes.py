@@ -12,8 +12,8 @@ _CSV_DELIMITER = ';'
 _RATING_LIST_HEADER = 'Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating' \
                       ';TotalPoints'
 # -- Audit File Columns --
-# Id_Fexerj = ID of the player within FEXERJ
-# Name = Name of the player
+# Id_Fexerj = FEXERJ id from players.csv (Id_No), not CBX from IRT binaries
+# Name = canonical name from players.csv
 # No = Number of the player within Chess Result tournament
 # Ro = Rating before tournament
 # Ind = Total games before tournament
@@ -376,14 +376,17 @@ class Tournament:
         self.established_keys = []
         self.rating_cycle = rating_cycle
 
+    def _fexerj_player_for(self, tp):
+        """Return the FexerjPlayer from players.csv for a tournament player."""
+        if self.is_irt:
+            return self.rating_cycle.rating_list[self.rating_cycle.cbx_to_fexerj[tp.id]]
+        return self.rating_cycle.rating_list[tp.id]
+
     def complete_players_info(self):
         missing: list[str] = []
         for snr, tp in self.players.items():
             try:
-                if self.is_irt:
-                    fp = self.rating_cycle.rating_list[self.rating_cycle.cbx_to_fexerj[tp.id]]
-                else:
-                    fp = self.rating_cycle.rating_list[tp.id]
+                fp = self._fexerj_player_for(tp)
             except KeyError:
                 missing.append(f"{tp.id} ({tp.name or 'sem nome'})")
                 continue
@@ -421,10 +424,7 @@ class Tournament:
 
     def write_new_ratings_list(self) -> str:
         for player in self.players.values():
-            if self.is_irt:
-                fp = self.rating_cycle.rating_list[self.rating_cycle.cbx_to_fexerj[player.id]]
-            else:
-                fp = self.rating_cycle.rating_list[player.id]
+            fp = self._fexerj_player_for(player)
             fp.last_rating = player.new_rating
             fp.total_games = player.new_total_games
             if player.new_total_games < _MAX_NUM_GAMES_TEMP_RATING:
@@ -472,8 +472,9 @@ class Tournament:
         print(_AUDIT_FILE_PREAMBLE, file=buf)
         print(_AUDIT_FILE_HEADER, file=buf)
         for snr, tp in self.players.items():
-            line_list = [str(tp.id),
-                         tp.name,
+            fp = self._fexerj_player_for(tp)
+            line_list = [str(fp.id_fexerj),
+                         fp.name,
                          str(snr),
                          str(tp.last_rating),
                          str(tp.last_total_games),
