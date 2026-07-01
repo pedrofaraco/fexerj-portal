@@ -1,6 +1,6 @@
 -r requirements.txt
-pytest
-pytest-cov
-httpx
-mypy
-ruff
+pytest==9.0.2
+pytest-cov==7.1.0
+httpx==0.28.1
+mypy==1.19.1
+ruff==0.15.7
