@@ -57,7 +57,7 @@ These same checks run automatically via GitHub Actions on pushes to `master`, `d
 
 - `master` — production only; never commit directly
 - `develop` — integration branch; all feature branches target this
-- `feature/<name>`, `refactor/<name>`, `chore/<name>`, `fix/<name>` — one branch per task; open a PR into `develop`
+- `feature/<name>`, `refactor/<name>`, `chore/<name>`, `fix/<name>` — one branch per task; merged into `develop` via PR
 
 ## Commit Messages
 
@@ -84,3 +84,4 @@ Keep the summary under 72 characters. Use the body for context when needed.
 4. A passing CI run (Python and shell linting, type check, tests, and frontend lint/build) is required before merging.
 5. Squash-merge into `develop`; the branch is deleted after merge.
 6. Periodically, `develop` is merged into `master` to deploy to production.
+
