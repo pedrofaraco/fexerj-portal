@@ -557,3 +557,68 @@ class TestRunValidation:
         detail = response.json()["detail"]
         assert isinstance(detail, list)
         assert any("ID FEXERJ" in e for e in detail)
+
+
+# ---------------------------------------------------------------------------
+# upload_text decode edge cases
+# ---------------------------------------------------------------------------
+
+class TestDecodeCsvUpload:
+    def test_undecodable_bytes_raise_value_error_on_validate(self):
+        """Bytes invalid in both utf-8-sig and cp1252 must surface a 200 with error list."""
+        # 0x81 is unmapped in cp1252 and invalid UTF-8 — trips both decode attempts.
+        bad_bytes = b"Id_No\x81garbage"
+        response = client.post(
+            "/validate",
+            data={"first": 1, "count": 1},
+            files=[
+                ("players_csv",     ("players.csv",    bad_bytes,             "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", TOURNAMENTS_CSV.encode(), "text/csv")),
+                ("binary_files",    ("1-99999.TURX",   TURX_DATA,             "application/octet-stream")),
+            ],
+            auth=VALID_AUTH,
+        )
+        assert response.status_code == 200
+        errors = response.json()["errors"]
+        assert len(errors) > 0
+        assert any("codificação" in e for e in errors)
+
+    def test_undecodable_bytes_return_422_on_run(self):
+        """Same bad bytes on /run must produce 422 (not 500)."""
+        bad_bytes = b"Id_No\x81garbage"
+        response = client.post(
+            "/run",
+            data={"first": 1, "count": 1},
+            files=[
+                ("players_csv",     ("players.csv",    bad_bytes,             "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", TOURNAMENTS_CSV.encode(), "text/csv")),
+                ("binary_files",    ("1-99999.TURX",   TURX_DATA,             "application/octet-stream")),
+            ],
+            auth=VALID_AUTH,
+        )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert isinstance(detail, list)
+        assert any("codificação" in e for e in detail)
+
+
+# ---------------------------------------------------------------------------
+# Upload body limit — middleware edge cases
+# ---------------------------------------------------------------------------
+
+class TestUploadBodyLimitEdgeCases:
+    def test_non_numeric_content_length_is_allowed_through(self):
+        """A garbled Content-Length header must not crash the middleware — pass through."""
+        response = client.post(
+            "/validate",
+            data={"first": "1", "count": "1"},
+            files=[
+                ("players_csv",     ("players.csv",    PLAYERS_CSV.encode(),    "text/csv")),
+                ("tournaments_csv", ("tournaments.csv", TOURNAMENTS_CSV.encode(), "text/csv")),
+                ("binary_files",    ("1-99999.TURX",   TURX_DATA,              "application/octet-stream")),
+            ],
+            headers={"Content-Length": "not-a-number"},
+            auth=VALID_AUTH,
+        )
+        # Must not 413/500; middleware passes through and the endpoint handles it normally.
+        assert response.status_code == 200
