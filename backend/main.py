@@ -42,7 +42,13 @@ _UPLOAD_PATHS = frozenset({"/validate", "/run"})
 
 
 class _RunConcurrencyGuard:
-    """At most one concurrent POST /run; additional requests fail fast with 503."""
+    """At most one concurrent POST /run; additional requests fail fast with 503.
+
+    Note: this guard is in-process only. When uvicorn runs with multiple
+    workers (``--workers N``), each worker has its own instance and the guard
+    does not coordinate across them. For the current single-worker Synology
+    deployment this is fine; revisit if the deployment ever scales out.
+    """
 
     __slots__ = ("_busy", "_lock")
 
