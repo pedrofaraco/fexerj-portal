@@ -134,6 +134,34 @@ def require_auth(credentials: HTTPBasicCredentials | None = Depends(_security)) 
         )
 
 
+async def _read_uploads(
+    players_csv: UploadFile,
+    tournaments_csv: UploadFile,
+    binary_files: list[UploadFile],
+) -> tuple[list[str], str, str, dict[str, bytes]]:
+    """Decode and read all uploaded files.
+
+    Returns ``(decode_errors, players_content, tournaments_content, binary_files_dict)``.
+    When ``decode_errors`` is non-empty the content strings are empty and callers
+    must not pass them to ``validate_inputs``.
+    """
+    decode_errors: list[str] = []
+    players_content = ""
+    tournaments_content = ""
+    try:
+        players_content = decode_csv_upload(await players_csv.read(), "players.csv")
+    except ValueError as exc:
+        decode_errors.append(str(exc))
+    try:
+        tournaments_content = decode_csv_upload(await tournaments_csv.read(), "tournaments.csv")
+    except ValueError as exc:
+        decode_errors.append(str(exc))
+    binary_files_dict: dict[str, bytes] = {
+        f.filename: await f.read() for f in binary_files if f.filename is not None
+    }
+    return decode_errors, players_content, tournaments_content, binary_files_dict
+
+
 @app.get("/health")
 async def health() -> dict:
     """Unauthenticated health check for uptime monitoring.
@@ -181,21 +209,11 @@ async def validate(
             "binary_file_count": len(binary_files),
         },
     )
-    decode_errors: list[str] = []
-    try:
-        players_content = decode_csv_upload(await players_csv.read(), "players.csv")
-    except ValueError as exc:
-        decode_errors.append(str(exc))
-    try:
-        tournaments_content = decode_csv_upload(await tournaments_csv.read(), "tournaments.csv")
-    except ValueError as exc:
-        decode_errors.append(str(exc))
+    decode_errors, players_content, tournaments_content, binary_files_dict = await _read_uploads(
+        players_csv, tournaments_csv, binary_files
+    )
     if decode_errors:
         return {"errors": decode_errors}
-
-    binary_files_dict: dict[str, bytes] = {
-        f.filename: await f.read() for f in binary_files if f.filename is not None
-    }
 
     errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
     logger.info(
@@ -244,26 +262,14 @@ async def run(
                 "binary_file_count": len(binary_files),
             },
         )
-        decode_errors: list[str] = []
-        try:
-            players_content = decode_csv_upload(await players_csv.read(), "players.csv")
-        except ValueError as exc:
-            decode_errors.append(str(exc))
-        try:
-            tournaments_content = decode_csv_upload(
-                await tournaments_csv.read(), "tournaments.csv"
-            )
-        except ValueError as exc:
-            decode_errors.append(str(exc))
+        decode_errors, players_content, tournaments_content, binary_files_dict = await _read_uploads(
+            players_csv, tournaments_csv, binary_files
+        )
         if decode_errors:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=decode_errors,
             )
-
-        binary_files_dict: dict[str, bytes] = {
-            f.filename: await f.read() for f in binary_files if f.filename is not None
-        }
 
         errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
         if errors:
