@@ -71,6 +71,11 @@ export default function App() {
         setLoginError('Usuário ou senha incorretos.')
         return
       }
+      if (!res.ok) {
+        setLoginStatus('error')
+        setLoginError('Não foi possível conectar ao servidor. Verifique sua conexão.')
+        return
+      }
       setLoginStatus('idle')
       setCredentials(creds)
     } catch {

@@ -190,6 +190,38 @@ describe('LoginPage', () => {
     )
     expect(screen.queryByRole('heading', { name: /execução do ciclo de rating/i })).not.toBeInTheDocument()
   })
+  it('shows error message on server error during login', async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })
+    )
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
+    await user.type(screen.getByLabelText(/senha/i), 'changeme')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(
+        screen.getByText(/não foi possível conectar ao servidor/i),
+      ).toBeInTheDocument()
+    )
+  })
+
+  it('stays on login page on server error during login', async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })
+    )
+    const user = userEvent.setup()
+    render(<App />)
+    await user.type(screen.getByLabelText(/usuário/i), 'fexerj')
+    await user.type(screen.getByLabelText(/senha/i), 'changeme')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
+    )
+    expect(
+      screen.queryByRole('heading', { name: /execução do ciclo de rating/i }),
+    ).not.toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------
