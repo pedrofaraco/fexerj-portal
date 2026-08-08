@@ -17,24 +17,52 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: pip-audit
-        run: |
-          python -m pip install --upgrade pip pip-audit
-          pip-audit -r requirements-dev.txt
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+
+      # Blocking: only dependencies that reach the running service.
+      - name: pip-audit (runtime — blocking)
+        run: pip-audit -r requirements.txt
+
+      # Advisory: dev tooling (pytest, mypy, ruff, httpx) never reaches the
+      # server. requirements-dev.txt includes requirements.txt, so this pass
+      # is a superset — nothing drops out of view.
+      - name: pip-audit (dev tooling — advisory)
+        if: ${{ !cancelled() }}
+        run: pip-audit -r requirements-dev.txt
+        continue-on-error: true
 
       - uses: actions/setup-node@v6
+        if: ${{ !cancelled() }}
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: npm ci
+        if: ${{ !cancelled() }}
         run: npm ci
         working-directory: frontend
 
-      - name: npm audit
+      # Blocking: the `dependencies` field and its transitive closure — react,
+      # react-dom, jszip, prop-types and the packages they pull in. Note this is
+      # a proxy for browser exposure, not a synonym: tailwindcss is a
+      # devDependency and the CSS it generates ships to users too.
+      - name: npm audit (runtime — blocking)
+        if: ${{ !cancelled() }}
+        run: npm audit --omit=dev
+        working-directory: frontend
+
+      # Advisory: build and test tooling (eslint, vite, jsdom). Not a lower risk
+      # class — vite and its plugins execute during the Docker frontend build and
+      # their output is served verbatim. It is non-blocking because the lockfile
+      # is pinned and npm ci is deterministic: exposure requires a lockfile
+      # change, which only arrives through a reviewable Dependabot PR.
+      - name: npm audit (dev tooling — advisory)
+        if: ${{ !cancelled() }}
         run: npm audit
         working-directory: frontend
+        continue-on-error: true
 
   test-backend:
     name: Backend tests

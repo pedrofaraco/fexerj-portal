@@ -12,10 +12,11 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 - **Backend / edge**: **`limit_upload_body`** documents chunked / missing `Content-Length` path; nginx **`limit_req`** on `/validate` and `/run`; **`POST /run`** single-flight (**503** + **`Retry-After`**).
 - **Nginx / Docker**: full **CSP** + **`X-XSS-Protection: 0`**; **multi-stage** `docker/Dockerfile.nginx`; backend **HEALTHCHECK**; compose **`depends_on: service_healthy`** (no bind-mount `dist`).
 - **Supply chain**: **Dependabot** (pip + npm); CI **`pip-audit`** + **`npm audit`**; **ESLint 10** / **`@eslint/js` 10** aligned.
+- **CI supply chain**: audit split into **blocking (runtime)** and **advisory (dev tooling)** for both npm (**`--omit=dev`**) and pip (**`requirements.txt`**). A transitive dev-only advisory no longer blocks unrelated PRs; Dependabot remains the remediation path.
 
 ## Next — production hygiene (recommended order)
 
-_No open P1/P2 hygiene items._
+- **P1 — drain the Dependabot queue** (14 open PRs, oldest 2026-06-28). The advisory audit step surfaces dev-tooling findings but does not fix them — Dependabot is the remediation path, so a stalled queue means findings accumulate in a check nobody reads. Includes one major: **`mypy 1.19 → 2.3`**.
 
 ## P3 — UX and accessibility (lower urgency)
 
