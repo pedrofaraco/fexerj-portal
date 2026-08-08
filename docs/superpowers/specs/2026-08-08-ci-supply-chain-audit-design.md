@@ -41,8 +41,10 @@ Separar o que bloqueia merge do que apenas informa, nos dois ecossistemas.
 
 O critério é **superfície de exposição real**, não severidade nominal. Vulnerabilidade
 em dependência que chega ao usuário ou ao servidor bloqueia. Vulnerabilidade em
-ferramenta de build exige que o atacante já tenha execução de código na máquina de
-build — é risco real, mas de outra classe, e não justifica parar uma release.
+ferramenta de build não é uma classe de risco menor — `vite` e seus plugins executam
+durante o build Docker do frontend e a saída é servida tal qual aos usuários. O passo
+é advisory porque o lockfile é fixo e `npm ci` é determinístico: a exposição exige uma
+mudança no lockfile, que só chega por um PR revisável do Dependabot.
 
 ## Mudanças
 
@@ -96,8 +98,9 @@ sendo um superconjunto — nada sai de vista.
 Rodar `npm audit fix` para zerar os 4 findings atuais. Resultado do dry-run:
 
 - **4 `change`** — `undici 7.28.0→7.29.0`, `postcss 8.5.15→8.5.26`,
-  `nanoid 3.3.14→3.3.18`, `brace-expansion 5.0.6→5.0.9`. Todos patch e dentro do
-  range semver existente: **`package.json` não é modificado**.
+  `nanoid 3.3.14→3.3.18`, `brace-expansion 5.0.6→5.0.9`. Três são patch e
+  `undici` é minor; todos dentro do range semver existente: **`package.json`
+  não é modificado**.
 
 **Correção (verificada na execução, 2026-08-08).** A versão original desta seção
 previa mais ~35 pacotes adicionados (`lightningcss-*`, `@tailwindcss/oxide-*`) e

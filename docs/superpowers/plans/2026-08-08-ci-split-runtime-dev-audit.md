@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **`frontend/package.json` must NOT be modified.** All four fixes are patch-level and within existing semver ranges. If `package.json` changes, stop — something re-resolved outside the intended scope.
+- **`frontend/package.json` must NOT be modified.** Three of the four fixes are patch bumps and `undici` is a minor bump; all are within existing semver ranges. If `package.json` changes, stop — something re-resolved outside the intended scope.
 - **No AI or tool attribution** in commit messages, PR titles, or PR descriptions — not in bullets, not in file lists, nowhere. (`CLAUDE.md`)
 - **No credentials or sensitive defaults** mentioned in commit or PR messages. (`CLAUDE.md`)
 - **Conventional Commits**, summary under 72 characters, written in English to match repository history.
@@ -431,9 +431,10 @@ None reach the browser bundle.
   reaches the browser or the server still blocks the merge.
 - **`frontend/package-lock.json`** — `npm audit fix` clears the four current
   findings: `undici 7.28.0→7.29.0`, `postcss 8.5.15→8.5.26`,
-  `nanoid 3.3.14→3.3.18`, `brace-expansion 5.0.6→5.0.9`. All patch-level and
-  within existing semver ranges, so **`package.json` is unchanged**. The diff is
-  14 insertions and 14 deletions — nothing else moves.
+  `nanoid 3.3.14→3.3.18`, `brace-expansion 5.0.6→5.0.9`. Three are patch bumps
+  and `undici` is a minor bump; all are within existing semver ranges, so
+  **`package.json` is unchanged**. The diff is 14 insertions and 14
+  deletions — nothing else moves.
 - **`docs/backlog.md`** — records the change and replaces the stale
   "No open P1/P2 hygiene items" with draining the Dependabot queue.
 
