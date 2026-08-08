@@ -60,6 +60,23 @@ function injectBuildMeta() {
 
 export default defineConfig({
   plugins: [injectBuildMeta(), react(), tailwindcss()],
+  build: {
+    // Minimum supported browser is Chrome 109 on Windows 7 — a real user.
+    //
+    // Vite's default is `baseline-widely-available`, a *moving* target that
+    // advances as old browsers age out; today it resolves to chrome111. Pinning
+    // freezes the floor at the browser actually supported, so a future Vite
+    // upgrade cannot raise it silently.
+    //
+    // This changes nothing in today's output — chrome109 and chrome111 differ in
+    // almost no JS syntax, and the bundle is byte-identical either way. The value
+    // is preventive.
+    //
+    // Note this governs syntax lowering only. Runtime APIs (`Object.groupBy` and
+    // friends) are never polyfilled by a build target, at any setting — those
+    // still have to be caught in review.
+    target: 'chrome109',
+  },
   server: {
     proxy: {
       '/health': 'http://localhost:8000',
