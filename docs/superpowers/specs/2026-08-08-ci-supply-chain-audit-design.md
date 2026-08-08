@@ -98,13 +98,20 @@ Rodar `npm audit fix` para zerar os 4 findings atuais. Resultado do dry-run:
 - **4 `change`** — `undici 7.28.0→7.29.0`, `postcss 8.5.15→8.5.26`,
   `nanoid 3.3.14→3.3.18`, `brace-expansion 5.0.6→5.0.9`. Todos patch e dentro do
   range semver existente: **`package.json` não é modificado**.
-- **35 `add`** — binários opcionais de outras plataformas (`lightningcss-*`,
-  `@tailwindcss/oxide-*`). Não é superfície de ataque nova; é o npm normalizando
-  dependências opcionais por plataforma no lockfile. Colateral positivo: torna o
-  `npm ci` do runner Linux mais reprodutível a partir de um lockfile gerado no macOS.
 
-O diff do lockfile será grande por causa dos 35 `add`. **A descrição do PR precisa
-explicar isso**, senão parece escopo escondido.
+**Correção (verificada na execução, 2026-08-08).** A versão original desta seção
+previa mais ~35 pacotes adicionados (`lightningcss-*`, `@tailwindcss/oxide-*`) e
+alertava que o diff seria grande. **Isso estava errado.** O diff real é de
+**14 inserções e 14 deleções**, tocando apenas os quatro pacotes acima.
+
+A causa do erro: `npm audit fix --dry-run` lista como `add` os binários opcionais
+de plataforma ausentes do `node_modules` **local** — no macOS o npm instala só o
+binário da própria plataforma. Essas 23 entradas já estavam no `package-lock.json`
+desde `4348aa8`. O dry-run descrevia o que o npm instalaria, não o que o lockfile
+ganharia; os dois foram confundidos ao redigir o design.
+
+O resultado real é mais limpo que o previsto, e a descrição do PR **não** deve
+mencionar adição de binários de plataforma.
 
 ## Verificação
 

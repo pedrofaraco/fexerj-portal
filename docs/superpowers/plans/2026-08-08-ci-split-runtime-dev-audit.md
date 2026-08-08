@@ -60,7 +60,9 @@ Save the output. Step 5 compares against it.
 cd frontend && npm audit fix
 ```
 
-Expected: roughly 35 packages added, 4 changed. The additions are optional platform binaries (`lightningcss-*`, `@tailwindcss/oxide-*`) — expected and explained in the spec, not a red flag.
+Expected: **4 packages changed, nothing added** — a 14-insertion / 14-deletion diff touching only `undici`, `postcss`, `nanoid`, and `brace-expansion`.
+
+(An earlier revision of this plan predicted ~35 added platform binaries. That was a misreading of `npm audit fix --dry-run`, which lists optional binaries missing from the local `node_modules` rather than from the lockfile. Corrected during execution.)
 
 - [ ] **Step 4: Verify the advisories are gone**
 
@@ -118,11 +120,6 @@ npm audit fix bumps four transitive packages to patched versions:
 undici 7.28.0 to 7.29.0, postcss 8.5.15 to 8.5.26, nanoid 3.3.14 to
 3.3.18, and brace-expansion 5.0.6 to 5.0.9. All are patch-level and within
 existing semver ranges, so package.json is unchanged.
-
-The diff also adds optional platform binaries (lightningcss, tailwindcss
-oxide) for non-macOS targets. These are not new dependencies; npm
-normalizes optional platform packages into the lockfile on re-resolution,
-which makes npm ci on the Linux runner more reproducible.
 EOF
 ```
 
@@ -433,11 +430,10 @@ None reach the browser bundle.
   threshold is exposure surface, not severity: an advisory in a dependency that
   reaches the browser or the server still blocks the merge.
 - **`frontend/package-lock.json`** — `npm audit fix` clears the four current
-  findings. Patch-level, within existing semver ranges, **`package.json`
-  unchanged**. The diff also adds ~35 optional platform binaries
-  (`lightningcss-*`, `@tailwindcss/oxide-*`); npm normalizes these into the
-  lockfile on re-resolution, which makes `npm ci` on the Linux runner more
-  reproducible.
+  findings: `undici 7.28.0→7.29.0`, `postcss 8.5.15→8.5.26`,
+  `nanoid 3.3.14→3.3.18`, `brace-expansion 5.0.6→5.0.9`. All patch-level and
+  within existing semver ranges, so **`package.json` is unchanged**. The diff is
+  14 insertions and 14 deletions — nothing else moves.
 - **`docs/backlog.md`** — records the change and replaces the stale
   "No open P1/P2 hygiene items" with draining the Dependabot queue.
 
