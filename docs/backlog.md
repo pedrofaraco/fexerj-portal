@@ -14,9 +14,14 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 - **Supply chain**: **Dependabot** (pip + npm); CI **`pip-audit`** + **`npm audit`**; **ESLint 10** / **`@eslint/js` 10** aligned.
 - **CI supply chain**: audit split into **blocking (runtime)** and **advisory (dev tooling)** for both npm (**`--omit=dev`**) and pip (**`requirements.txt`**). A transitive dev-only advisory no longer blocks unrelated PRs; Dependabot remains the remediation path.
 
+- **Dependabot queue drained** (2026-08-08): all 21 PRs resolved. `mypy` 2.3.0, `ruff` 0.16.1, `eslint` 10.8.0, `vitest` 4.1.10, `tailwindcss` 4.3.3, `fastapi` 0.141.1, `uvicorn` 0.52.1, `react`/`react-dom` 19.2.8. Note Dependabot opens coupled packages as separate PRs; `react`/`react-dom` had to be bumped together by hand (#198) because a mismatch is a runtime crash.
+- **Frontend**: `build.target` pinned to **`chrome109`**. Vite's default is a moving target that had drifted to chrome111, above the supported floor.
+
 ## Next — production hygiene (recommended order)
 
-- **P1 — drain the Dependabot queue** (14 open PRs, oldest 2026-06-28). The advisory audit step surfaces dev-tooling findings but does not fix them — Dependabot is the remediation path, so a stalled queue means findings accumulate in a check nobody reads. Includes one major: **`mypy 1.19 → 2.3`**.
+- **P2 — enforce the dependency-classification invariant**: nothing imported by `frontend/src/` (excluding the 12 test files) may live in `devDependencies`. True today — production code imports only `react`, `react-dom/client`, `prop-types`, `jszip`, all declared as `dependencies` — but nothing guards it. A devDependency imported from `src/` ships to the browser **and sits outside the blocking `npm audit --omit=dev` gate**: a silent hole. Either `eslint-plugin-import`'s `no-extraneous-dependencies` (check ESLint 10 flat-config compatibility first) or a short CI script. ~1h.
+- **P3 — surface advisory audit findings in the PR UI**: pipe `npm audit --json` / `pip-audit -f json` into `$GITHUB_STEP_SUMMARY`. With `continue-on-error` the job renders green, so dev-tooling advisories accumulate in a log nobody opens — the risk the CI design doc predicted. ~30-45 min.
+- **Considered and declined**: `npm audit --omit=dev --audit-level=high`. The blocking scope is only ~10 runtime packages, so a `low` there is rare and probably worth reading. The stall risk it guards against lived in the dev tree, which is already advisory.
 
 ## P3 — UX and accessibility (lower urgency)
 
