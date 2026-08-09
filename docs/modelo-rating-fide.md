@@ -13,8 +13,9 @@ Substitui o modelo por torneio descrito em [`CALCULATOR.md`](../CALCULATOR.md).
   oficial da FIDE — 13 partidas, todas conferem, e a soma do período reproduz o valor
   publicado. Ver seção 10.
 
-> Onde o texto disser **[EM ABERTO]**, a regra ainda não foi decidida. São pontos que
-> precisam de definição da FEXERJ antes da implementação.
+> Onde o texto disser **[EM ABERTO]**, a regra ainda não foi decidida. Restou **um**
+> ponto nessa condição; os outros seis foram respondidos pela FEXERJ e estão marcados
+> *Confirmado pela FEXERJ* onde aparecem. Ver a seção 13.
 
 ---
 
@@ -31,9 +32,10 @@ A FEXERJ passa a manter **três ratings independentes** por jogador:
 Cada modalidade tem rating, contagem de partidas e histórico próprios. As regras
 abaixo se aplicam **igualmente às três**, salvo onde indicado.
 
-> **[EM ABERTO]** As adaptações numéricas do Art. 68 (seção 2) valem igualmente para
-> as três modalidades. O regulamento FIDE de Rápido/Blitz não difere do Clássico
-> nesses parâmetros, então é a leitura natural — mas falta confirmação da FEXERJ.
+As adaptações numéricas do Art. 68 (seção 2) valem **igualmente para as três
+modalidades**. A única divergência em relação ao texto da FIDE é o teto de
+2400/2650, que a FEXERJ ignora — substituído por 2200 (seção 2) e pelo teto de 400
+sempre aplicado (§3º). *Confirmado pela FEXERJ.*
 
 ### 1.1 Transpasse entre modalidades
 
@@ -43,9 +45,9 @@ Jogador **sem rating** numa modalidade que **tenha rating STD** entra no cálcul
 daquela modalidade usando o **rating STD** e é tratado como **ratado** — não passa
 pelo cálculo de rating inicial da seção 6.
 
-> **[EM ABERTO]** Para o jogador transposto, o fator K é determinado pela contagem de
-> partidas **da modalidade nova** (que é zero, portanto K=40) ou pela contagem do
-> STD? A leitura natural é a primeira: ele é novo *naquela* lista.
+O fator K do jogador transposto sai da contagem de partidas **da modalidade nova**,
+que é zero — portanto **K=40**. Fatores K e contagens de partidas são independentes
+por modalidade; só o rating inicial vem do STD. *Confirmado pela FEXERJ.*
 
 ---
 
@@ -162,25 +164,31 @@ O K de 10 é **permanente**: uma vez que o rating publicado atinge 2200, o jogad
 mantém K=10 mesmo que caia depois. Isso exige **persistir um indicador por
 modalidade** de que o jogador já atingiu 2200 — não basta olhar o rating atual.
 
-O K é determinado **uma vez por período** e vale para todas as partidas dele.
+O K é determinado **uma vez por período** e vale para todas as partidas dele — com
+uma exceção, o torneio interno (seção 5.2).
 
 ### 5.1 Teto de 700 (8.3.3)
 
 Se `n × K > 700`, onde `n` é o número de partidas do jogador no período, então `K`
 passa a ser o **maior inteiro** tal que `K × n ≤ 700`.
 
+O teto é aplicado **por último**, depois de qualquer redução do §2º. *Confirmado
+pela FEXERJ.*
+
 ### 5.2 Torneio interno
 
 Em torneio interno (seção 2.1), o K é dividido por dois: 40→20, 20→10, 10→5.
 
-> **[EM ABERTO]** Ordem entre a redução pela metade e o teto de 700: reduz e depois
-> aplica o teto, ou o contrário? O §2º diz que "o K descrito em 8.3.3" é reduzido, e o
-> teto de 700 faz parte do 8.3.3. Só importa em período com muitas partidas, mas
-> precisa estar definido.
+**O torneio interno é a exceção à regra de K constante no período.** Num período que
+misture torneios internos e não internos, o K **muda durante o torneio interno** e
+volta ao valor normal nos demais. Ou seja, o K é por período, salvo nos torneios
+internos, que usam metade. *Confirmado pela FEXERJ.*
 
-> **[EM ABERTO]** Se o período misturar torneios internos e não internos, o jogador
-> tem um K por torneio, ou um K único no período? A regra da FIDE de "K constante no
-> período" pressupõe um K só.
+> **[EM ABERTO]** Como o teto de 700 se aplica quando o K varia dentro do período.
+> O teto é definido sobre `n × K` com um K único; com K variável não há um K só para
+> limitar. Só acontece com jogador muito ativo (mais de 17 partidas no período com
+> K=40, ou 35 com K=20), mas precisa de definição. **Proposta:** aplicar o teto por
+> torneio, usando o K e a contagem de partidas daquele torneio — basta confirmar.
 
 ### 5.3 Dependência de data de nascimento
 
@@ -188,9 +196,15 @@ A regra de sub-18 exige a **data de nascimento**, hoje presente na coluna `Birth
 do arquivo de jogadores mas **nunca usada** pelo cálculo. Passa a ser insumo com
 efeito direto no rating, o que torna a qualidade desse dado relevante.
 
-> **[EM ABERTO]** O que fazer quando a data de nascimento estiver ausente ou
-> inválida? Tratar como maior de 18 é o comportamento conservador, mas prejudica o
-> jovem que teria K=40.
+**A data de nascimento passa a ser dado obrigatório.** Nos torneios IRT e FEXERJ a
+informação já está disponível pelo cadastro; a lacuna aparece nos internos. A decisão
+da FEXERJ é exigi-la, em vez de adotar um comportamento padrão para o caso ausente.
+*Confirmado pela FEXERJ.*
+
+Consequência de migração: a lista de jogadores atual aceita `Birthday` em branco, e o
+validador precisará passar a rejeitar. Isso se resolve na mesma conversão única que
+adiciona as colunas de Rápido e Blitz (seção 11.1) — não exige passo separado, mas
+exige que os cadastros estejam completos antes do primeiro ciclo no modelo novo.
 
 ---
 
@@ -233,10 +247,17 @@ processado, ele é calculado **como ratado**, com o rating atual — mas, no cá
 Jogador cujo rating cair abaixo de **1200** passa a ser exibido como **não-ratado** na
 lista seguinte (7.2, adaptado).
 
-> **[EM ABERTO]** "Exibido como não-ratado" significa apagar o histórico — zerando
-> rating e contagem de partidas, exigindo novas 5 partidas para voltar a ter rating —
-> ou apenas ocultar da lista publicada, preservando os dados? As duas leituras cabem
-> no texto e a diferença é grande para o jogador.
+**O rating é zerado; a contagem de partidas é preservada.** O jogador volta à
+condição de não-ratado e precisa das 5 partidas da seção 6 para ter rating publicado
+de novo, mas seu histórico de partidas jogadas não é apagado — o que significa que,
+ao voltar, o K vem da contagem preservada e não necessariamente de 40. *Confirmado
+pela FEXERJ.*
+
+> Esta é uma decisão da FEXERJ, não uma leitura do texto da FIDE. Conferimos: o
+> regulamento FIDE é **silencioso** sobre o que acontece com a contagem de partidas e
+> com o histórico de quem cai abaixo do mínimo, sobre como esse jogador recupera
+> rating, e não tem seção de reintegração. A regra acima preenche uma lacuna, não
+> contraria o original.
 
 ---
 
@@ -366,13 +387,25 @@ deixam de existir no modelo novo.
 
 ---
 
-## 13. Pontos em aberto — resumo
+## 13. Pontos resolvidos e o que resta
 
-| # | Ponto | Seção |
+Os seis pontos levantados na primeira versão foram respondidos pela FEXERJ:
+
+| Ponto | Decisão | Seção |
 |---|---|---|
-| 1 | Adaptações do Art. 68 valem para as três modalidades? | 1 |
-| 2 | K do jogador transposto vem da contagem de qual modalidade? | 1.1 |
-| 3 | Ordem entre a metade do K e o teto de 700 | 5.2 |
-| 4 | K único no período quando há torneio interno e não interno juntos | 5.2 |
-| 5 | Data de nascimento ausente ou inválida | 5.3 |
-| 6 | Cair abaixo de 1200 apaga o histórico ou só oculta da lista? | 7 |
+| Art. 68 vale para as três modalidades? | Sim. Só diverge da FIDE no teto 2400/2650, ignorado | 1 |
+| K do jogador transposto | Da modalidade nova — zero partidas, portanto K=40 | 1.1 |
+| Ordem entre metade do K e teto de 700 | Teto aplicado por último | 5.1 |
+| K único no período com torneio interno junto | Interno é a exceção: muda naquele torneio | 5.2 |
+| Data de nascimento ausente | Passa a ser dado obrigatório | 5.3 |
+| Cair abaixo de 1200 | Zera o rating, preserva a contagem de partidas | 7 |
+
+### Ainda em aberto
+
+**Como o teto de 700 se aplica quando o K varia dentro do período** (seção 5.1) —
+consequência direta da decisão sobre torneio interno. O teto é definido sobre
+`n × K` supondo um K único; com K variável não há um K só para limitar.
+
+Só afeta jogador com mais de 17 partidas no período sob K=40, ou 35 sob K=20. A
+proposta da seção 5.1 é aplicar o teto por torneio, com o K e a contagem daquele
+torneio. Não bloqueia a implementação do restante.
