@@ -195,14 +195,6 @@ class TournamentPlayer:
         self.new_pts_against_oppon = None
         self.calc_rule = None
 
-    def add_opponent(self, sno, name, result):
-        result_map = {"1": 1.0, "0": 0.0, "½": 0.5, "K": None}
-        result_char = result[-1] if result else ""
-        if result_char not in result_map:
-            raise ValueError(f"Unexpected result '{result_char}' for opponent {name} (sno={sno})")
-        if result_map[result_char] is not None:
-            self.opponents[sno] = [name, result_map[result_char]]
-
     def resolve_id(self, raw_id):
         """Return the FEXERJ ID as int. Raises ValueError when raw_id is empty."""
         fexerj_id = int(raw_id) if raw_id else 0

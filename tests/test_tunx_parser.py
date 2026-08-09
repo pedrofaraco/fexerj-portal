@@ -9,9 +9,14 @@ from calculator.tunx_parser import (
     BIO_MARKER,
     BYE_SNR,
     PAIRING_MARKER,
+    PAIRING_STRIDE,
+    RESULT_DRAW,
+    RESULT_LOSS,
+    RESULT_WIN,
     find_next_record,
     is_printable_utf16,
     parse_bio_section,
+    parse_pairing_section,
     parse_tunx,
     parse_tunx_from_bytes,
     read_field,
@@ -257,6 +262,82 @@ class TestValidate:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             validate("test.TUNX", data, bio, [(1, 2, 1.0)])
+
+
+# ---------------------------------------------------------------------------
+# parse_pairing_section — the live result-parsing path
+# ---------------------------------------------------------------------------
+
+def pairing_record(snr_a, snr_b, result):
+    """Build one pairing record: three uint16-LE fields plus stride padding."""
+    return struct.pack('<HHH', snr_a, snr_b, result) + b'\x00' * (PAIRING_STRIDE - 6)
+
+
+def wrap_pairing(*records):
+    return BIO_MARKER + b'\x00' * 10 + PAIRING_MARKER + b''.join(records)
+
+
+class TestParsePairingSection:
+    def test_win_code_scores_one(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, 2, RESULT_WIN))) == [(1, 2, 1.0)]
+
+    def test_draw_code_scores_half(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, 2, RESULT_DRAW))) == [(1, 2, 0.5)]
+
+    def test_loss_code_scores_zero(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, 2, RESULT_LOSS))) == [(1, 2, 0.0)]
+
+    @pytest.mark.parametrize("code", [0, 4, 5, 6, 7, 9])
+    def test_known_but_unscored_codes_produce_no_game(self, code):
+        """Codes 0 and 4-9 are recognised by validate() yet never become games.
+
+        They are dropped silently, so a tournament file using them for byes or
+        forfeits loses those pairings from the rating calculation.
+        """
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, 2, code))) == []
+
+    def test_unknown_code_produces_no_game(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, 2, 0xFF))) == []
+
+    def test_bye_opponent_skipped(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, BYE_SNR, RESULT_WIN))) == []
+
+    def test_zero_player_skipped(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(0, 2, RESULT_WIN))) == []
+
+    def test_zero_opponent_skipped(self):
+        assert parse_pairing_section(wrap_pairing(pairing_record(1, 0, RESULT_WIN))) == []
+
+    def test_multiple_records_parsed_in_order(self):
+        games = parse_pairing_section(wrap_pairing(
+            pairing_record(1, 2, RESULT_WIN),
+            pairing_record(3, 4, RESULT_DRAW),
+            pairing_record(5, 6, RESULT_LOSS),
+        ))
+        assert games == [(1, 2, 1.0), (3, 4, 0.5), (5, 6, 0.0)]
+
+    def test_skipped_record_does_not_shift_later_records(self):
+        """A bye mid-section must not desynchronise the fixed-stride walk."""
+        games = parse_pairing_section(wrap_pairing(
+            pairing_record(1, 2, RESULT_WIN),
+            pairing_record(3, BYE_SNR, RESULT_WIN),
+            pairing_record(5, 6, RESULT_DRAW),
+        ))
+        assert games == [(1, 2, 1.0), (5, 6, 0.5)]
+
+    def test_trailing_partial_record_ignored(self):
+        data = wrap_pairing(pairing_record(1, 2, RESULT_WIN)) + b'\x01\x02\x03'
+        assert parse_pairing_section(data) == [(1, 2, 1.0)]
+
+    @pytest.mark.parametrize("marker_hex", ["b5ff8944", "d3ff8944", "e3ff8944"])
+    def test_section_end_marker_stops_parsing(self, marker_hex):
+        data = (wrap_pairing(pairing_record(1, 2, RESULT_WIN))
+                + bytes.fromhex(marker_hex)
+                + pairing_record(3, 4, RESULT_WIN))
+        assert parse_pairing_section(data) == [(1, 2, 1.0)]
+
+    def test_empty_pairing_section_yields_no_games(self):
+        assert parse_pairing_section(wrap_pairing()) == []
 
 
 # ---------------------------------------------------------------------------
