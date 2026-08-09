@@ -1,7 +1,7 @@
 """Unit tests for calculator.tunx_parser."""
+import logging
 import pathlib
 import struct
-import warnings
 
 import pytest
 
@@ -225,6 +225,24 @@ class TestParseBioSection:
 # validate
 # ---------------------------------------------------------------------------
 
+@pytest.fixture
+def parser_logs(caplog):
+    """Capture ``calculator.tunx_parser`` records whatever the propagate state.
+
+    ``backend.logging_setup`` sets ``propagate = False`` on the calculator tree
+    once the app configures logging, so caplog's root handler alone would miss
+    these records depending on which tests imported ``backend.main`` first.
+    Attaching to the module logger directly makes capture order-independent.
+    """
+    logger = logging.getLogger("calculator.tunx_parser")
+    previous_level = logger.level
+    logger.addHandler(caplog.handler)
+    logger.setLevel(logging.WARNING)
+    yield caplog
+    logger.removeHandler(caplog.handler)
+    logger.setLevel(previous_level)
+
+
 class TestValidate:
     def test_missing_bio_marker_raises(self):
         data = PAIRING_MARKER + b'\x00' * 100
@@ -241,27 +259,37 @@ class TestValidate:
         with pytest.raises(ValueError, match="no players"):
             validate("test.TUNX", data, {}, [])
 
-    def test_unknown_result_codes_warn(self):
+    def test_unknown_result_codes_warn(self, parser_logs):
         pairing_record = struct.pack('<HHH', 1, 2, 0xFF) + b'\x00' * 15
         data = BIO_MARKER + b'\x00' * 10 + PAIRING_MARKER + pairing_record
         bio = {1: {'name': 'A', 'fexerj_id': ''}, 2: {'name': 'B', 'fexerj_id': ''}}
-        with pytest.warns(UserWarning, match="unknown result codes"):
-            validate("test.TUNX", data, bio, [])
+        validate("test.TUNX", data, bio, [])
+        assert "unknown result codes" in parser_logs.text
 
-    def test_out_of_range_snr_warns(self):
+    def test_out_of_range_snr_warns(self, parser_logs):
         pairing_record = struct.pack('<HHH', 1, 2, 1) + b'\x00' * 15
         data = BIO_MARKER + b'\x00' * 10 + PAIRING_MARKER + pairing_record
         bio = {1: {'name': 'A', 'fexerj_id': ''}}  # SNR 2 missing
-        with pytest.warns(UserWarning, match="unknown SNRs"):
-            validate("test.TUNX", data, bio, [(1, 2, 1.0)])
+        validate("test.TUNX", data, bio, [(1, 2, 1.0)])
+        assert "unknown SNRs" in parser_logs.text
 
-    def test_valid_data_raises_nothing(self):
+    def test_warning_carries_structured_fields(self, parser_logs):
+        """The operational signal must be greppable in the JSON logs."""
+        pairing_record = struct.pack('<HHH', 1, 2, 0xFF) + b'\x00' * 15
+        data = BIO_MARKER + b'\x00' * 10 + PAIRING_MARKER + pairing_record
+        bio = {1: {'name': 'A', 'fexerj_id': ''}, 2: {'name': 'B', 'fexerj_id': ''}}
+        validate("1-234.TUNX", data, bio, [])
+        record = next(r for r in parser_logs.records if r.levelno == logging.WARNING)
+        assert record.name == "calculator.tunx_parser"
+        assert record.event == "tunx_format_warning"
+        assert record.binary_file == "1-234.TUNX"
+
+    def test_valid_data_warns_nothing(self, parser_logs):
         pairing_record = struct.pack('<HHH', 1, 2, 1) + b'\x00' * 15
         data = BIO_MARKER + b'\x00' * 10 + PAIRING_MARKER + pairing_record
         bio = {1: {'name': 'A', 'fexerj_id': ''}, 2: {'name': 'B', 'fexerj_id': ''}}
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            validate("test.TUNX", data, bio, [(1, 2, 1.0)])
+        validate("test.TUNX", data, bio, [(1, 2, 1.0)])
+        assert parser_logs.records == []
 
 
 # ---------------------------------------------------------------------------
@@ -412,6 +440,22 @@ class TestParseTunxFromBytesIntegration:
             assert snr_b != BYE_SNR
             assert snr_a != 0
             assert snr_b != 0
+
+    @pytest.mark.parametrize(
+        "data, games",
+        [(TURX_T6_DATA, 10), (TUMX_T8_DATA, 183), (TUNX_T23_DATA, 132)],
+        ids=["round_robin_6", "swiss_team_93", "swiss_51"],
+    )
+    def test_fixture_yields_exact_game_count(self, data, games):
+        """Pin the game count on the fixtures that only had player counts.
+
+        T1 already pins its 42 games above; these three asserted player counts
+        only. A stride or offset regression drops pairings from real files while
+        every other assertion here (player count, scores are valid, no byes)
+        still holds — so without this the drop is silent.
+        """
+        _, parsed_games = parse_tunx_from_bytes(data)
+        assert len(parsed_games) == games
 
     def test_t23_all_players_parsed_despite_asterisk_prefix(self):
         bio, _ = parse_tunx_from_bytes(TUNX_T23_DATA)
