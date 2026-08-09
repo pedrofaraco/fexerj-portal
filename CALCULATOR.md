@@ -53,7 +53,10 @@ Each row becomes a player record. Important columns:
 
 - **`Id_No`**: FEXERJ id (whole number).
 - **`Id_CBX`**: CBX id (may be blank). For IRT tournaments the code can map CBX → FEXERJ using this.
-- **`Rtg_Nat`**, **`TotalNumGames`**: whole numbers.
+- **`Rtg_Nat`**: the player's **FEXERJ rating** — read as the current rating and written
+  back as the new one. The column name is misleading: this is not a CBX or FIDE rating,
+  and no external rating enters the system (`Id_CBX` is an identifier only).
+- **`TotalNumGames`**: whole number.
 - Point columns are read and carried through.
 
 The website’s validator (`backend/validator.py`) checks headers and types **before** the calculator
