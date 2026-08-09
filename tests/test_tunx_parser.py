@@ -441,6 +441,22 @@ class TestParseTunxFromBytesIntegration:
             assert snr_a != 0
             assert snr_b != 0
 
+    @pytest.mark.parametrize(
+        "data, games",
+        [(TURX_T6_DATA, 10), (TUMX_T8_DATA, 183), (TUNX_T23_DATA, 132)],
+        ids=["round_robin_6", "swiss_team_93", "swiss_51"],
+    )
+    def test_fixture_yields_exact_game_count(self, data, games):
+        """Pin the game count on the fixtures that only had player counts.
+
+        T1 already pins its 42 games above; these three asserted player counts
+        only. A stride or offset regression drops pairings from real files while
+        every other assertion here (player count, scores are valid, no byes)
+        still holds — so without this the drop is silent.
+        """
+        _, parsed_games = parse_tunx_from_bytes(data)
+        assert len(parsed_games) == games
+
     def test_t23_all_players_parsed_despite_asterisk_prefix(self):
         bio, _ = parse_tunx_from_bytes(TUNX_T23_DATA)
         assert len(bio) == 51
