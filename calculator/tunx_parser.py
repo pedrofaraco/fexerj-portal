@@ -1,6 +1,8 @@
 """Read tournament data from Swiss Manager binary (.TUNX) files."""
+import logging
 import struct
-import warnings
+
+logger = logging.getLogger(__name__)
 
 BIO_MARKER = bytes.fromhex("a5ff8944")
 PAIRING_MARKER = bytes.fromhex("b3ff8944")
@@ -79,7 +81,8 @@ def validate(name, data, bio, games):
       - Required section markers missing
       - No players parsed from bio section
 
-    Warning (prints to stderr via warnings.warn):
+    Warning (emitted via ``logger.warning`` so it lands in the structured
+    backend logs with the request id):
       - Pairing section size not a multiple of the stride
       - More than 5% of pairing records have unknown result codes
       - Game records reference SNRs not present in the bio section
@@ -127,7 +130,12 @@ def validate(name, data, bio, games):
         issues.append(f"game records reference unknown SNRs: {sorted(out_of_range)}")
 
     for issue in issues:
-        warnings.warn(f"{name}: {issue}", UserWarning, stacklevel=3)
+        logger.warning(
+            "%s: %s",
+            name,
+            issue,
+            extra={"event": "tunx_format_warning", "binary_file": name},
+        )
 
 
 def parse_tunx_from_bytes(data: bytes, name: str = "<binary>"):
