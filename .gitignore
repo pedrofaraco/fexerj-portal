@@ -223,3 +223,6 @@ RESULTS_SEARCH*.md
 
 # Local Claude Code instructions (personal; use ~/.claude/CLAUDE.md for sharing)
 CLAUDE.md
+
+# gstack local state (tool scratch, not project code)
+.gstack/
