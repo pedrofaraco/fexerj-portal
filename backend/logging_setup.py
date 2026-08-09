@@ -89,15 +89,24 @@ _LOGRECORD_BUILTIN_KEYS = frozenset(
 )
 
 
-def configure_logging(*, json_logs: bool) -> None:
-    """Attach a single handler to the ``backend`` logger tree (idempotent)."""
-    backend_root = logging.getLogger("backend")
-    for h in backend_root.handlers[:]:
-        backend_root.removeHandler(h)
+# Logger trees that get the configured handler. ``calculator`` is included
+# because its warnings (Swiss Manager export drift, unscored rule conditions)
+# are operational signals the RUNBOOK asks operators to correlate by
+# ``X-Request-ID`` — without a handler they fall through to logging's
+# lastResort: plain stderr, no JSON, no request id.
+_HANDLED_LOGGER_TREES = ("backend", "calculator")
 
+
+def configure_logging(*, json_logs: bool) -> None:
+    """Attach a single handler to each configured logger tree (idempotent)."""
     handler = logging.StreamHandler(sys.stderr)
     handler.addFilter(RequestIdFilter())
     handler.setFormatter(JsonLinesFormatter() if json_logs else TextConsoleFormatter())
-    backend_root.addHandler(handler)
-    backend_root.setLevel(logging.INFO)
-    backend_root.propagate = False
+
+    for name in _HANDLED_LOGGER_TREES:
+        tree_root = logging.getLogger(name)
+        for h in tree_root.handlers[:]:
+            tree_root.removeHandler(h)
+        tree_root.addHandler(handler)
+        tree_root.setLevel(logging.INFO)
+        tree_root.propagate = False

@@ -95,6 +95,11 @@ Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOppon
 
 Required fields: `Id_No`, `Name`, `Rtg_Nat`, `TotalNumGames`, `SumOpponRating`, `TotalPoints`. No duplicate `Id_No` or `Id_CBX` (among non-empty values).
 
+> **`Rtg_Nat` holds the FEXERJ rating**, despite the column name. It is the value the
+> calculator reads as the player's current rating and writes back as the new one. It is
+> not a CBX or FIDE rating — `Id_CBX` is an identifier only, and no external rating
+> enters the system. The name is kept for compatibility with existing files.
+
 **`tournaments.csv`** — semicolon-delimited, UTF-8 (BOM accepted):
 
 ```
