@@ -42,7 +42,7 @@ sempre aplicado (§3º). *Confirmado pela FEXERJ.*
 Espelha o 7.2.1 do regulamento FIDE de Rápido/Blitz.
 
 Jogador **sem rating** numa modalidade que **tenha rating STD** entra no cálculo
-daquela modalidade usando o **rating STD** e é tratado como **ratado** — não passa
+daquela modalidade usando o **rating STD** e é tratado como **rated** — não passa
 pelo cálculo de rating inicial da seção 6.
 
 O fator K do jogador transposto sai da contagem de partidas **da modalidade nova**,
@@ -55,7 +55,7 @@ por modalidade; só o rating inicial vem do STD. *Confirmado pela FEXERJ.*
 
 | Parâmetro | Seção FIDE | FIDE | **FEXERJ** |
 |---|---|---:|---:|
-| Rating mínimo (abaixo disso, jogador vira não-ratado) | 7.2 | 1400 | **1200** |
+| Rating mínimo (abaixo disso, jogador vira não-rated) | 7.2 | 1400 | **1200** |
 | Rating dos adversários fictícios no rating inicial | 8.2.2 | 1800 | **1600** |
 | Rating inicial máximo | 8.2.3 | 2200 | **2000** |
 | Rating que fixa K=10 | 8.3.3 | 2400 | **2200** |
@@ -78,10 +78,10 @@ IsIrt = 0  E  IsFexerj = 0  →  torneio interno  →  K pela metade
 
 ---
 
-## 3. Cálculo para jogador já ratado
+## 3. Cálculo para jogador já rated
 
-Aplicado a cada partida **contra adversário ratado**. Partidas contra não-ratados
-**não entram** no cálculo do jogador ratado (8.3.1: *"for each game played against a
+Aplicado a cada partida **contra adversário rated**. Partidas contra não-rated
+**não entram** no cálculo do jogador rated (8.3.1: *"for each game played against a
 rated player"*).
 
 ### Passo 1 — diferença de rating, com teto
@@ -208,11 +208,11 @@ exige que os cadastros estejam completos antes do primeiro ciclo no modelo novo.
 
 ---
 
-## 6. Rating inicial de jogador não-ratado
+## 6. Rating inicial de jogador não-rated
 
 ### 6.1 Quando o rating é calculado
 
-Só quando o jogador acumular **pelo menos 5 partidas contra adversários ratados**
+Só quando o jogador acumular **pelo menos 5 partidas contra adversários rated**
 (7.1.4). Até lá, os resultados ficam acumulados e nenhum rating é publicado.
 
 Se o jogador **zerar seu primeiro evento**, esse resultado é **descartado** (8.2.1).
@@ -220,7 +220,7 @@ Se o jogador **zerar seu primeiro evento**, esse resultado é **descartado** (8.
 ### 6.2 Fórmula
 
 ```
-Ra = média dos ratings dos adversários ratados,
+Ra = média dos ratings dos adversários rated,
      acrescida de dois adversários fictícios de rating 1600,
      contra os quais o resultado é considerado empate
 
@@ -232,23 +232,23 @@ Ru = Ra + dp        arredondado para o inteiro mais próximo
 Ru = min(Ru, 2000)  teto do rating inicial
 ```
 
-Se `Ru` ficar abaixo de **1200**, o jogador permanece não-ratado.
+Se `Ru` ficar abaixo de **1200**, o jogador permanece não-rated.
 
 ### 6.3 Jogador que recebe rating entre torneios (8.2.4)
 
-Se um jogador não-ratado receber rating publicado **antes** de um torneio dele ser
-processado, ele é calculado **como ratado**, com o rating atual — mas, no cálculo dos
-**adversários** daquele torneio, continua contando como **não-ratado**.
+Se um jogador não-rated receber rating publicado **antes** de um torneio dele ser
+processado, ele é calculado **como rated**, com o rating atual — mas, no cálculo dos
+**adversários** daquele torneio, continua contando como **não-rated**.
 
 ---
 
 ## 7. Piso de rating
 
-Jogador cujo rating cair abaixo de **1200** passa a ser exibido como **não-ratado** na
+Jogador cujo rating cair abaixo de **1200** passa a ser exibido como **não-rated** na
 lista seguinte (7.2, adaptado).
 
 **O rating é zerado; a contagem de partidas é preservada.** O jogador volta à
-condição de não-ratado e precisa das 5 partidas da seção 6 para ter rating publicado
+condição de não-rated e precisa das 5 partidas da seção 6 para ter rating publicado
 de novo, mas seu histórico de partidas jogadas não é apagado — o que significa que,
 ao voltar, o K vem da contagem preservada e não necessariamente de 40. *Confirmado
 pela FEXERJ.*
@@ -357,7 +357,7 @@ começam vazios, o que dispara o transpasse (seção 1.1) no primeiro torneio de
 modalidade.
 
 As colunas `SumOpponRating` e `TotalPoints`, que hoje sustentam a regra de rating
-temporário, passam a servir apenas ao acúmulo de jogadores não-ratados até as 5
+temporário, passam a servir apenas ao acúmulo de jogadores não-rated até as 5
 partidas (seção 6.1).
 
 ### 11.2 Lista de torneios
