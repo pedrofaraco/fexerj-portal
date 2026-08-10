@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from backend.validator import validate_inputs
 from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
+from calculator.fide.tournaments import TOURNAMENTS_HEADER
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 _FIDE_PLAYERS = (
@@ -14,15 +15,10 @@ _LEGACY_PLAYERS = (
     LEGACY_HEADER + "\n"
     "1;;;Player One;1800;CLUB A;01/01/1990;M;BRA;50;0;0\n"
 )
-# Tournament dispatch by mode is Task 16's job — in this task tournaments.csv
-# is still validated against the current 12-column-era (7-column) header in
-# all three modes, so the fixture below intentionally does NOT use
-# calculator.fide.tournaments.TOURNAMENTS_HEADER (which adds a TimeControl
-# column).
-_TOURNAMENTS = (
-    "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n"
-    "1;99999;Test Tournament;2026-03-15;RR;0;1\n"
-)
+# Task 16 dispatches tournaments.csv validation by mode: the FIDE and compare
+# modes require the 8-column header (with TimeControl), so the fixture below
+# uses calculator.fide.tournaments.TOURNAMENTS_HEADER for these fide-mode tests.
+_TOURNAMENTS = TOURNAMENTS_HEADER + "\n1;99999;Test Tournament;2026-03-15;RR;0;1;STD\n"
 
 # Fexerj ids of the six players baked into tests/binary/round_robin_6players.TURX
 # (see tests/test_validator.py's _VALID_PLAYERS, which cross-checks the same file).
@@ -267,10 +263,7 @@ def test_irt_fide_format_translates_binary_id_via_id_cbx():
     The 23-column format must build that CBX→FEXERJ mapping from the same
     second column the legacy format uses.
     """
-    tournaments = (
-        "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n"
-        "1;12345;IRT Memorial;;SS;1;1\n"
-    )
+    tournaments = TOURNAMENTS_HEADER + "\n1;12345;IRT Memorial;2026-03-15;SS;1;1;STD\n"
     players = (
         FIDE_HEADER + "\n"
         "1;36633;;Player One;CLUB A;01/01/1990;M;BRA;1500;50;0;0;0;;0;0;0;0;;0;0;0;0\n"

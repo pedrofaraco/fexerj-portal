@@ -20,8 +20,10 @@ from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER, parse_bio_section
 
 _PLAYERS_HEADER = LEGACY_HEADER
 _TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj"
+_FIDE_TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj;TimeControl"
 _VALID_TYPES = {"SS", "RR", "ST"}
 _TYPE_TO_EXT = {"SS": "TUNX", "RR": "TURX", "ST": "TUMX"}
+_VALID_TIME_CONTROLS = frozenset(MODALITIES)
 
 MODE_LEGACY = "legacy"
 MODE_FIDE = "fide"
@@ -55,9 +57,7 @@ def validate_inputs(
     errors: list[str] = []
     players_errors = _validate_players_for_mode(players_content, mode)
     errors.extend(players_errors)
-    # Tournament validation dispatch by mode is Task 16's job; here the
-    # current rules apply to all three modes.
-    tournaments_errors = _validate_tournaments_csv(tournaments_content)
+    tournaments_errors = _validate_tournaments_for_mode(tournaments_content, mode)
     errors.extend(tournaments_errors)
     if not tournaments_errors:
         players_index = _build_players_index(players_content) if not players_errors else None
@@ -75,7 +75,18 @@ def validate_inputs(
 
 def _validate_players_for_mode(content: str, mode: str) -> list[str]:
     """In legacy mode only the 12-column format is valid; in FIDE mode both are."""
-    if mode == MODE_LEGACY or mode == MODE_COMPARE:
+    if mode == MODE_LEGACY:
+        return _validate_players_csv(content)
+    if mode == MODE_COMPARE:
+        # The current engine only reads the 12-column format, so the compare
+        # mode cannot accept the new one — the limitation is the mode's, not
+        # a malformed file, hence the dedicated message.
+        first_line = content.splitlines()[0].strip() if content.splitlines() else ""
+        if first_line == FIDE_HEADER:
+            return [
+                "players.csv: o modo comparar exige a lista no formato de 12 colunas, porque o "
+                "modelo atual não lê outro formato. Use o arquivo que a federação usa hoje."
+            ]
         return _validate_players_csv(content)
     lines = content.splitlines()
     if not lines or not any(lines):
@@ -377,6 +388,68 @@ def _validate_tournaments_csv(content: str) -> list[str]:
 
         if is_fex and is_fex not in {"0", "1"}:
             errors.append(f"tournaments.csv linha {row_num}: IsFexerj deve ser 0 ou 1")
+
+    return errors
+
+
+def _validate_tournaments_for_mode(content: str, mode: str) -> list[str]:
+    """In legacy mode the 7-column header applies; in the other modes, the 8-column one."""
+    if mode == MODE_LEGACY:
+        return _validate_tournaments_csv(content)
+
+    lines = content.splitlines()
+    if not lines or not any(lines):
+        return ["tournaments.csv: arquivo vazio"]
+    if lines[0].strip() != _FIDE_TOURNAMENTS_HEADER:
+        return [
+            "tournaments.csv: cabeçalho inválido — o modelo por partida precisa da coluna "
+            f"TimeControl. Esperado '{_FIDE_TOURNAMENTS_HEADER}'"
+        ]
+
+    # Reuse the legacy row-level checks (Ord/CrId/Name/Type/IsIrt/IsFexerj) by
+    # feeding them the first 7 columns under the legacy header, then add the
+    # two columns the per-game model introduces: EndDate and TimeControl.
+    errors = _validate_tournaments_csv(
+        "\n".join([_TOURNAMENTS_HEADER] + [";".join(line.split(";")[:7]) for line in lines[1:]])
+    )
+
+    reader = csv.reader(io.StringIO(content), delimiter=";")
+    next(reader)  # skip header
+    for row_num, row in enumerate(reader, start=2):
+        if not any(cell.strip() for cell in row):
+            continue  # skip blank rows
+        if len(row) != 8:
+            errors.append(
+                f"tournaments.csv linha {row_num}: esperadas 8 colunas, encontradas {len(row)}"
+            )
+            continue
+
+        end_date = row[3].strip()
+        if not end_date:
+            # §5: the under-18 K depends on the period's year, and EndDate is
+            # the only source of it in the per-game model.
+            errors.append(
+                f"tournaments.csv linha {row_num}: EndDate é obrigatório no modelo por partida "
+                f"— o fator K de sub-18 depende do ano do período"
+            )
+
+        time_control = row[7].strip().upper()
+        if not time_control:
+            errors.append(f"tournaments.csv linha {row_num}: TimeControl é obrigatório")
+        elif time_control not in _VALID_TIME_CONTROLS:
+            errors.append(
+                f"tournaments.csv linha {row_num}: TimeControl '{row[7]}' inválido; "
+                f"deve ser STD, RPD ou BLZ"
+            )
+        elif mode == MODE_COMPARE and time_control != "STD":
+            # The current engine has no notion of time control, so comparing
+            # it against a non-STD tournament would produce a meaningless
+            # difference — the limitation is the mode's, not a malformed file.
+            errors.append(
+                f"tournaments.csv linha {row_num}: o modo comparar aceita apenas torneios STD. "
+                f"O modelo atual não tem conceito de modalidade, então comparar um torneio de "
+                f"'{time_control}' produziria uma diferença sem significado."
+            )
 
     return errors
 
