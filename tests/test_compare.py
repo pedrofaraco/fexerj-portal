@@ -72,6 +72,28 @@ def test_models_disagree_on_at_least_one_player():
     assert any(diff != 0 for diff in diffs)
 
 
+def test_no_tournament_in_the_window_produces_no_files():
+    """Same as the two engines on their own: nothing in the window, nothing out —
+    the backend turns that into a 422 instead of a zip that looks like a result."""
+    data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+    assert run_comparison(_TOURNAMENTS, 99, 1, _PLAYERS_CSV, {"1-99999.TURX": data}) == {}
+
+
+def test_a_quoted_tournament_name_containing_the_delimiter_does_not_break_the_run():
+    """The TimeControl column is dropped before the current engine reads the file.
+    Cutting the cells is fine; re-joining them with ';' is not — a quoted name
+    carrying a ';' would come back out unquoted and shift every column after it."""
+    data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+    tournaments = (
+        TOURNAMENTS_HEADER + "\n"
+        '1;99999;"Torneio Um; Etapa Final";2026-03-15;RR;0;1;STD\n'
+    )
+    output = run_comparison(tournaments, 1, 1, _PLAYERS_CSV, {"1-99999.TURX": data})
+
+    assert "RatingList_after_1.csv" in output
+    assert len([row for row in output["Comparison.csv"].splitlines()[2:] if row]) == 6
+
+
 # Two tournaments in the period, but the row for Ord 2 appears before the row for
 # Ord 1. The current engine processes tournaments.csv in file order, not sorted by
 # Ord (see `FexerjRatingCycle.run_cycle`), so it writes RatingList_after_2.csv

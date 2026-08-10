@@ -50,6 +50,12 @@ def run_comparison(
         binary_files=binary_files,
     ).run_period()
 
+    if outcome.is_empty_window:
+        # Both engines saw the same empty window; `legacy_output` is empty too.
+        # No files means the backend answers 422 naming the interval, instead
+        # of a zip that reads as a result.
+        return {}
+
     output = dict(legacy_output)
     output["RatingList.csv"] = write_rating_list(outcome.players)
     output["Audit_Games.csv"] = audit.write_games_audit(outcome)
@@ -59,13 +65,20 @@ def run_comparison(
 
 
 def _strip_modality_column(tournaments_csv: str) -> str:
-    """Drops the TimeControl column: the current engine reads tournaments.csv by position."""
+    """Drops the TimeControl column: the current engine reads tournaments.csv by position.
+
+    Cells come from the CSV reader and go back out through the CSV writer, so a
+    quoted field containing ';' — a tournament name, typically — round-trips
+    instead of coming back out unquoted and shifting every column after it.
+    Same fix already applied in `backend.validator`.
+    """
     reader = csv.reader(io.StringIO(tournaments_csv.lstrip("﻿")), delimiter=_DELIMITER)
     buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=_DELIMITER, lineterminator="\n")
     for row in reader:
         if not any(cell.strip() for cell in row):
             continue
-        print(_DELIMITER.join(row[:_LEGACY_TOURNAMENT_COLUMNS]), file=buf)
+        writer.writerow(row[:_LEGACY_TOURNAMENT_COLUMNS])
     return buf.getvalue()
 
 
