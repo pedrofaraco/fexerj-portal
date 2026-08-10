@@ -1,7 +1,7 @@
 """Reading and writing the rating list.
 
-Accepts two input formats: the legacy 12-column one and the new 23-column
-one (spec §2.1). Writing is always done in the new format.
+Reads and writes the 23-column format (spec §2.1). The legacy 12-column
+format is added in Task 7.
 """
 import csv
 import io
