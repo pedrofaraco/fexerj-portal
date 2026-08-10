@@ -5,15 +5,16 @@ export const PLAYERS_HEADER =
 /** Must match backend `validator.py` `_TOURNAMENTS_HEADER`. */
 export const TOURNAMENTS_HEADER = 'Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj'
 
+// The two headers below are spelled out in full, rather than composed from
+// the ones above, so `tests/test_contract.py` can catch drift by matching the
+// literal string the calculator writes.
+
 /** Must match backend `validator.py` `_FIDE_TOURNAMENTS_HEADER`. */
-export const FIDE_TOURNAMENTS_HEADER = `${TOURNAMENTS_HEADER};TimeControl`
+export const FIDE_TOURNAMENTS_HEADER = 'Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj;TimeControl'
 
 /** Must match calculator `calculator/fide/ratinglist.py` `FIDE_HEADER`. */
 export const FIDE_PLAYERS_HEADER =
-  'Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;' +
-  'Rtg_Std;Games_Std;Peak2200_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;' +
-  'Rtg_Rpd;Games_Rpd;Peak2200_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;' +
-  'Rtg_Blz;Games_Blz;Peak2200_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz'
+  'Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Rtg_Std;Games_Std;Peak2200_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;Peak2200_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;Peak2200_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz'
 
 const FIDE_PLAYERS_COLUMN_COUNT = 29
 
