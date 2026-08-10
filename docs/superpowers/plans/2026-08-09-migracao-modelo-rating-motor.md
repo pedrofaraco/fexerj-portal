@@ -2635,9 +2635,9 @@ class TestGamesAudit:
         assert lines[1] == GAMES_AUDIT_HEADER
 
     def test_one_row_per_computed_game_side(self):
-        """Round-robin de 6: 15 partidas, 30 lados."""
+        """A fixture traz 10 partidas entre 6 jogadores, portanto 20 lados."""
         lines = [r for r in _output()["Audit_Games.csv"].splitlines()[2:] if r]
-        assert len(lines) == 30
+        assert len(lines) == 20
 
     def test_row_lets_a_player_redo_the_math(self):
         """Rating do adversário já limitado, D, PD, resultado e ΔR na mesma linha."""
