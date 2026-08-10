@@ -11,9 +11,10 @@ def test_five_draws_against_1600_lands_on_1600():
 
 def test_fictitious_opponents_enter_the_average_and_the_score():
     """Ra and p include the two fictitious 1600 opponents, drawn against (§6.2)."""
-    # Ra = (5x1800 + 2x1600) / 7 = 12200/7 = 1742.857...
-    # p  = (5 + 1) / 7 = 0.857... -> 0.86 in the table -> dp = 309 -> 2052, capped at 2000
-    assert initial_rating(1800 * 5, 5, Decimal("5")) == 2000
+    # Ra = (5x1700 + 2x1600) / 7 = 11700/7 = 1671.428...
+    # p  = (2.5 + 1) / 7 = 0.5 -> dp = 0 -> 1671
+    # Without fictitious opponents an implementation would return 1700, so this test catches that omission.
+    assert initial_rating(1700 * 5, 5, Decimal("2.5")) == 1671
 
 
 def test_caps_at_2000():
@@ -33,6 +34,7 @@ def test_uses_the_table_not_the_logistic_formula():
 
 def test_uses_the_exact_sum_not_a_rounded_average():
     """The accumulator stores the sum; rebuilding it from the average would lose the division remainder."""
-    # sum = 1500+1501+1502+1503+1504 = 7510 ; Ra = (7510 + 3200) / 7 = 1530.0
+    # sum = 7514 (not evenly divisible by 5); Ra = (7514 + 3200) / 7 = 10714/7 = 1530.571... -> 1531
     # p = (2.5 + 1) / 7 = 0.50 -> dp = 0
-    assert initial_rating(7510, 5, Decimal("2.5")) == 1530
+    # An implementation using 7514/5 = 1502.8, then treating it as 1502 or 1503 would differ from the exact sum.
+    assert initial_rating(7514, 5, Decimal("2.5")) == 1531
