@@ -8,6 +8,9 @@ means the inputs are valid.
 import csv
 import io
 
+from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
+from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER
+
 # BIO_MARKER and PAIRING_MARKER are imported explicitly so the validator can
 # produce specific Portuguese error messages before attempting to parse.  The
 # parser raises English ValueErrors for the same conditions, but we prefer to
@@ -22,6 +25,11 @@ _TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj"
 _VALID_TYPES = {"SS", "RR", "ST"}
 _TYPE_TO_EXT = {"SS": "TUNX", "RR": "TURX", "ST": "TUMX"}
 
+MODE_LEGACY = "legacy"
+MODE_FIDE = "fide"
+MODE_COMPARE = "compare"
+_VALID_MODES = frozenset({MODE_LEGACY, MODE_FIDE, MODE_COMPARE})
+
 
 def validate_inputs(
     players_content: str,
@@ -29,8 +37,9 @@ def validate_inputs(
     binary_files: dict[str, bytes],
     first: int,
     count: int,
+    mode: str = MODE_LEGACY,
 ) -> list[str]:
-    """Validate all inputs for a rating cycle run.
+    """Validate all inputs for a rating cycle run, per the chosen execution mode.
 
     Returns a list of human-readable error strings.  An empty list means all
     inputs are valid and the cycle may proceed.
@@ -38,13 +47,18 @@ def validate_inputs(
     Binary file validation is skipped when the tournaments CSV has structural
     errors, to avoid confusing cascade messages.
     """
+    if mode not in _VALID_MODES:
+        return [f"Modo de execu\u00e7\u00e3o '{mode}' desconhecido."]
+
     # Strip UTF-8 BOM if present (common in Windows-exported CSVs)
     players_content = players_content.lstrip("\ufeff")
     tournaments_content = tournaments_content.lstrip("\ufeff")
 
     errors: list[str] = []
-    players_errors = _validate_players_csv(players_content)
+    players_errors = _validate_players_for_mode(players_content, mode)
     errors.extend(players_errors)
+    # Tournament validation dispatch by mode is Task 16's job; here the
+    # current rules apply to all three modes.
     tournaments_errors = _validate_tournaments_csv(tournaments_content)
     errors.extend(tournaments_errors)
     if not tournaments_errors:
@@ -59,6 +73,22 @@ def validate_inputs(
             )
         )
     return errors
+
+
+def _validate_players_for_mode(content: str, mode: str) -> list[str]:
+    """In legacy mode only the 12-column format is valid; in FIDE mode both are."""
+    if mode == MODE_LEGACY or mode == MODE_COMPARE:
+        return _validate_players_csv(content)
+    lines = content.splitlines()
+    first_line = lines[0].strip() if lines else ""
+    if first_line == FIDE_HEADER:
+        return _validate_fide_players_csv(content)
+    if first_line == _PLAYERS_HEADER:
+        return _validate_players_csv(content)
+    return [
+        "players.csv: cabe\u00e7alho inv\u00e1lido \u2014 aceito o formato de 12 colunas "
+        f"ou o de {FIDE_COLUMN_COUNT} colunas do modelo por partida."
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +195,81 @@ def _validate_players_csv(content: str) -> list[str]:
                 id_cbx_seen[id_cbx] = row_num
 
     return errors
+
+
+def _validate_fide_players_csv(content: str) -> list[str]:
+    """Rules for the 23-column format (spec §2.1)."""
+    errors: list[str] = []
+    reader = csv.reader(io.StringIO(content), delimiter=";")
+    next(reader, None)
+
+    id_no_seen: dict[str, int] = {}
+    id_cbx_seen: dict[str, int] = {}
+
+    for row_num, row in enumerate(reader, start=2):
+        if not any(cell.strip() for cell in row):
+            continue
+        if len(row) != FIDE_COLUMN_COUNT:
+            errors.append(
+                f"players.csv linha {row_num}: esperadas {FIDE_COLUMN_COUNT} colunas, "
+                f"encontradas {len(row)}"
+            )
+            continue
+
+        id_no = row[0].strip()
+        id_cbx = row[1].strip()
+
+        if not id_no:
+            errors.append(f"players.csv linha {row_num}: Id_No é obrigatório")
+        if not row[3].strip():
+            errors.append(f"players.csv linha {row_num}: Name é obrigatório")
+        if not row[5].strip():
+            # §5.3: birthday becomes a required field — the under-18 K depends on it.
+            errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
+
+        for index, modality in enumerate(MODALITIES):
+            base = 8 + index * 5
+            suffix = COLUMN_SUFFIX[modality]
+            rating = row[base].strip()
+            if rating and not _is_int(rating):
+                errors.append(f"players.csv linha {row_num}: Rtg_{suffix} deve ser inteiro ou vazio")
+            if not _is_int(row[base + 1].strip() or "0"):
+                errors.append(f"players.csv linha {row_num}: Games_{suffix} deve ser um inteiro")
+            if row[base + 2].strip() not in {"0", "1"}:
+                errors.append(f"players.csv linha {row_num}: Peak2200_{suffix} deve ser 0 ou 1")
+
+        # Uniqueness — mirrors the legacy validator's checks below.  A shared
+        # Id_CBX is not cosmetic: in an IRT tournament, collect_games maps the
+        # binary's CBX id to a FEXERJ id from the whole player list, so two
+        # players sharing an Id_CBX would silently misattribute one player's
+        # games to the other.
+        if id_no:
+            if id_no in id_no_seen:
+                errors.append(
+                    f"players.csv: Id_No duplicado: {id_no} "
+                    f"(linhas {id_no_seen[id_no]} e {row_num})"
+                )
+            else:
+                id_no_seen[id_no] = row_num
+
+        if id_cbx:
+            if id_cbx in id_cbx_seen:
+                errors.append(
+                    f"players.csv: Id_CBX duplicado: {id_cbx} "
+                    f"(linhas {id_cbx_seen[id_cbx]} e {row_num})"
+                )
+            else:
+                id_cbx_seen[id_cbx] = row_num
+
+    return errors
+
+
+def _is_int(value: str) -> bool:
+    try:
+        int(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
