@@ -232,8 +232,12 @@ agregados de torneio que deixam de existir e não têm sucessor — não são tr
    com `K_i` o K vigente no torneio de onde a partida veio. Reduz à fórmula da spec
    quando todas as partidas do período compartilham o mesmo K.
 
-6. **Teto de 700 (§5.1) — ponto aberto.** Fica numa função isolada, com a proposta da
-   §5.1 implementada (por torneio, com o K e a contagem daquele torneio) e o ponto aberto
+6. **Teto de 700 (§5.1) — decidido pela FEXERJ: por período.** Se o total de partidas
+   do período vezes o K passar de 700, o K é reduzido até caber; só então a metade do
+   torneio interno é aplicada. A ordem inverte o que a §5.1 dizia antes — o teto agora
+   vem antes da metade, porque é calculado sobre o total do período, e é a única ordem
+   em que a metade continua sendo exatamente metade. Aplicar por torneio, a proposta
+   anterior, deixava o período chegar ao dobro do limite
    registrado no docstring. Quando a FEXERJ responder, muda ali e em nenhum outro lugar.
 
 7. **Arredondamento — armadilha conhecida.** O `round()` do Python é bancário:
@@ -394,7 +398,7 @@ que fizemos da spec: vem da própria FIDE.
 | Antissimetria da 8.1.1 | `dp(p) = −dp(1−p)` como propriedade sobre a tabela inteira |
 | Arredondamento em ±0,5 | Exatamente onde o `round()` bancário morderia |
 | K: faixas, sub-18, metade em interno, permanência do 10 | Cada linha da §5 muda rating de gente real |
-| Teto de 700 | Está em aberto — o teste documenta a proposta implementada e falha alto se alguém mexer sem decidir |
+| Teto de 700 | Por período, decidido pela FEXERJ. O teste fixa o exemplo dos 40 jogos sob K=40, que por torneio chegaria ao dobro |
 | Piso de 1200, teto de 2000, transposto, primeiro evento zerado | Casos raros, e por isso os que ninguém repara quando quebram |
 | Período: dois torneios juntos ≠ dois separados | A diferença estrutural entre os modelos |
 | Conversão de 12 → 23 colunas | Caminho exercitado em toda execução até a federação migrar o arquivo |
