@@ -33,6 +33,20 @@ _PLAYERS_CSV = (
     "5400;;;Bruno Teixeira;1600;CLUB F;01/01/1995;M;BRA;20;0;0\n"
 )
 
+# Same players as _PLAYERS_CSV, but keyed by FEXERJ id (101..106) with the
+# binary's ids (3741, 643, ...) carried in Id_CBX instead of Id_No. Used by
+# the IRT tests below: an IRT binary carries CBX ids, which must be
+# translated through this column, never used as FEXERJ ids directly.
+_IRT_PLAYERS_CSV = (
+    LEGACY_HEADER + "\n"
+    "101;3741;;Carlos Mendes;1800;CLUB A;01/01/1980;M;BRA;50;0;0\n"
+    "102;643;;Roberto Faria;1900;CLUB B;01/01/1975;M;BRA;80;0;0\n"
+    "103;1979;;Andre Nunes;1700;CLUB C;01/01/1982;M;BRA;60;0;0\n"
+    "104;2831;;Felipe Borges;1750;CLUB D;01/01/1978;M;BRA;100;0;0\n"
+    "105;3541;;Lucas Carvalho;1650;CLUB E;01/01/1985;M;BRA;45;0;0\n"
+    "106;5400;;Bruno Teixeira;1600;CLUB F;01/01/1995;M;BRA;20;0;0\n"
+)
+
 
 class TestReadTournaments:
     def test_reads_the_modality_column(self):
@@ -72,6 +86,14 @@ class TestCollectGames:
     def _rows_and_binaries(self):
         data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
         csv_text = TOURNAMENTS_HEADER + "\n1;99999;Torneio Um;2026-03-15;RR;0;1;STD\n"
+        return read_tournaments(csv_text, 1, 1), {"1-99999.TURX": data}
+
+    def _irt_rows_and_binaries(self):
+        """Same binary and same tournament row as `_rows_and_binaries`, with
+        only IsIrt flipped to 1 - isolates the flag as the sole cause of any
+        difference in how ids resolve."""
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        csv_text = TOURNAMENTS_HEADER + "\n1;99999;Torneio Um;2026-03-15;RR;1;1;STD\n"
         return read_tournaments(csv_text, 1, 1), {"1-99999.TURX": data}
 
     def test_produces_two_entries_per_game(self):
@@ -130,3 +152,53 @@ class TestCollectGames:
         rows, binaries = self._rows_and_binaries()
         with pytest.raises(ValueError, match="lista de rating"):
             collect_games(rows, binaries, {})
+
+    def test_irt_tournament_resolves_binary_ids_through_id_cbx(self):
+        """IsIrt=1: the binary carries CBX ids (3741, 643, ...), which must
+        be translated to FEXERJ ids (101..106) through the rating list's
+        Id_CBX column. If the code used the binary's id directly, as it does
+        for a non-IRT tournament, the collected games would carry the raw
+        CBX ids instead - so this also checks that none of them leak through."""
+        rows, binaries = self._irt_rows_and_binaries()
+        players = read_rating_list(_IRT_PLAYERS_CSV)
+        games = collect_games(rows, binaries, players)
+        ids = {g.player_id for g in games} | {g.opponent_id for g in games}
+        assert ids == set(range(101, 107))
+        assert ids.isdisjoint({3741, 643, 1979, 2831, 3541, 5400})
+
+    def test_irt_missing_cbx_id_raises_like_the_non_irt_path(self):
+        """Removing the player whose Id_CBX is 643 (Roberto Faria) from the
+        IRT rating list must raise mentioning 643 - the CBX id that could
+        not be translated - not his FEXERJ id 102. The message must be
+        identical to what the non-IRT path raises when 643 itself, used
+        there as the FEXERJ id, is missing: same tournament, same binary,
+        same missing number, so the error-building code is shared, not
+        duplicated per path."""
+        irt_rows, irt_binaries = self._irt_rows_and_binaries()
+        irt_players = read_rating_list(_IRT_PLAYERS_CSV)
+        del irt_players[102]
+        with pytest.raises(ValueError, match="lista de rating") as irt_exc:
+            collect_games(irt_rows, irt_binaries, irt_players)
+        assert "643" in str(irt_exc.value)
+
+        non_irt_rows, non_irt_binaries = self._rows_and_binaries()
+        non_irt_players = read_rating_list(_PLAYERS_CSV)
+        del non_irt_players[643]
+        with pytest.raises(ValueError, match="lista de rating") as non_irt_exc:
+            collect_games(non_irt_rows, non_irt_binaries, non_irt_players)
+
+        assert str(irt_exc.value) == str(non_irt_exc.value)
+
+    def test_non_irt_tournament_resolves_directly_to_binary_ids(self):
+        """The same binary, read with IsIrt=0 against a rating list whose
+        FEXERJ ids are the numbers in the binary, resolves player_id and
+        opponent_id to those raw ids (3741, 643, ...) with no translation.
+        Together with test_irt_tournament_resolves_binary_ids_through_id_cbx,
+        this pins the choice of resolution path to the IsIrt flag alone,
+        not to anything about the binary file itself - both tests read the
+        exact same bytes."""
+        rows, binaries = self._rows_and_binaries()
+        players = read_rating_list(_PLAYERS_CSV)
+        games = collect_games(rows, binaries, players)
+        ids = {g.player_id for g in games} | {g.opponent_id for g in games}
+        assert ids == {3741, 643, 1979, 2831, 3541, 5400}
