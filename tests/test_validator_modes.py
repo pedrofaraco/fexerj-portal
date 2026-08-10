@@ -13,6 +13,18 @@ _FIDE_PLAYERS = (
     FIDE_HEADER + "\n"
     "1;;;Carlos Mendes;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
 )
+# 12-column format with Birthday (column 7 of LEGACY_HEADER) missing or
+# unreadable — the compatibility path exercised on every run, which used to
+# skip Birthday entirely because it delegated to the legacy validator.
+_LEGACY_PLAYERS_NO_BIRTHDAY = (
+    LEGACY_HEADER + "\n"
+    "1;;;Carlos Mendes;1800;CLUB A;;M;BRA;50;0;0\n"
+)
+_LEGACY_PLAYERS_BAD_BIRTHDAY = (
+    LEGACY_HEADER + "\n"
+    "1;;;Carlos Mendes;1800;CLUB A;10/05/10;M;BRA;50;0;0\n"
+)
+_FIDE_TOURNAMENTS_SINGLE_STD = TOURNAMENTS_HEADER + "\n1;99999;Torneio;2026-03-15;RR;0;1;STD\n"
 
 
 def _errors(players, tournaments, mode):
@@ -48,6 +60,51 @@ class TestEndDate:
         legacy_tournaments = _LEGACY_TOURNAMENTS_HEADER + "\n1;99999;Torneio;;RR;0;1\n"
         errors = _errors(_LEGACY_PLAYERS, legacy_tournaments, "legacy")
         assert not any("EndDate" in e for e in errors)
+
+
+class TestBirthday:
+    # Birthday is required by *mode* (fide/compare), not by the players.csv
+    # column format. The hole: fide mode with the 12-column format — the
+    # main compatibility path, exercised on every run — used to delegate
+    # straight to the legacy validator, which never looks at Birthday at
+    # all, so every under-18 player lost K=40 with no warning. compare mode
+    # is worse: it *requires* the 12-column format, so the migration
+    # comparison the federation will use to decide would always be wrong
+    # for juniors.
+
+    def test_required_in_fide_mode_with_12_column_format(self):
+        errors = _errors(_LEGACY_PLAYERS_NO_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "fide")
+        assert any(
+            "players.csv linha 2: Birthday é obrigatório no modelo por partida" == e
+            for e in errors
+        )
+
+    def test_required_in_compare_mode(self):
+        errors = _errors(_LEGACY_PLAYERS_NO_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "compare")
+        assert any(
+            "players.csv linha 2: Birthday é obrigatório no modelo por partida" == e
+            for e in errors
+        )
+
+    def test_still_optional_in_legacy_mode(self):
+        legacy_tournaments = _LEGACY_TOURNAMENTS_HEADER + "\n1;99999;Torneio;2026-03-15;RR;0;1\n"
+        errors = _errors(_LEGACY_PLAYERS_NO_BIRTHDAY, legacy_tournaments, "legacy")
+        assert not any("Birthday" in e for e in errors)
+
+    def test_unreadable_date_rejected_in_fide_mode(self):
+        """A two-digit year like '10/05/10' must not pass as a readable date."""
+        errors = _errors(_LEGACY_PLAYERS_BAD_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "fide")
+        assert any(
+            "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data" == e
+            for e in errors
+        )
+
+    def test_unreadable_date_rejected_in_compare_mode(self):
+        errors = _errors(_LEGACY_PLAYERS_BAD_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "compare")
+        assert any(
+            "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data" == e
+            for e in errors
+        )
 
 
 class TestCompareModeRestrictions:

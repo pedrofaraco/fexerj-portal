@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from backend.validator import validate_inputs
 from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
+from calculator.fide.rules import RATING_FLOOR
 from calculator.fide.tournaments import TOURNAMENTS_HEADER
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
@@ -127,6 +128,50 @@ def test_empty_rating_with_peak_flag_is_accepted():
     assert not any("Peak2200_Std" in e for e in errors)
 
 
+class TestRatingFloor:
+    """A rating column in the 26-column format must be empty or >= RATING_FLOOR (§7).
+
+    Empty means "unrated" in this format. Nothing used to stop a literal
+    "0" from being accepted as a rating, so the player was read as rated at
+    zero. The bug is invisible in the final list — the zero-rated player
+    falls below the floor and drops out, same as an empty rating would — it
+    is the player's *opponents* who lose points, because the games count in
+    their calculation instead of being discarded as unrated.
+    """
+
+    @staticmethod
+    def _players(rating: str) -> str:
+        return (
+            FIDE_HEADER + "\n"
+            f"1;;;Player One;CLUB A;01/01/1990;M;BRA;{rating};50;0;0;0;0;"
+            ";0;0;0;0;0;;0;0;0;0;0\n"
+        )
+
+    def test_zero_is_rejected(self):
+        errors = _errors(self._players("0"), "fide")
+        assert any(
+            "players.csv linha 2: Rtg_Std deve ser vazio ou um inteiro maior ou igual ao piso de "
+            f"{RATING_FLOOR}" == e
+            for e in errors
+        )
+
+    def test_empty_is_accepted(self):
+        errors = _errors(self._players(""), "fide")
+        assert not any("Rtg_Std" in e for e in errors)
+
+    def test_exact_floor_is_accepted(self):
+        errors = _errors(self._players(str(RATING_FLOOR)), "fide")
+        assert not any("Rtg_Std" in e for e in errors)
+
+    def test_just_below_floor_is_rejected(self):
+        errors = _errors(self._players(str(RATING_FLOOR - 1)), "fide")
+        assert any(
+            "players.csv linha 2: Rtg_Std deve ser vazio ou um inteiro maior ou igual ao piso de "
+            f"{RATING_FLOOR}" == e
+            for e in errors
+        )
+
+
 def test_legacy_mode_still_rejects_the_new_header():
     errors = _errors(_FIDE_PLAYERS, "legacy")
     assert any("cabeçalho" in e for e in errors)
@@ -174,6 +219,24 @@ def test_missing_birthday_is_rejected():
     )
     errors = _errors(no_birthday, "fide")
     assert any("Birthday" in e for e in errors)
+
+
+def test_unreadable_birthday_is_rejected():
+    """A two-digit year like '10/05/10' must not silently pass as a readable date.
+
+    parse_birth_year (calculator.fide.rules) only matches four consecutive
+    digits, so this used to slip through the old empty-check unnoticed and
+    drop the under-18 K=40 for that player at calculation time.
+    """
+    unreadable = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;10/05/10;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
+    )
+    errors = _errors(unreadable, "fide")
+    assert any(
+        "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data" == e
+        for e in errors
+    )
 
 
 def test_duplicate_id_no_is_rejected():

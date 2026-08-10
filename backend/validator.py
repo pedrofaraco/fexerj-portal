@@ -11,6 +11,7 @@ from decimal import Decimal, InvalidOperation
 
 from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
 from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
+from calculator.fide.rules import RATING_FLOOR, parse_birth_year
 
 # BIO_MARKER and PAIRING_MARKER are imported explicitly so the validator can
 # produce specific Portuguese error messages before attempting to parse.  The
@@ -74,7 +75,13 @@ def validate_inputs(
 
 
 def _validate_players_for_mode(content: str, mode: str) -> list[str]:
-    """In legacy mode only the 12-column format is valid; in FIDE mode both are."""
+    """In legacy mode only the 12-column format is valid; in FIDE mode both are.
+
+    Birthday is required by *mode*, not by column format (§5.3): fide and
+    compare both need it, because the under-18 K depends on it, even when
+    the list still uses the 12-column legacy layout — the compatibility
+    path exercised on every run. In legacy mode it stays optional.
+    """
     if mode == MODE_LEGACY:
         return _validate_players_csv(content)
     if mode == MODE_COMPARE:
@@ -87,7 +94,7 @@ def _validate_players_for_mode(content: str, mode: str) -> list[str]:
                 "players.csv: o modo comparar exige a lista no formato de 12 colunas, porque o "
                 "modelo atual não lê outro formato. Use o arquivo que a federação usa hoje."
             ]
-        return _validate_players_csv(content)
+        return _validate_players_csv(content) + _validate_legacy_format_birthdays(content)
     lines = content.splitlines()
     if not lines or not any(lines):
         return ["players.csv: arquivo vazio"]
@@ -95,7 +102,7 @@ def _validate_players_for_mode(content: str, mode: str) -> list[str]:
     if first_line == FIDE_HEADER:
         return _validate_fide_players_csv(content)
     if first_line == _PLAYERS_HEADER:
-        return _validate_players_csv(content)
+        return _validate_players_csv(content) + _validate_legacy_format_birthdays(content)
     return [
         "players.csv: cabe\u00e7alho inv\u00e1lido \u2014 aceito o formato de 12 colunas "
         f"ou o de {FIDE_COLUMN_COUNT} colunas do modelo por partida."
@@ -208,6 +215,43 @@ def _validate_players_csv(content: str) -> list[str]:
     return errors
 
 
+def _validate_legacy_format_birthdays(content: str) -> list[str]:
+    """Birthday, required in fide/compare modes regardless of column format (§5.3).
+
+    _validate_players_csv doesn't know about `mode`, so it never looks at
+    Birthday even though the 12-column layout has one (position 6, per
+    LEGACY_HEADER) — it is the compatibility path exercised on every run, so
+    a fide/compare cycle fed this format must not silently drop the under-18
+    K=40 the way the legacy engine itself does. Mirrors the check
+    _validate_fide_players_csv performs on the 26-column format's own
+    Birthday column. Relies on the caller having already confirmed the
+    header and only adds to what _validate_players_csv already reports, so
+    it re-checks the header itself and skips any row that function has
+    already flagged for a wrong column count.
+    """
+    lines = content.splitlines()
+    if not lines or lines[0].strip() != _PLAYERS_HEADER:
+        return []
+
+    errors: list[str] = []
+    reader = csv.reader(io.StringIO(content), delimiter=";")
+    next(reader, None)  # skip header
+
+    for row_num, row in enumerate(reader, start=2):
+        if not any(cell.strip() for cell in row) or len(row) != 12:
+            continue
+
+        birthday = row[6].strip()
+        if not birthday:
+            errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
+        elif parse_birth_year(birthday) is None:
+            errors.append(
+                f"players.csv linha {row_num}: Birthday '{birthday}' não foi reconhecida como uma data"
+            )
+
+    return errors
+
+
 def _validate_fide_players_csv(content: str) -> list[str]:
     """Rules for the 26-column format (spec §2.1)."""
     errors: list[str] = []
@@ -234,16 +278,36 @@ def _validate_fide_players_csv(content: str) -> list[str]:
             errors.append(f"players.csv linha {row_num}: Id_No é obrigatório")
         if not row[3].strip():
             errors.append(f"players.csv linha {row_num}: Name é obrigatório")
-        if not row[5].strip():
+        birthday = row[5].strip()
+        if not birthday:
             # §5.3: birthday becomes a required field — the under-18 K depends on it.
             errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
+        elif parse_birth_year(birthday) is None:
+            # Same year-extraction the calculator uses, so validation and
+            # calculation never disagree on what counts as a readable date —
+            # a two-digit year like "10/05/10" would otherwise pass here and
+            # silently drop the under-18 K=40 during the calculation.
+            errors.append(
+                f"players.csv linha {row_num}: Birthday '{birthday}' não foi reconhecida como uma data"
+            )
 
         for index, modality in enumerate(MODALITIES):
             base = 8 + index * 6
             suffix = COLUMN_SUFFIX[modality]
             rating = row[base].strip()
-            if rating and not _is_int(rating):
-                errors.append(f"players.csv linha {row_num}: Rtg_{suffix} deve ser inteiro ou vazio")
+            if rating:
+                if not _is_int(rating):
+                    errors.append(f"players.csv linha {row_num}: Rtg_{suffix} deve ser inteiro ou vazio")
+                elif int(rating) < RATING_FLOOR:
+                    # An empty rating means "unrated" in this format; a published
+                    # rating below the floor is impossible by construction, so
+                    # accepting one means accepting a corrupted file (§7). Left
+                    # unchecked, a bogus "0" reads as a real rated opponent and
+                    # silently docks points from everyone who played them.
+                    errors.append(
+                        f"players.csv linha {row_num}: Rtg_{suffix} deve ser vazio ou um inteiro "
+                        f"maior ou igual ao piso de {RATING_FLOOR}"
+                    )
             if not _is_int(row[base + 1].strip() or "0"):
                 errors.append(f"players.csv linha {row_num}: Games_{suffix} deve ser um inteiro")
             if row[base + 2].strip() not in {"0", "1"}:
