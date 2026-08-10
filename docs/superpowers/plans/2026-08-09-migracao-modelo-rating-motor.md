@@ -1955,7 +1955,7 @@ def test_fixture_has_the_thirteen_games():
 def test_each_game_matches_the_official_delta(index):
     initial_rating, k, rows = _load()
     opponent_rating, score, expected_delta = rows[index]
-    state = ModalityState(rating=initial_rating, games=100)
+    state = ModalityState(rating=initial_rating, games=100, reached_2200=True)
     result = compute_rated_period(
         player_id=1, modality="STD", state=state,
         games=[Game(1, "STD", False, 1, 2, score)],
@@ -1967,7 +1967,7 @@ def test_each_game_matches_the_official_delta(index):
 
 def test_period_total_matches_the_published_variation():
     initial_rating, k, rows = _load()
-    state = ModalityState(rating=initial_rating, games=100)
+    state = ModalityState(rating=initial_rating, games=100, reached_2200=True)
     games = [Game(1, "STD", False, 1, 100 + i, score) for i, (_, score, _) in enumerate(rows)]
     opponent_ratings = {100 + i: opponent for i, (opponent, _, _) in enumerate(rows)}
     result = compute_rated_period(
