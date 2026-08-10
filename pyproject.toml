@@ -1,7 +1,7 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 120
-exclude = ["calculator/"]  # calculator module is not maintained here
+exclude = ["calculator/classes.py", "calculator/tunx_parser.py"]  # motor atual: não mantido aqui
 
 [tool.ruff.lint]
 select = [
@@ -22,11 +22,11 @@ ignore_missing_imports = true
 check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-# calculator/ module has no type hints and is not maintained here
-exclude = ["calculator/"]
+# calculator/classes.py e calculator/tunx_parser.py: motor atual, sem type hints, não mantido aqui
+exclude = ["calculator/classes.py", "calculator/tunx_parser.py"]
 
 [[tool.mypy.overrides]]
-module = "calculator.*"
+module = ["calculator.classes", "calculator.tunx_parser"]
 ignore_errors = true
 
 [tool.pytest.ini_options]
