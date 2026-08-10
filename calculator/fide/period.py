@@ -67,7 +67,11 @@ def compute_rated_period(
     with that tournament's K and game count, per the §5.1 proposal — a point
     still open with FEXERJ.
     """
-    assert state.rating is not None, "compute_rated_period requires a rating at the start of the period"
+    if state.rating is None:
+        raise ValueError(
+            "compute_rated_period requires a player with a rating at the start of the period; "
+            "the unrated path is compute_unrated_period (arriving in a later task)"
+        )
     initial_rating = state.rating
 
     period_k = rules.base_k(

@@ -62,6 +62,7 @@ class TestPeriodAggregation:
             opponent_ratings={2: 1550},
             period_year=2026, birth_year=1990,
         )
+        assert result.sum_delta == Decimal("0.21")
         assert result.rounded_variation == 4
         assert result.final_rating == 1504
 
@@ -100,6 +101,7 @@ class TestKWithinThePeriod:
             period_year=2026, birth_year=1990,
         )
         # 0.36 x 20 + 0.36 x 10 = 7.2 + 3.6 = 10.8 -> 11
+        assert result.sum_delta == Decimal("0.72")
         assert result.variation == Decimal("10.8")
         assert result.rounded_variation == 11
 
@@ -117,3 +119,18 @@ class TestFloor:
         )
         assert result.final_rating is None
         assert result.games_counted == 10
+
+
+class TestNoValidGames:
+    def test_all_opponents_unrated_leaves_the_rating_unchanged(self):
+        """No game survives the §3 filter: the player keeps their rating, untouched."""
+        state = ModalityState(rating=1800, games=50)
+        result = compute_rated_period(
+            player_id=1, modality="STD", state=state,
+            games=[_game(1, 2, "1"), _game(1, 3, "0.5")],
+            opponent_ratings={},   # neither opponent has a rating
+            period_year=2026, birth_year=1990,
+        )
+        assert result.games_counted == 0
+        assert result.variation == Decimal("0")
+        assert result.final_rating == 1800
