@@ -11,9 +11,13 @@ from calculator.fide.audit import (
     write_games_audit,
     write_period_audit,
 )
-from calculator.fide.cycle import PeriodOutcome
 from calculator.fide.model import Game, ModalityState, PlayerState
-from calculator.fide.period import GameResult, PeriodResult, compute_unrated_period
+from calculator.fide.period import (
+    GameResult,
+    PeriodOutcome,
+    PeriodResult,
+    compute_unrated_period,
+)
 from calculator.fide.ratinglist import LEGACY_HEADER
 from calculator.fide.rules import capped_diff
 from calculator.fide.tables import pd_for_diff

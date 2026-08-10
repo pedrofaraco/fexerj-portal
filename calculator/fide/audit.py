@@ -5,10 +5,8 @@ against table 8.1.2 of the spec. `Audit_Period.csv` shows that the sum
 closes.
 """
 import io
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .cycle import PeriodOutcome
+from .period import PeriodOutcome
 
 _DELIMITER = ";"
 
@@ -25,7 +23,7 @@ PERIOD_AUDIT_HEADER = (
 )
 
 
-def write_games_audit(outcome: "PeriodOutcome") -> str:
+def write_games_audit(outcome: PeriodOutcome) -> str:
     """One row per computed game, per side."""
     buf = io.StringIO()
     print(GAMES_AUDIT_PREAMBLE, file=buf)
@@ -55,7 +53,7 @@ def write_games_audit(outcome: "PeriodOutcome") -> str:
     return buf.getvalue()
 
 
-def write_period_audit(outcome: "PeriodOutcome") -> str:
+def write_period_audit(outcome: PeriodOutcome) -> str:
     """One row per player x modality, naming the tournaments of the period."""
     tournaments = ",".join(str(t.ord) for t in outcome.tournaments)
     buf = io.StringIO()

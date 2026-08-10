@@ -10,6 +10,7 @@ from decimal import Decimal
 from . import rules
 from .model import Accumulator, Game, ModalityState, PlayerState
 from .tables import pd_for_diff
+from .tournaments import TournamentRow
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,30 @@ class PeriodResult:
     path: str
     game_results: list[GameResult] = field(default_factory=list)
     accumulator: Accumulator = field(default_factory=Accumulator)
+
+
+@dataclass
+class PeriodOutcome:
+    """The period's raw result, before it becomes CSV.
+
+    Lives here, next to `PeriodResult`, because `audit` consumes it and
+    `cycle` produces it — putting it in `cycle` would make the audit import
+    the engine that calls it.
+    """
+
+    players: dict[int, PlayerState]
+    tournaments: list[TournamentRow] = field(default_factory=list)
+    results: list[PeriodResult] = field(default_factory=list)
+
+    @property
+    def is_empty_window(self) -> bool:
+        """True when the requested window caught no tournament at all.
+
+        Every computed period has at least one tournament — `run_period`
+        returns early otherwise — so an empty list means the window itself
+        was empty, not that a period somehow ran without tournaments.
+        """
+        return not self.tournaments
 
 
 def compute_rated_period(
