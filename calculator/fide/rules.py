@@ -73,10 +73,12 @@ def base_k(
 ) -> int:
     """K factor from §5, before the internal-tournament halving and the 700 cap.
 
-    The order follows the §5 table top to bottom. The first two conditions
-    never collide with `reached_2200`: the initial rating is capped at 2000
-    (§6.2), so no one reaches 2200 with fewer than 30 games, and the 2100 cap
-    takes the under-18 player out of that range.
+    The conditions are checked in the order the §5 table lists them, top to
+    bottom. That gives the under-18 K=40 branch precedence over the permanent
+    K=10 from `reached_2200` whenever both would apply — mirroring FIDE 8.3.3,
+    where the age cutoff takes precedence. The collision is real, if rare: a
+    player who reached 2200 and then dropped back below 2100 before the end of
+    the year they turn 18 still gets K=40, not the "permanent" K=10.
     """
     if games < NEW_PLAYER_GAMES:
         return 40

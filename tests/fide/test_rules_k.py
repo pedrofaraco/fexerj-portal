@@ -34,6 +34,11 @@ class TestBaseK:
     def test_missing_birth_year_falls_back_to_the_non_u18_path(self):
         assert rules.base_k(1800, 50, False, None, 2026) == 20
 
+    def test_under_18_takes_precedence_over_permanent_k10(self):
+        """A player who reached 2200 and then dropped below 2100 before turning 18
+        gets the under-18 K=40, not the permanent K=10 (§5 table order)."""
+        assert rules.base_k(1900, 100, True, 2009, 2026) == 40
+
 
 class TestIsUnder18AtYearEnd:
     @pytest.mark.parametrize("birth_year,period_year,expected", [
@@ -77,9 +82,27 @@ class TestParseBirthYear:
     def test_accepts_both_formats(self, birthday, expected):
         assert rules.parse_birth_year(birthday) == expected
 
+    def test_rejects_a_four_digit_run_inside_a_longer_digit_sequence(self):
+        """The regex anchors on ^|\\D and \\D|$, so it must not pull a year out
+        of the middle of a longer digit run — unlike a naive \\d{4} search."""
+        assert rules.parse_birth_year("19901234") is None
+
+    def test_still_accepts_both_formats_alongside_the_longer_sequence_case(self):
+        assert rules.parse_birth_year("01/01/1990") == 1990
+        assert rules.parse_birth_year("1990-01-01") == 1990
+
 
 def test_order_is_halve_then_cap():
     """§5.1: the 700 cap is applied last, after the Art. 68 §2 halving."""
     k = rules.halve_for_internal(rules.base_k(1500, 0, False, 1990, 2026))
     assert k == 20
     assert rules.cap_k_by_games(k, 40) == 17   # 40 x 17 = 680 <= 700
+
+
+def test_sentinel_date_falls_into_the_safe_not_under_18_path():
+    # Legacy "unknown date" sentinel. birth_year=0 makes is_under_18_at_year_end
+    # False for any real period_year, so this falls into the safe (not-under-18)
+    # path instead of wrongly granting K=40. Rejecting a missing date is the
+    # validation layer's job, not these functions'.
+    assert rules.parse_birth_year("00/00/0000") == 0
+    assert rules.is_under_18_at_year_end(0, 2026) is False
