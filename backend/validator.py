@@ -7,9 +7,10 @@ means the inputs are valid.
 """
 import csv
 import io
+from decimal import Decimal, InvalidOperation
 
 from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
-from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER
+from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
 
 # BIO_MARKER and PAIRING_MARKER are imported explicitly so the validator can
 # produce specific Portuguese error messages before attempting to parse.  The
@@ -17,10 +18,7 @@ from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER
 # surface them here with translated, user-friendly wording.
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER, parse_bio_section
 
-_PLAYERS_HEADER = (
-    "Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;"
-    "TotalNumGames;SumOpponRating;TotalPoints"
-)
+_PLAYERS_HEADER = LEGACY_HEADER
 _TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj"
 _VALID_TYPES = {"SS", "RR", "ST"}
 _TYPE_TO_EXT = {"SS": "TUNX", "RR": "TURX", "ST": "TUMX"}
@@ -80,7 +78,9 @@ def _validate_players_for_mode(content: str, mode: str) -> list[str]:
     if mode == MODE_LEGACY or mode == MODE_COMPARE:
         return _validate_players_csv(content)
     lines = content.splitlines()
-    first_line = lines[0].strip() if lines else ""
+    if not lines or not any(lines):
+        return ["players.csv: arquivo vazio"]
+    first_line = lines[0].strip()
     if first_line == FIDE_HEADER:
         return _validate_fide_players_csv(content)
     if first_line == _PLAYERS_HEADER:
@@ -237,6 +237,17 @@ def _validate_fide_players_csv(content: str) -> list[str]:
                 errors.append(f"players.csv linha {row_num}: Games_{suffix} deve ser um inteiro")
             if row[base + 2].strip() not in {"0", "1"}:
                 errors.append(f"players.csv linha {row_num}: Peak2200_{suffix} deve ser 0 ou 1")
+            sum_opp = row[base + 3].strip()
+            if sum_opp and (not _is_int(sum_opp) or int(sum_opp) < 0):
+                errors.append(
+                    f"players.csv linha {row_num}: SumOpp_{suffix} deve ser um inteiro não negativo"
+                )
+            points = row[base + 4].strip()
+            if points:
+                try:
+                    Decimal(points)
+                except InvalidOperation:
+                    errors.append(f"players.csv linha {row_num}: Pts_{suffix} deve ser um número válido")
 
         # Uniqueness — mirrors the legacy validator's checks below.  A shared
         # Id_CBX is not cosmetic: in an IRT tournament, collect_games maps the

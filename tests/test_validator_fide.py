@@ -3,7 +3,7 @@ import pathlib
 from unittest.mock import patch
 
 from backend.validator import validate_inputs
-from calculator.fide.ratinglist import FIDE_HEADER, LEGACY_HEADER
+from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 _FIDE_PLAYERS = (
@@ -58,6 +58,51 @@ def test_peak_flag_must_be_zero_or_one():
     assert any("Peak2200_Std" in e for e in errors)
 
 
+def test_rtg_non_numeric_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;abc;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any("Rtg_Std deve ser inteiro ou vazio" in e for e in errors)
+
+
+def test_games_non_numeric_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;abc;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any("Games_Std deve ser um inteiro" in e for e in errors)
+
+
+def test_sum_opp_non_numeric_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;abc;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any("SumOpp_Std deve ser um inteiro não negativo" in e for e in errors)
+
+
+def test_sum_opp_negative_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;-5;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any("SumOpp_Std deve ser um inteiro não negativo" in e for e in errors)
+
+
+def test_pts_non_numeric_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;abc;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any("Pts_Std deve ser um número válido" in e for e in errors)
+
+
 def test_empty_rating_is_accepted():
     unrated = (
         FIDE_HEADER + "\n"
@@ -80,6 +125,40 @@ def test_empty_rating_with_peak_flag_is_accepted():
 def test_legacy_mode_still_rejects_the_new_header():
     errors = _errors(_FIDE_PLAYERS, "legacy")
     assert any("cabeçalho" in e for e in errors)
+
+
+def test_fide_mode_empty_file_reports_empty_not_bad_header():
+    """An empty players.csv means a forgotten attachment, not a bad header."""
+    errors = _errors("", "fide")
+    assert any("arquivo vazio" in e for e in errors)
+    assert not any("cabeçalho" in e for e in errors)
+
+
+def test_wrong_column_count_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any(f"esperadas {FIDE_COLUMN_COUNT} colunas, encontradas 13" in e for e in errors)
+
+
+def test_id_no_empty_is_rejected():
+    no_id = (
+        FIDE_HEADER + "\n"
+        ";;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(no_id, "fide")
+    assert any("Id_No é obrigatório" in e for e in errors)
+
+
+def test_name_empty_is_rejected():
+    no_name = (
+        FIDE_HEADER + "\n"
+        "1;;;;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    errors = _errors(no_name, "fide")
+    assert any("Name é obrigatório" in e for e in errors)
 
 
 def test_missing_birthday_is_rejected():
