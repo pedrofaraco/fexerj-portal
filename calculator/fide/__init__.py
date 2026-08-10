@@ -3,3 +3,6 @@
 Package kept separate from the per-tournament engine in `calculator/classes.py`,
 which keeps generating the official rating and is not touched by this code.
 """
+from .cycle import FideRatingCycle
+
+__all__ = ["FideRatingCycle"]
