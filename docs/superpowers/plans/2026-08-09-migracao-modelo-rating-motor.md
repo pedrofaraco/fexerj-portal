@@ -22,6 +22,7 @@
 - **Os blocos de código deste plano têm docstrings e comentários em português.** Isso é um erro de redação do plano, não uma instrução: ao implementar, escreva-os em inglês. Os **valores** dos blocos — números, dados de tabela, nomes de coluna, cabeçalhos de CSV e o texto português das mensagens ao operador — são para copiar verbatim.
 - **Modalidades:** `STD`, `RPD`, `BLZ`. Sufixos de coluna: `Std`, `Rpd`, `Blz`.
 - **Constantes FEXERJ (§2 da spec):** piso 1200, adversário fictício 1600, teto do rating inicial 2000, K=10 a partir de 2200, teto sub-18 2100, teto da diferença 400 sempre, 5 partidas para o primeiro rating, 30 partidas para sair do K=40, teto `n × K` de 700.
+- **Amenda posterior: a metade do K em torneio interno (Art. 68 §2º) foi abolida pela FEXERJ.** As Tasks 4 e 9 abaixo, escritas antes dessa decisão, ainda descrevem `halve_for_internal` e o K variando por torneio — ficam como registro histórico de como a task foi originalmente implementada. O K passou a ser único por período, sem exceção; o estado atual está em `calculator/fide/rules.py` e `calculator/fide/period.py`. Não reintroduzir a função ao revisitar este plano.
 - **Rodar os testes:** `.venv/bin/pytest -q`
 
 ---
@@ -483,6 +484,10 @@ git commit -m "feat(fide): teto de 400, arredondamento meio-para-longe-do-zero e
 
 ## Task 4: Fator K
 
+> **Nota posterior:** `halve_for_internal` abaixo foi removida depois da implementação
+> — a FEXERJ aboliu a metade do K em torneio interno (Art. 68 §2º). Ver a nota nas
+> Global Constraints.
+
 **Files:**
 - Modify: `calculator/fide/rules.py` (acrescentar ao fim)
 - Test: `tests/fide/test_rules_k.py`
@@ -492,7 +497,7 @@ git commit -m "feat(fide): teto de 400, arredondamento meio-para-longe-do-zero e
 - Produces:
   - `is_under_18_at_year_end(birth_year: int, period_year: int) -> bool`
   - `base_k(rating: int | None, games: int, reached_2200: bool, birth_year: int | None, period_year: int) -> int`
-  - `halve_for_internal(k: int) -> int`
+  - `halve_for_internal(k: int) -> int` (removida depois — ver nota acima)
   - `cap_k_by_games(k: int, games: int) -> int`
   - `parse_birth_year(birthday: str) -> int | None`
 
@@ -606,7 +611,7 @@ def parse_birth_year(birthday: str) -> int | None:
 
     Aceita `DD/MM/AAAA` e `AAAA-MM-DD`, os dois formatos que aparecem nos
     arquivos da federação. Devolve `None` quando não há ano reconhecível — a
-    validação é que rejeita o campo vazio (§5.3), não esta função.
+    validação é que rejeita o campo vazio (§5.2), não esta função.
     """
     if not birthday:
         return None
@@ -1599,6 +1604,11 @@ git commit -m "feat(fide): leitura de torneios com modalidade e achatamento em p
 ---
 
 ## Task 9: O período — cálculo dos jogadores rated
+
+> **Nota posterior:** `_k_by_tournament` abaixo (e o K variando por torneio conforme
+> `is_internal`) foi removida depois da implementação — a FEXERJ aboliu a metade do K
+> em torneio interno (Art. 68 §2º). Ver a nota nas Global Constraints. O período passou
+> a ter um único K, aplicado a `compute_rated_period` diretamente.
 
 O coração do modelo. Todas as partidas do período contra o rating do início (§4).
 
@@ -3227,7 +3237,7 @@ def _validate_fide_players_csv(content: str) -> list[str]:
         if not row[3].strip():
             errors.append(f"players.csv linha {row_num}: Name é obrigatório")
         if not row[5].strip():
-            # §5.3: a data de nascimento passa a ser dado obrigatório.
+            # §5.2: a data de nascimento passa a ser dado obrigatório.
             errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
 
         for index, modality in enumerate(MODALITIES):

@@ -227,8 +227,7 @@ agregados de torneio que deixam de existir e não têm sucessor — não são tr
    torneio — e a razão de não dar para adaptar o atual.
 
 2. **Achatar os torneios em partidas.** O parser já devolve `(snr_a, snr_b, score_a)`.
-   Cada partida passa a carregar de onde veio: torneio, modalidade e se o torneio é
-   interno (`IsIrt = 0` **e** `IsFexerj = 0`).
+   Cada partida passa a carregar de onde veio: torneio e modalidade.
 
 3. **Classificar cada jogador × modalidade** contra o estado congelado:
    - com rating na modalidade → **rated**;
@@ -239,23 +238,14 @@ agregados de torneio que deixam de existir e não têm sucessor — não são tr
 4. **Rated:** para cada partida contra adversário rated, teto de 400 aplicado ao
    adversário, `PD` pela tabela 8.1.2, `ΔR = resultado − PD`.
 
-5. **K e variação do período.** A §3 passo 4 dá `variação = ΣΔR × K`. A exceção do
-   torneio interno (§5.2) faz o K variar dentro do período, então a forma implementada é
-
-   ```
-   variação = Σ (ΔR_i × K_i)
-   ```
-
-   com `K_i` o K vigente no torneio de onde a partida veio. Reduz à fórmula da spec
-   quando todas as partidas do período compartilham o mesmo K.
+5. **K e variação do período.** A §3 passo 4 dá `variação = ΣΔR × K`, com um único K
+   para todas as partidas do período — a FEXERJ aboliu a exceção do torneio interno
+   (Art. 68 §2º) que antes fazia o K variar dentro do período; ver `docs/modelo-rating-fide.md`
+   §2.
 
 6. **Teto de 700 (§5.1) — decidido pela FEXERJ: por período.** Se o total de partidas
-   do período vezes o K passar de 700, o K é reduzido até caber; só então a metade do
-   torneio interno é aplicada. A ordem inverte o que a §5.1 dizia antes — o teto agora
-   vem antes da metade, porque é calculado sobre o total do período, e é a única ordem
-   em que a metade continua sendo exatamente metade. Aplicar por torneio, a proposta
-   anterior, deixava o período chegar ao dobro do limite
-   registrado no docstring. Quando a FEXERJ responder, muda ali e em nenhum outro lugar.
+   do período vezes o K passar de 700, o K é reduzido até caber (`K × n ≤ 700`),
+   aplicado uma vez sobre o total de partidas do período, não por torneio.
 
 7. **Arredondamento — armadilha conhecida.** O `round()` do Python é bancário:
    `round(0.5)` dá `0` e `round(2.5)` dá `2`. A §3.5 exige meio para longe do zero. O
@@ -280,9 +270,14 @@ confirmar.
 
 - **Teto de 700 por período, não por torneio.** Esta seção registrava a proposta de
   aplicar o teto torneio a torneio; a federação decidiu que é sobre o total de partidas
-  do período — ver `docs/modelo-rating-fide.md` §5.1. Consequência direta: a metade do
-  torneio interno (§5.2) passa a ser aplicada **depois** do teto, não antes — é a única
-  ordem em que ela continua sendo exatamente metade do K já limitado.
+  do período — ver `docs/modelo-rating-fide.md` §5.1.
+- **A metade do K em torneio interno (Art. 68 §2º) foi abolida.** Decisão posterior às
+  duas anteriores: com o K único no período, as partidas entre jogador rated e
+  não-rated já fora do cálculo, e o teto de 700 mantido, a metade não protegia mais
+  nada que esses três mecanismos já não protegessem — ver `docs/modelo-rating-fide.md`
+  §2. As duas flags do arquivo de torneios (`IsIrt`, `IsFexerj`) continuam existindo;
+  só o uso delas para reduzir o K desaparece, junto com `Game.is_internal` e a coluna
+  `IsInternal` da auditoria por partida.
 - **O K=10 permanente vence o K=40 de sub-18 e o K=40 de jogador novo.** Esta seção
   registrava a ordem literal da tabela da §5, que dava precedência ao sub-18 (a mesma
   estrutura da FIDE 8.3.3, onde o corte etário vem por último e prevalece). A federação
@@ -321,7 +316,7 @@ O portão de formato continua no validador, antes de rodar
 - **Despacho por cabeçalho**: 12 colunas → formato legado; 26 → formato novo; qualquer
   outro → erro nomeando os dois aceitos.
 - **`TimeControl`** obrigatório e dentro de {STD, RPD, BLZ} nos modos FIDE e comparar.
-- **`Birthday` obrigatório no modo FIDE** (§5.3), opcional no modo atual.
+- **`Birthday` obrigatório no modo FIDE** (§5.2), opcional no modo atual.
 - **`EndDate` obrigatório no modo FIDE**, hoje opcional. O fator K de sub-18 depende do
   ano do período, e o `EndDate` é a única fonte desse ano (§3.1).
 - **No formato de 26 colunas**: cada `Rtg_` é inteiro ou vazio; `Games_` é inteiro não
@@ -414,7 +409,7 @@ que fizemos da spec: vem da própria FIDE.
 | Fronteiras da tabela 8.1.2 | As faixas são intervalos fechados; `D=3` e `D=4` dão `PD` diferentes. Cada fronteira é onde um erro de `<` contra `<=` se esconde |
 | Antissimetria da 8.1.1 | `dp(p) = −dp(1−p)` como propriedade sobre a tabela inteira |
 | Arredondamento em ±0,5 | Exatamente onde o `round()` bancário morderia |
-| K: faixas, sub-18, metade em interno, permanência do 10 | Cada linha da §5 muda rating de gente real |
+| K: faixas, sub-18, permanência do 10, K único mesmo com torneios de tipos diferentes no período | Cada linha da §5 muda rating de gente real |
 | Teto de 700 | Por período, decidido pela FEXERJ. O teste fixa o exemplo dos 40 jogos sob K=40, que por torneio chegaria ao dobro |
 | Piso de 1200, teto de 2000, transposto, primeiro evento zerado | Casos raros, e por isso os que ninguém repara quando quebram |
 | Período: dois torneios juntos ≠ dois separados | A diferença estrutural entre os modelos |

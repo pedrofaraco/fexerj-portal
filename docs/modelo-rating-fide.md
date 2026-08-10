@@ -62,18 +62,18 @@ por modalidade; só o rating inicial vem do STD. *Confirmado pela FEXERJ.*
 | Teto da diferença de rating | 8.3.1 | 400 | **400, sempre** |
 | Partidas mínimas para primeiro rating | 7.1.4 | 5 | **5** |
 
-**Art. 68 §2º** — em torneio interno, o K é **reduzido pela metade**.
+**Art. 68 §2º** — revogado pela FEXERJ. Prescrevia reduzir o K pela metade em
+**torneio interno** (aquele que não é IRT nem organizado pela federação — as duas
+flags do arquivo de torneios, `IsIrt` e `IsFexerj`, desligadas). *Decidido pela
+FEXERJ:* com o K único dentro do período (seção 5), as partidas entre jogador rated
+e não-rated já fora do cálculo (seção 3) e o teto de 700 pontos mantido (seção 5.1),
+a metade não protegia mais nada que esses três mecanismos já não protegessem. O
+cálculo passa a ser uniforme, sem exceção por tipo de torneio. As duas flags
+continuam existindo no arquivo de torneios — são elas que resolvem os identificadores
+da CBX em torneio IRT — só o uso delas para reduzir o K desaparece.
 
 **Art. 68 §3º** — o teto de 400 pontos **sempre** se aplica. A exceção da FIDE para
 jogadores com 2650 ou mais **não vale** na FEXERJ.
-
-### 2.1 Torneio interno
-
-Torneio é **interno** quando as duas flags do arquivo de torneios estão desligadas:
-
-```
-IsIrt = 0  E  IsFexerj = 0  →  torneio interno  →  K pela metade
-```
 
 ---
 
@@ -163,13 +163,18 @@ O K de 10 é **permanente**: uma vez que o rating publicado atinge 2200, o jogad
 mantém K=10 mesmo que caia depois. Isso exige **persistir um indicador por
 modalidade** de que o jogador já atingiu 2200 — não basta olhar o rating atual.
 
-O K é determinado **uma vez por período** e vale para todas as partidas dele — com
-uma exceção, o torneio interno (seção 5.2).
+O K é determinado **uma vez por período** e vale para todas as partidas dele, sem
+exceção.
 
 ### 5.1 Teto de 700 (8.3.3)
 
-Se `n × K > 700`, onde `n` é o número de partidas do jogador **no período**, então
-`K` passa a ser o **maior inteiro** tal que `K × n ≤ 700`.
+Cláusula da FIDE, aplicada ao pé da letra: *"If the number of games (n) for a player
+on any list for a rating period multiplied by K exceeds 700, then K shall be the
+largest whole number such that K x n does not exceed 700."*
+
+Um K, um n, o período inteiro: `n` é o número de partidas do jogador **no período** e
+`K` é o fator único da seção 5. Se `n × K > 700`, `K` passa a ser o **maior inteiro**
+tal que `K × n ≤ 700`.
 
 **O teto é por período, não por torneio.** *Decidido pela FEXERJ.* Aplicar o teto
 torneio a torneio deixava o período total passar do limite por um múltiplo dele: um
@@ -177,25 +182,7 @@ jogador com 40 partidas sob K=40, em dois torneios de 20, chegaria a K=35 em cad
 torneio (700 ÷ 20) — 1.400 no período, o dobro do teto. Com o teto sobre as 40
 partidas do período inteiro, K vira 17 (40 × 17 = 680).
 
-**Consequência:** isso inverte a ordem descrita antes — o teto deixa de ser "aplicado
-por último" e passa a ser aplicado **primeiro**, antes da metade do torneio interno
-(seção 5.2). O teto é calculado sobre o total de partidas do período; só depois se
-aplica a metade, partida a partida, nas que vierem de torneio interno. É a única
-ordem em que a metade do torneio interno continua sendo exatamente metade do K já
-limitado — aplicar a metade antes do teto reabriria o mesmo estouro por múltiplo do
-limite.
-
-### 5.2 Torneio interno
-
-Em torneio interno (seção 2.1), o K é dividido por dois — 40→20, 20→10, 10→5 —
-**depois de já aplicado o teto de 700 do período** (seção 5.1).
-
-**O torneio interno é a exceção à regra de K constante no período.** Num período que
-misture torneios internos e não internos, o K **muda durante o torneio interno** e
-volta ao valor normal nos demais. Ou seja, o K é por período, salvo nos torneios
-internos, que usam metade do K já limitado pelo teto. *Confirmado pela FEXERJ.*
-
-### 5.3 Dependência de data de nascimento
+### 5.2 Dependência de data de nascimento
 
 A regra de sub-18 exige a **data de nascimento**, hoje presente na coluna `Birthday`
 do arquivo de jogadores mas **nunca usada** pelo cálculo. Passa a ser insumo com
@@ -400,9 +387,9 @@ Os seis pontos levantados na primeira versão foram respondidos pela FEXERJ:
 |---|---|---|
 | Art. 68 vale para as três modalidades? | Sim. Só diverge da FIDE no teto 2400/2650, ignorado | 1 |
 | K do jogador transposto | Da modalidade nova — zero partidas, portanto K=40 | 1.1 |
-| Ordem entre metade do K e teto de 700 | Teto por período, aplicado antes da metade do torneio interno | 5.1 |
-| K único no período com torneio interno junto | Interno é a exceção: muda naquele torneio | 5.2 |
-| Data de nascimento ausente | Passa a ser dado obrigatório | 5.3 |
+| Ordem entre metade do K e teto de 700 | Teto por período, aplicado antes da metade do torneio interno (regra depois abolida — seção 2) | 5.1 |
+| K único no período com torneio interno junto | Interno era a exceção, mudava naquele torneio (regra depois abolida — seção 2) | 2 |
+| Data de nascimento ausente | Passa a ser dado obrigatório | 5.2 |
 | Cair abaixo de 1200 | Zera o rating, preserva a contagem de partidas | 7 |
 
 Não há mais pontos em aberto no fator K.

@@ -63,12 +63,6 @@ class TestIsUnder18AtYearEnd:
         assert rules.is_under_18_at_year_end(birth_year, period_year) is expected
 
 
-class TestHalveForInternal:
-    @pytest.mark.parametrize("k,expected", [(40, 20), (20, 10), (10, 5)])
-    def test_halves_each_k(self, k, expected):
-        assert rules.halve_for_internal(k) == expected
-
-
 class TestCapKByGames:
     def test_no_cap_below_the_limit(self):
         assert rules.cap_k_by_games(40, 17) == 40   # 17 x 40 = 680
@@ -107,19 +101,6 @@ class TestParseBirthYear:
     def test_still_accepts_both_formats_alongside_the_longer_sequence_case(self):
         assert rules.parse_birth_year("01/01/1990") == 1990
         assert rules.parse_birth_year("1990-01-01") == 1990
-
-
-def test_order_is_cap_then_halve():
-    """§5.1, decided by FEXERJ: the period cap runs first, then the Art. 68 §2 halving
-    — the reverse of the old order. Halving the raw K=40 first and capping the halved
-    K=20 on 40 games would also land on 17 here by coincidence (700 // 40 doesn't
-    depend on K once the product exceeds 700); halving *after* the cap is what makes
-    the internal-tournament K land at exactly half of 17, not half of 40."""
-    period_k = rules.base_k(1500, 0, False, 1990, 2026)
-    assert period_k == 40
-    capped = rules.cap_k_by_games(period_k, 40)   # 40 x 40 = 1600 > 700 -> 700 // 40 = 17
-    assert capped == 17
-    assert rules.halve_for_internal(capped) == 8   # half of the capped 17, not of the raw 40
 
 
 def test_sentinel_date_falls_into_the_safe_not_under_18_path():

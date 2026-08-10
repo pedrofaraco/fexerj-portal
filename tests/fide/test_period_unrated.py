@@ -6,7 +6,7 @@ from calculator.fide.period import compute_rated_period, compute_unrated_period,
 
 
 def _game(ord_, opponent_id, score):
-    return Game(ord_, "RPD", False, 1, opponent_id, Decimal(score))
+    return Game(ord_, "RPD", 1, opponent_id, Decimal(score))
 
 
 class TestTransposedState:

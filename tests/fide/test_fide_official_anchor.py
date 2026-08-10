@@ -62,7 +62,7 @@ def test_each_game_matches_the_official_delta(index):
     opponent_rating, score, expected_delta = rows[index]
     result = compute_rated_period(
         player_id=1, modality="STD", state=_state(initial_rating),
-        games=[Game(1, "STD", False, 1, 2, score)],
+        games=[Game(1, "STD", 1, 2, score)],
         opponent_ratings={2: opponent_rating},
         period_year=2026, birth_year=1970,
     )
@@ -74,11 +74,11 @@ def test_period_total_matches_the_published_variation():
 
     FIDE published 19.60 for the period (11.40 and 8.20 per tournament,
     undrounded), which rounds to +20. The two tournaments are folded into a
-    single K group here since neither is internal and K is uniform (10)
-    across all 13 games, so the grouping cannot change the sum.
+    single K group here since K is uniform (10) across the whole period, so
+    the grouping cannot change the sum.
     """
     initial_rating, k, rows = _load()
-    games = [Game(1, "STD", False, 1, 100 + i, score) for i, (_, score, _) in enumerate(rows)]
+    games = [Game(1, "STD", 1, 100 + i, score) for i, (_, score, _) in enumerate(rows)]
     opponent_ratings = {100 + i: opponent for i, (opponent, _, _) in enumerate(rows)}
     result = compute_rated_period(
         player_id=1, modality="STD", state=_state(initial_rating),

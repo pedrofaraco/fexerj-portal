@@ -160,7 +160,7 @@ class TestLegacyConversion:
         from the bug report end to end, starting from the converted state."""
         players = read_rating_list(_LEGACY_CSV)
         state = _std(players[7])
-        games = [Game(1, "STD", False, 7, 900 + i, Decimal("1")) for i in range(6)]
+        games = [Game(1, "STD", 7, 900 + i, Decimal("1")) for i in range(6)]
         result = compute_unrated_period(7, "STD", state, games, {900 + i: 1500 for i in range(6)})
         assert result.final_rating == 1861
         assert result.path == "INITIAL_RATING"

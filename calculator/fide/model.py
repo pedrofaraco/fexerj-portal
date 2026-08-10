@@ -63,7 +63,6 @@ class Game:
 
     tournament_ord: int
     modality: str
-    is_internal: bool
     player_id: int
     opponent_id: int
     score: Decimal

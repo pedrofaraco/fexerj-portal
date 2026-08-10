@@ -5,8 +5,8 @@ from calculator.fide.model import Game, ModalityState
 from calculator.fide.period import compute_rated_period
 
 
-def _game(ord_, opponent_id, score, internal=False):
-    return Game(ord_, "STD", internal, 1, opponent_id, Decimal(score))
+def _game(ord_, opponent_id, score):
+    return Game(ord_, "STD", 1, opponent_id, Decimal(score))
 
 
 class TestSingleGame:
@@ -78,32 +78,21 @@ class TestPeriodAggregation:
         assert result.games_counted == 1
 
 
-class TestKWithinThePeriod:
-    def test_internal_tournament_uses_half_k(self):
-        """§5.2: the internal tournament is the exception to the constant-K rule."""
+class TestKIsConstantAcrossTheWholePeriod:
+    def test_a_period_mixing_two_tournaments_applies_the_same_k_to_every_game(self):
+        """FEXERJ abolished the Art. 68 §2 halving (§2, §5.2): a period built from
+        more than one tournament — one of them formerly "internal", one not — gets
+        exactly one K for every game, regardless of which tournament it came from.
+        This is the guarantee that the old exception is gone, not half-applied."""
         state = ModalityState(rating=1800, games=50)
         result = compute_rated_period(
             player_id=1, modality="STD", state=state,
-            games=[_game(1, 2, "1"), _game(2, 3, "1", internal=True)],
+            games=[_game(1, 2, "1"), _game(2, 3, "1")],
             opponent_ratings={2: 1700, 3: 1700},
             period_year=2026, birth_year=1990,
         )
-        by_tournament = {g.game.tournament_ord: g.k for g in result.game_results}
-        assert by_tournament[1] == 20
-        assert by_tournament[2] == 10
-
-    def test_variation_sums_delta_times_k_per_game(self):
-        state = ModalityState(rating=1800, games=50)
-        result = compute_rated_period(
-            player_id=1, modality="STD", state=state,
-            games=[_game(1, 2, "1"), _game(2, 3, "1", internal=True)],
-            opponent_ratings={2: 1700, 3: 1700},
-            period_year=2026, birth_year=1990,
-        )
-        # 0.36 x 20 + 0.36 x 10 = 7.2 + 3.6 = 10.8 -> 11
-        assert result.sum_delta == Decimal("0.72")
-        assert result.variation == Decimal("10.8")
-        assert result.rounded_variation == 11
+        ks = {g.k for g in result.game_results}
+        assert ks == {20}
 
 
 class TestPeriodCap:
@@ -122,26 +111,6 @@ class TestPeriodCap:
         )
         ks = {g.k for g in result.game_results}
         assert ks == {17}
-
-    def test_internal_tournament_half_is_exactly_half_of_the_capped_k(self):
-        """The cap now runs before the halving: the internal tournament's K is half of
-        the already-capped period K=17, not half of the raw K=40 — the only order where
-        the internal-tournament half stays exactly a half."""
-        state = ModalityState(rating=1500, games=0)
-        games = (
-            [_game(1, 2, "0.5") for _ in range(20)]
-            + [_game(2, 2, "0.5", internal=True) for _ in range(20)]
-        )
-        result = compute_rated_period(
-            player_id=1, modality="STD", state=state,
-            games=games,
-            opponent_ratings={2: 1500},
-            period_year=2026, birth_year=1990,
-        )
-        by_tournament = {g.game.tournament_ord: g.k for g in result.game_results}
-        assert by_tournament[1] == 17
-        assert by_tournament[2] == 8
-        assert by_tournament[2] == by_tournament[1] // 2
 
 
 class TestFloor:

@@ -38,11 +38,6 @@ class TournamentRow:
     modality: str
 
     @property
-    def is_internal(self) -> bool:
-        """§2.1: a tournament is internal when both flags are off."""
-        return not self.is_irt and not self.is_fexerj
-
-    @property
     def binary_filename(self) -> str:
         return f"{self.ord}-{self.cr_id}.{_TYPE_TO_EXT[self.type_]}"
 
@@ -134,19 +129,8 @@ def collect_games(
                 continue
             id_a, id_b = snr_to_id[snr_a], snr_to_id[snr_b]
             score = Decimal(str(score_a))
-            games.append(
-                Game(tournament.ord, tournament.modality, tournament.is_internal, id_a, id_b, score)
-            )
-            games.append(
-                Game(
-                    tournament.ord,
-                    tournament.modality,
-                    tournament.is_internal,
-                    id_b,
-                    id_a,
-                    Decimal("1") - score,
-                )
-            )
+            games.append(Game(tournament.ord, tournament.modality, id_a, id_b, score))
+            games.append(Game(tournament.ord, tournament.modality, id_b, id_a, Decimal("1") - score))
     return games
 
 

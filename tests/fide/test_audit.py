@@ -126,7 +126,7 @@ class TestPeriodAudit:
 def _game_result(opponent_id, initial_rating, opponent_rating, score):
     diff = capped_diff(initial_rating, opponent_rating)
     pd = pd_for_diff(diff)
-    game = Game(1, "STD", False, 1, opponent_id, Decimal(score))
+    game = Game(1, "STD", 1, opponent_id, Decimal(score))
     return GameResult(
         game=game,
         opponent_rating=opponent_rating,
@@ -189,11 +189,11 @@ class TestPeriodAuditAccumulator:
     def test_first_rating_exposes_accumulated_sum_and_points(self):
         state = ModalityState()  # games == 0: this is the player's first event
         games = [
-            Game(1, "STD", False, 1, 901, Decimal("1")),
-            Game(1, "STD", False, 1, 902, Decimal("1")),
-            Game(1, "STD", False, 1, 903, Decimal("0.5")),
-            Game(1, "STD", False, 1, 904, Decimal("0")),
-            Game(1, "STD", False, 1, 905, Decimal("0")),
+            Game(1, "STD", 1, 901, Decimal("1")),
+            Game(1, "STD", 1, 902, Decimal("1")),
+            Game(1, "STD", 1, 903, Decimal("0.5")),
+            Game(1, "STD", 1, 904, Decimal("0")),
+            Game(1, "STD", 1, 905, Decimal("0")),
         ]
         opponent_ratings = {901: 1600, 902: 1650, 903: 1700, 904: 1550, 905: 1600}
         result = compute_unrated_period(1, "STD", state, games, opponent_ratings)

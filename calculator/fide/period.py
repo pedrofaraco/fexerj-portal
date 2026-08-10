@@ -66,11 +66,9 @@ def compute_rated_period(
     `opponent_ratings` carries only opponents who were **rated** at the start
     of the period; games against anyone not in the map are dropped (§3).
 
-    K comes out of §5 once for the whole period. The 700 cap (§5.1) is also
-    applied once, against the period's total game count — decided by
-    FEXERJ — and only then is K halved for games in an internal tournament
-    (§5.2); see `_k_by_tournament` for why that order, and not the reverse,
-    is the one that keeps the internal-tournament half exactly a half.
+    K comes out of §5 once for the whole period, and the 700 cap (§5.1) is
+    applied once against the period's total game count — decided by FEXERJ.
+    The same K then applies to every game in the period.
     """
     if state.rating is None:
         raise ValueError(
@@ -88,7 +86,7 @@ def compute_rated_period(
     )
 
     counted = [g for g in games if g.opponent_id in opponent_ratings]
-    k_by_tournament = _k_by_tournament(counted, period_k)
+    k = rules.cap_k_by_games(period_k, len(counted))
 
     results: list[GameResult] = []
     for game in counted:
@@ -101,7 +99,7 @@ def compute_rated_period(
             capped_diff=diff,
             pd=pd,
             delta=game.score - pd,
-            k=k_by_tournament[game.tournament_ord],
+            k=k,
         ))
 
     sum_delta = sum((r.delta for r in results), Decimal("0"))
@@ -122,32 +120,6 @@ def compute_rated_period(
         path=path,
         game_results=results,
     )
-
-
-def _k_by_tournament(games: list[Game], period_k: int) -> dict[int, int]:
-    """Effective K per tournament: the 700 cap over the period total, then halved if internal.
-
-    Decided by FEXERJ (§5.1): the cap is computed once, on the period's total
-    game count — not per tournament, which let a period split across several
-    tournaments reach a multiple of 700 before anyone capped it (e.g. 40
-    games at K=40 in two 20-game tournaments used to cap each half to K=35
-    instead of the period's K=17).
-
-    Consequence: this is why the cap runs *before* the internal-tournament
-    halving, reversing the order the spec text describes. The halving still
-    needs to land on the already-capped K — capping post-halved K per
-    tournament again would reopen the same multi-tournament loophole.
-    """
-    internal: dict[int, bool] = {}
-    for game in games:
-        internal[game.tournament_ord] = game.is_internal
-
-    capped_k = rules.cap_k_by_games(period_k, len(games))
-
-    effective: dict[int, int] = {}
-    for ord_, is_internal in internal.items():
-        effective[ord_] = rules.halve_for_internal(capped_k) if is_internal else capped_k
-    return effective
 
 
 def transposed_state(player: PlayerState, modality: str) -> ModalityState | None:

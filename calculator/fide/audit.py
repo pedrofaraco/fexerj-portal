@@ -14,7 +14,7 @@ _DELIMITER = ";"
 
 GAMES_AUDIT_PREAMBLE = "# fide_games_v1"
 GAMES_AUDIT_HEADER = (
-    "Tournament;TimeControl;IsInternal;PlayerId;PlayerName;OpponentId;"
+    "Tournament;TimeControl;PlayerId;PlayerName;OpponentId;"
     "OpponentRating;D;DiffCapped;PD;Score;DeltaR;K"
 )
 
@@ -41,7 +41,6 @@ def write_games_audit(outcome: "PeriodOutcome") -> str:
             print(_DELIMITER.join([
                 str(entry.game.tournament_ord),
                 entry.game.modality,
-                "1" if entry.game.is_internal else "0",
                 str(result.player_id),
                 name,
                 str(entry.game.opponent_id),

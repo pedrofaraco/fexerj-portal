@@ -73,7 +73,7 @@ def base_k(
     birth_year: int | None,
     period_year: int,
 ) -> int:
-    """K factor from §5, before the internal-tournament halving and the 700 cap.
+    """K factor from §5, before the 700 cap (§5.1).
 
     `reached_2200` is checked first, ahead of every other condition. Decided
     by FEXERJ: the permanent K=10 is a brake that only tightens — once a
@@ -105,27 +105,14 @@ def base_k(
     return 20
 
 
-def halve_for_internal(k: int) -> int:
-    """Art. 68 §2: in an internal tournament, K is halved (40->20, 20->10, 10->5)."""
-    return k // 2
-
-
 def cap_k_by_games(k: int, games: int) -> int:
-    """§5.1 cap: if `games * k > 700`, K becomes the largest integer with `k * games <= 700`.
+    """§5.1 cap, verbatim FIDE: "If the number of games (n) for a player on any list
+    for a rating period multiplied by K exceeds 700, then K shall be the largest whole
+    number such that K x n does not exceed 700."
 
-    Decided by FEXERJ: the cap is **per period**, not per tournament — `k` is
-    the player's base K for the period (before the internal-tournament
-    halving) and `games` is the player's total game count for the whole
-    period, not any single tournament's. Applying it per tournament instead
-    let a period made of several tournaments blow past 700 by a multiple of
-    the limit — the case this function's caller, `_k_by_tournament` in
-    `period.py`, now exists to prevent.
-
-    Consequence: this inverts the order the spec describes ("cap applied
-    last, after the Art. 68 §2 halving"). With the cap computed on the period
-    total, it has to run **before** the internal-tournament halving, not
-    after — halving the already-capped K is the only order left where an
-    internal-tournament game still gets exactly half of the period K.
+    One K, one n, the whole period: `k` is the player's single K factor for the
+    period (§5) and `games` is their total game count for the period, not any single
+    tournament's.
     """
     if games <= 0 or k * games <= K_GAMES_PRODUCT_CAP:
         return k

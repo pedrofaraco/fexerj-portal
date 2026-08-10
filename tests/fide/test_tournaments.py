@@ -53,12 +53,6 @@ class TestReadTournaments:
         rows = read_tournaments(_TOURNAMENTS_CSV, 1, 2)
         assert [r.modality for r in rows] == ["STD", "RPD"]
 
-    def test_internal_when_both_flags_are_off(self):
-        """§2.1: IsIrt = 0 and IsFexerj = 0 -> internal tournament."""
-        rows = read_tournaments(_TOURNAMENTS_CSV, 1, 2)
-        assert rows[0].is_internal is False
-        assert rows[1].is_internal is True
-
     def test_respects_the_first_count_window(self):
         rows = read_tournaments(_TOURNAMENTS_CSV, 2, 1)
         assert [r.ord for r in rows] == [2]
@@ -113,19 +107,18 @@ class TestCollectGames:
         for (a, b), score in by_pair.items():
             assert score + by_pair[(b, a)] == Decimal("1")
 
-    def test_games_carry_modality_and_internal_flag(self):
+    def test_games_carry_the_modality(self):
         rows, binaries = self._rows_and_binaries()
         players = read_rating_list(_PLAYERS_CSV)
         games = collect_games(rows, binaries, players)
         assert all(g.modality == "STD" for g in games)
-        assert all(g.is_internal is False for g in games)
 
-    def test_modality_and_internal_flag_come_from_the_originating_tournament(self):
-        """Collects from two tournaments with different modality/internal
-        values, reusing the same binary under two filenames. A value
-        hardcoded in collect_games instead of read from the tournament row
-        would still pass test_games_carry_modality_and_internal_flag (which
-        only has one, STD, non-internal tournament) but fails here."""
+    def test_modality_comes_from_the_originating_tournament(self):
+        """Collects from two tournaments with different modalities, reusing the
+        same binary under two filenames. A value hardcoded in collect_games
+        instead of read from the tournament row would still pass
+        test_games_carry_the_modality (which only has one, STD, tournament) but
+        fails here."""
         data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
         csv_text = (
             TOURNAMENTS_HEADER + "\n"
@@ -139,8 +132,8 @@ class TestCollectGames:
 
         from_first = [g for g in games if g.tournament_ord == 1]
         from_second = [g for g in games if g.tournament_ord == 2]
-        assert from_first and all(g.modality == "STD" and g.is_internal is False for g in from_first)
-        assert from_second and all(g.modality == "RPD" and g.is_internal is True for g in from_second)
+        assert from_first and all(g.modality == "STD" for g in from_first)
+        assert from_second and all(g.modality == "RPD" for g in from_second)
 
     def test_missing_binary_raises_with_the_filename(self):
         rows, _ = self._rows_and_binaries()
