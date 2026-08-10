@@ -16,10 +16,9 @@ _FIDE_PLAYERS = (
 
 
 def _errors(players, tournaments, mode):
-    # count=0 keeps the tournament window empty, since these tests are only
-    # about mode-dependent header/field rules, not about the (unrelated)
-    # binary-file presence check.
-    return validate_inputs(players, tournaments, {}, 1, 0, mode=mode)
+    # count=1 mirrors the real API, whose routes declare count with a
+    # minimum of 1 — count=0 would never reach the validator in production.
+    return validate_inputs(players, tournaments, {}, 1, 1, mode=mode)
 
 
 class TestTimeControl:
@@ -65,4 +64,35 @@ class TestCompareModeRestrictions:
     def test_accepts_legacy_players_with_std_tournaments(self):
         tournaments = TOURNAMENTS_HEADER + "\n1;99999;Torneio;2026-03-15;RR;0;1;STD\n"
         errors = _errors(_LEGACY_PLAYERS, tournaments, "compare")
+        # With count=1 the tournament at Ord=1 falls inside the binary-file
+        # window, and no binary file was supplied, so a "file not found"
+        # error is expected and unrelated to this test.  What this test
+        # actually verifies is that the compare mode's own restrictions
+        # (players format, tournament time control) do not fire.
+        assert not any("comparar" in e.lower() for e in errors)
+
+
+class TestTournamentsColumnReductionIsCsvAware:
+    # _validate_tournaments_for_mode reduces the 8-column fide/compare rows
+    # to 7 columns to reuse the legacy row checks. That reduction must
+    # operate on parsed CSV cells, not a raw string split, so a quoted field
+    # containing ';' round-trips correctly.
+
+    def test_accepts_a_quoted_name_containing_a_semicolon(self):
+        tournaments = (
+            TOURNAMENTS_HEADER + "\n"
+            '5;99999;"Torneio; Aberto";2026-03-15;RR;0;1;STD\n'
+        )
+        errors = _errors(_FIDE_PLAYERS, tournaments, "fide")
         assert errors == []
+
+    def test_unclosed_quote_does_not_hide_a_later_rows_defects(self):
+        tournaments = (
+            TOURNAMENTS_HEADER + "\n"
+            '1;99999;"A;B;C;D;E;F";2026-03-15;RR;0;1;STD\n'
+            "2;99999;Torneio Ruim;2026-03-16;XX;9;9;STD\n"
+        )
+        errors = _errors(_FIDE_PLAYERS, tournaments, "fide")
+        assert any("linha 3" in e and "Type" in e for e in errors)
+        assert any("linha 3" in e and "IsIrt" in e for e in errors)
+        assert any("linha 3" in e and "IsFexerj" in e for e in errors)

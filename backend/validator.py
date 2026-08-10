@@ -407,11 +407,20 @@ def _validate_tournaments_for_mode(content: str, mode: str) -> list[str]:
         ]
 
     # Reuse the legacy row-level checks (Ord/CrId/Name/Type/IsIrt/IsFexerj) by
-    # feeding them the first 7 columns under the legacy header, then add the
-    # two columns the per-game model introduces: EndDate and TimeControl.
-    errors = _validate_tournaments_csv(
-        "\n".join([_TOURNAMENTS_HEADER] + [";".join(line.split(";")[:7]) for line in lines[1:]])
-    )
+    # feeding them the first 7 cells of each row under the legacy header, then
+    # add the two columns the per-game model introduces: EndDate and
+    # TimeControl.  Cells come from the CSV reader (not a raw string split)
+    # and are re-serialized with the CSV writer, so a quoted field containing
+    # ';' round-trips correctly instead of corrupting the column count or
+    # leaving an unbalanced quote that swallows the following rows.
+    legacy_buffer = io.StringIO()
+    legacy_writer = csv.writer(legacy_buffer, delimiter=";", lineterminator="\n")
+    legacy_writer.writerow(_TOURNAMENTS_HEADER.split(";"))
+    legacy_reader = csv.reader(io.StringIO(content), delimiter=";")
+    next(legacy_reader)  # skip header
+    for row in legacy_reader:
+        legacy_writer.writerow(row[:7])
+    errors = _validate_tournaments_csv(legacy_buffer.getvalue())
 
     reader = csv.reader(io.StringIO(content), delimiter=";")
     next(reader)  # skip header
