@@ -10,7 +10,7 @@ Web portal for the FEXERJ chess community — rating cycle runner and (planned) 
 
 ## Features
 
-- **Rating cycle runner** — Portuguese-language staff interface to upload tournament files, validate inputs, view an on-screen summary of processed tournaments (players and audit-style details), and download the resulting ZIP.
+- **Rating cycle runner** — Portuguese-language staff interface to upload tournament files, pick the calculation model (current, per-game FIDE, or both compared), validate inputs, view an on-screen summary of the run, and download the resulting ZIP.
 - Public rating lists and player database *(planned)*.
 
 ## Tech stack
@@ -190,6 +190,25 @@ The `/run` zip's filename and contents vary by mode:
 | `legacy`  | `rating_cycle_output.zip`        | `RatingList_after_<Ord>.csv` and `Audit_of_Tournament_<Ord>.csv` per tournament |
 | `fide`    | `rating_cycle_fide.zip`          | `RatingList.csv`, `Audit_Games.csv`, `Audit_Period.csv`                 |
 | `compare` | `rating_cycle_comparison.zip`    | Both engines' outputs above, plus `Comparison.csv`                      |
+
+In every mode, a `first`/`count` window that catches no tournament returns **422** naming the
+interval, instead of a zip: an empty window is a mistyped interval, and a zip carrying a full
+`RatingList.csv` would be indistinguishable from a published list.
+
+### The mode in the portal
+
+The run form has a **Modelo de cálculo** selector with the same three options, defaulting to the
+current model. It is deliberately not remembered between sessions — a forgotten selection is the
+failure that matters, since it changes which engine produces the rating. Picking anything but the
+current model shows a note that the selected interval is the whole rating period.
+
+The browser-side check of `players.csv` and `tournaments.csv` follows the selected mode, so the
+per-game formats are accepted only where they apply. It stays structural (header, column count,
+required ids and names, duplicates); the per-modality rules are the server's, via `/validate`.
+
+The result screen follows the shape of the zip that came back: the per-tournament and per-player
+tabs for the current model, a summary per modality for `fide`, and that summary plus the two
+models side by side for `compare`.
 
 - **`422 Unprocessable Entity`** — file-level validation failures return `detail` as a list of strings (the same messages as `/validate`'s `errors`). Invalid form fields or missing files may instead return FastAPI's structured validation entries (objects with a `msg` field).
 - **`413 Payload Too Large`** — returned when `Content-Length` exceeds `PORTAL_MAX_UPLOAD_MEGABYTES`. For chunked uploads with no `Content-Length`, the reverse proxy must enforce the limit.
