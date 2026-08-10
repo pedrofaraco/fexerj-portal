@@ -283,7 +283,7 @@ const PERIOD_CSV =
 
 const COMPARISON_CSV =
   `${COMPARISON_PREAMBLE}\n` +
-  'PlayerId;PlayerName;RatingAtual;RatingFide;Difference\n' +
+  'PlayerId;PlayerName;RatingCurrent;RatingFide;Difference\n' +
   '3741;Carlos Mendes;1810;1807;-3\n' +
   '643;Roberto Faria;1893;1896;3\n' +
   '1979;Andre Nunes;1700;1700;0\n'
@@ -490,7 +490,7 @@ export function parseComparisonCsv(text) {
       return {
         fexerjId: parseIntCell(c.PlayerId),
         name: c.PlayerName ?? '',
-        ratingCurrent: parseNumericCell(c.RatingAtual),
+        ratingCurrent: parseNumericCell(c.RatingCurrent),
         ratingFide: parseNumericCell(c.RatingFide),
         difference: parseNumericCell(c.Difference) ?? 0,
       }
