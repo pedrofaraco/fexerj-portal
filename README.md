@@ -100,6 +100,29 @@ Required fields: `Id_No`, `Name`, `Rtg_Nat`, `TotalNumGames`, `SumOpponRating`, 
 > not a CBX or FIDE rating — `Id_CBX` is an identifier only, and no external rating
 > enters the system. The name is kept for compatibility with existing files.
 
+**`players.csv` — new per-game model (23 columns)** — semicolon-delimited, UTF-8 (BOM
+accepted). Accepted in `fide` mode, alongside the 12-column format above. (`compare` mode
+requires the 12-column format only — see restrictions below.)
+
+```
+Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Rtg_Std;Games_Std;Peak2200_Std;SumOpp_Std;Pts_Std;Rtg_Rpd;Games_Rpd;Peak2200_Rpd;SumOpp_Rpd;Pts_Rpd;Rtg_Blz;Games_Blz;Peak2200_Blz;SumOpp_Blz;Pts_Blz
+```
+
+The first eight columns are identity, shared across modalities: `Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed`.
+
+The remaining fifteen columns are three groups of five — one group per modality, Classical
+(`Std`), Rapid (`Rpd`), Blitz (`Blz`) — each shaped `Rtg_<mod>;Games_<mod>;Peak2200_<mod>;SumOpp_<mod>;Pts_<mod>`:
+
+- `Rtg_<mod>` — the player's current rating in that modality. **Empty means the player is
+  unrated** in that modality.
+- `Games_<mod>` — games played in that modality.
+- `Peak2200_<mod>` — `1` if the player has ever reached 2200 in that modality, else `0`.
+- `SumOpp_<mod>` — sum of opponents' ratings in that modality.
+- `Pts_<mod>` — points scored in that modality.
+
+`Birthday` is required in this format (it is optional in the legacy 12-column format) — the
+per-game model's under-18 K-factor rule depends on it.
+
 **`tournaments.csv`** — semicolon-delimited, UTF-8 (BOM accepted):
 
 ```
@@ -108,7 +131,24 @@ Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
 
 `Ord` = order number, `CrId` = Chess Results ID, `EndDate` is optional. `Type` must be `SS`, `RR`, or `ST`. `IsIrt` and `IsFexerj` must be `0` or `1`.
 
+**`tournaments.csv` — new per-game model (8 columns)**:
+
+```
+Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj;TimeControl
+```
+
+Same seven columns as the legacy format, plus `TimeControl`, which must be `STD` (classical),
+`RPD` (rapid), or `BLZ` (blitz). `TimeControl` is distinct from `Type`: `Type` is the pairing
+format (`SS` swiss, `RR` round-robin, `ST` team), `TimeControl` is the time control the games
+were played at. `EndDate` is required in this format (optional in the legacy one) — the
+under-18 K-factor rule needs the period's year.
+
 **Binary files** — one file per tournament, named `<Ord>-<CrId>.<Ext>` where `Ext` is `TUNX` (SS), `TURX` (RR), or `TUMX` (ST). Every player in the BIO section must have a FEXERJ ID that also appears in `players.csv` (CBX ID for IRT tournaments). The portal validator checks this before run.
+
+**`compare` mode restrictions** — `compare` mode runs both engines over the same input, so its
+files must satisfy both: `players.csv` must be the 12-column legacy format, and every
+tournament in the period must have `TimeControl=STD`. Reason: the current engine only reads
+the 12-column format and has no concept of time control.
 
 ---
 

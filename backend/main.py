@@ -238,7 +238,7 @@ async def validate(
     logger.info(
         "POST /validate — %d error(s) found",
         len(errors),
-        extra={"event": "validate_done", "path": "/validate", "error_count": len(errors)},
+        extra={"event": "validate_done", "path": "/validate", "error_count": len(errors), "mode": mode},
     )
     return {"errors": errors}
 
@@ -353,7 +353,7 @@ async def run(
         logger.info(
             "POST /run — ciclo concluído, %d arquivo(s) gerados",
             len(output_files),
-            extra={"event": "run_done", "path": "/run", "output_file_count": len(output_files)},
+            extra={"event": "run_done", "path": "/run", "output_file_count": len(output_files), "mode": mode},
         )
 
         zip_buffer = io.BytesIO()

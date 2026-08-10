@@ -58,9 +58,14 @@ def test_compare_mode_returns_both_models(client, auth):
     response = _post(client, "/run", _FIDE_TOURNAMENTS, mode="compare", auth=auth)
     assert response.status_code == 200
     names = set(zipfile.ZipFile(io.BytesIO(response.content)).namelist())
-    assert "Comparison.csv" in names
-    assert "RatingList_after_1.csv" in names
-    assert "RatingList.csv" in names
+    assert names == {
+        "RatingList_after_1.csv",
+        "Audit_of_Tournament_1.csv",
+        "RatingList.csv",
+        "Audit_Games.csv",
+        "Audit_Period.csv",
+        "Comparison.csv",
+    }
 
 
 def test_zip_filename_differs_by_mode(client, auth):
