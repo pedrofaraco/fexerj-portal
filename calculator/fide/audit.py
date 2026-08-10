@@ -1,0 +1,73 @@
+"""Audit files for the per-game model.
+
+`Audit_Games.csv` exists so a player can redo their own math, game by game,
+against table 8.1.2 of the spec. `Audit_Period.csv` shows that the sum
+closes.
+"""
+import io
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .cycle import PeriodOutcome
+
+_DELIMITER = ";"
+
+GAMES_AUDIT_PREAMBLE = "# fide_games_v1"
+GAMES_AUDIT_HEADER = (
+    "Tournament;TimeControl;IsInternal;PlayerId;PlayerName;OpponentId;"
+    "OpponentRatingCapped;D;PD;Score;DeltaR;K"
+)
+
+PERIOD_AUDIT_PREAMBLE = "# fide_period_v1"
+PERIOD_AUDIT_HEADER = (
+    "Tournaments;PlayerId;PlayerName;TimeControl;InitialRating;Games;SumDeltaR;"
+    "Variation;RoundedVariation;FinalRating;Path"
+)
+
+
+def write_games_audit(outcome: "PeriodOutcome") -> str:
+    """One row per computed game, per side."""
+    buf = io.StringIO()
+    print(GAMES_AUDIT_PREAMBLE, file=buf)
+    print(GAMES_AUDIT_HEADER, file=buf)
+    for result in outcome.results:
+        name = outcome.players[result.player_id].name
+        for entry in result.game_results:
+            print(_DELIMITER.join([
+                str(entry.game.tournament_ord),
+                entry.game.modality,
+                "1" if entry.game.is_internal else "0",
+                str(result.player_id),
+                name,
+                str(entry.game.opponent_id),
+                str(entry.opponent_rating),
+                str(entry.capped_diff),
+                str(entry.pd),
+                str(entry.game.score),
+                str(entry.delta),
+                str(entry.k),
+            ]), file=buf)
+    return buf.getvalue()
+
+
+def write_period_audit(outcome: "PeriodOutcome") -> str:
+    """One row per player x modality, naming the tournaments of the period."""
+    tournaments = ",".join(str(t.ord) for t in outcome.tournaments)
+    buf = io.StringIO()
+    print(PERIOD_AUDIT_PREAMBLE, file=buf)
+    print(PERIOD_AUDIT_HEADER, file=buf)
+    for result in outcome.results:
+        print(_DELIMITER.join([
+            tournaments,
+            str(result.player_id),
+            outcome.players[result.player_id].name,
+            result.modality,
+            "" if result.initial_rating is None else str(result.initial_rating),
+            str(result.games_counted),
+            str(result.sum_delta),
+            str(result.variation),
+            str(result.rounded_variation),
+            "" if result.final_rating is None else str(result.final_rating),
+            result.path,
+        ]), file=buf)
+    return buf.getvalue()

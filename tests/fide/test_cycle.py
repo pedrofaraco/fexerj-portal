@@ -36,10 +36,9 @@ _ONE_TOURNAMENT = (
 
 
 class TestOutputShape:
-    def test_produces_a_single_rating_list(self):
-        """The two audit files arrive in Task 13."""
+    def test_produces_one_list_and_two_audits(self):
         output = _cycle(_ONE_TOURNAMENT).run_cycle()
-        assert "RatingList.csv" in output
+        assert set(output) == {"RatingList.csv", "Audit_Games.csv", "Audit_Period.csv"}
 
     def test_no_per_tournament_rating_list(self):
         """§4: an intermediate per-tournament list is not a valid output."""

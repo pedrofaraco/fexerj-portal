@@ -7,6 +7,7 @@ import copy
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from . import audit
 from .model import Game, ModalityState, PlayerState
 from .period import (
     PeriodResult,
@@ -97,12 +98,13 @@ class FideRatingCycle:
         return PeriodOutcome(players=final_players, tournaments=tournaments, results=results)
 
     def run_cycle(self) -> dict[str, str]:
-        """Returns `{filename: CSV content}` for the period.
-
-        The two audit files arrive in Task 13.
-        """
+        """Returns `{filename: CSV content}` for the period."""
         outcome = self.run_period()
-        return {"RatingList.csv": write_rating_list(outcome.players)}
+        return {
+            "RatingList.csv": write_rating_list(outcome.players),
+            "Audit_Games.csv": audit.write_games_audit(outcome),
+            "Audit_Period.csv": audit.write_period_audit(outcome),
+        }
 
 
 def _entry_states(
