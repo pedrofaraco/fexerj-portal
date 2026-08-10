@@ -166,6 +166,7 @@ def _apply_results(
                 reached_2200=before.reached_2200,
                 sum_opponents=result.accumulated_sum_opponents,
                 points=result.accumulated_points,
+                accumulated_games=result.accumulated_games,
             )
             continue
 
@@ -179,5 +180,6 @@ def _apply_results(
             ),
             sum_opponents=0,
             points=Decimal("0"),
+            accumulated_games=0,
         )
     return final

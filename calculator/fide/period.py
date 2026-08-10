@@ -28,9 +28,12 @@ class GameResult:
 class PeriodResult:
     """The period's closing result for a player in one modality.
 
-    `accumulated_sum_opponents` and `accumulated_points` are only used on the
-    unrated path (§6.1): they are the accumulator that carries over to the
-    next period while the player hasn't reached five games yet.
+    `accumulated_sum_opponents`, `accumulated_points` and `accumulated_games`
+    are only used on the unrated path (§6.1): they are the accumulator that
+    carries over to the next period while the player hasn't reached five
+    games yet. `accumulated_games` is the count of games behind that
+    accumulator, distinct from `games_counted` below (this period's own game
+    count) and from `ModalityState.games` (the lifetime count).
     """
 
     player_id: int
@@ -45,6 +48,7 @@ class PeriodResult:
     game_results: list[GameResult] = field(default_factory=list)
     accumulated_sum_opponents: int = 0
     accumulated_points: Decimal = Decimal("0")
+    accumulated_games: int = 0
 
 
 def compute_rated_period(
@@ -182,11 +186,17 @@ def compute_unrated_period(
     full accumulated history. Zeroing the very first event discards that
     event's result instead of counting it (§6.1 / 8.2.1); a zero score in a
     later event is counted normally.
+
+    The accumulator this reads and advances is `state.accumulated_games`,
+    not `state.games`: the latter is the lifetime count, which keeps growing
+    after the floor (§7) drops a player back out of rated status, and would
+    otherwise make this path see games that never fed `sum_opponents` or
+    `points` at all.
     """
     counted = [g for g in games if g.opponent_id in opponent_ratings]
     points = sum((g.score for g in counted), Decimal("0"))
 
-    is_first_event = state.games == 0
+    is_first_event = state.accumulated_games == 0
     if is_first_event and counted and points == 0:
         # §6.1 / 8.2.1: the result is discarded — the accumulator does not advance.
         return PeriodResult(
@@ -201,9 +211,10 @@ def compute_unrated_period(
             path="FIRST_EVENT_ZEROED",
             accumulated_sum_opponents=state.sum_opponents,
             accumulated_points=state.points,
+            accumulated_games=state.accumulated_games,
         )
 
-    total_games = state.games + len(counted)
+    total_games = state.accumulated_games + len(counted)
     total_points = state.points + points
     total_sum_opponents = state.sum_opponents + sum(opponent_ratings[g.opponent_id] for g in counted)
 
@@ -220,6 +231,7 @@ def compute_unrated_period(
             path="ACCUMULATING",
             accumulated_sum_opponents=total_sum_opponents,
             accumulated_points=total_points,
+            accumulated_games=total_games,
         )
 
     ru = rules.initial_rating(total_sum_opponents, total_games, total_points)
@@ -235,4 +247,5 @@ def compute_unrated_period(
         path="INITIAL_RATING" if ru is not None else "BELOW_FLOOR",
         accumulated_sum_opponents=total_sum_opponents,
         accumulated_points=total_points,
+        accumulated_games=total_games,
     )

@@ -15,13 +15,25 @@ COLUMN_SUFFIX: dict[str, str] = {"STD": "Std", "RPD": "Rpd", "BLZ": "Blz"}
 
 @dataclass(frozen=True)
 class ModalityState:
-    """A player's rating, game count and accumulators in one modality."""
+    """A player's rating, game count and accumulators in one modality.
+
+    `games` and `accumulated_games` count different things and must not be
+    confused: `games` is the lifetime game count — it only grows, it is what
+    §5's K factor reads, and §7 preserves it when the floor drops the player
+    out of rated status. `accumulated_games` is how many of those games have
+    gone into the still-open §6.1 accumulator toward the five needed for a
+    first rating; it travels with `sum_opponents` and `points` — zeroed
+    together the moment the player becomes rated, and zeroed together again
+    if the floor later drops them back out, because the accumulation starts
+    over from zero rather than resuming from the lifetime count.
+    """
 
     rating: int | None = None
     games: int = 0
     reached_2200: bool = False
     sum_opponents: int = 0
     points: Decimal = Decimal("0")
+    accumulated_games: int = 0
 
     @property
     def is_rated(self) -> bool:

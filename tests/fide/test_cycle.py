@@ -173,6 +173,7 @@ class TestUnratedAccumulatorAcrossPeriods:
         assert row_1[header.index("Rtg_Std")] == ""
         assert row_1[header.index("SumOpp_Std")] != "0"
         assert row_1[header.index("Pts_Std")] != "0"
+        assert row_1[header.index("AccGames_Std")] == "3"
 
         cycle_2 = FideRatingCycle(
             tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
@@ -197,17 +198,17 @@ class TestPeak2200IndicatorIsPermanent:
         players_csv = (
             FIDE_HEADER + "\n"
             "3741;;;Carlos Mendes;CLUB A;01/01/1980;M;BRA;"
-            "2210;50;1;0;0;;0;0;0;0;;0;0;0;0\n"
+            "2210;50;1;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
             "643;;;Roberto Faria;CLUB B;01/01/1975;M;BRA;"
-            "1900;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+            "1900;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
             "1979;;;Andre Nunes;CLUB C;01/01/1982;M;BRA;"
-            "1850;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+            "1850;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
             "2831;;;Felipe Borges;CLUB D;01/01/1978;M;BRA;"
-            "1950;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+            "1950;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
             "3541;;;Lucas Carvalho;CLUB E;01/01/1985;M;BRA;"
-            "1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+            "1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
             "5400;;;Bruno Teixeira;CLUB F;01/01/1995;M;BRA;"
-            "1900;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+            "1900;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
         )
         data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
         cycle = FideRatingCycle(

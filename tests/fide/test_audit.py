@@ -207,3 +207,4 @@ class TestPeriodAuditAccumulator:
         cells = dict(zip(header, row, strict=True))
         assert cells["AccumSumOpp"] == str(result.accumulated_sum_opponents) == "8100"
         assert cells["AccumPoints"] == str(result.accumulated_points) == "2.5"
+        assert cells["AccumGames"] == str(result.accumulated_games) == "5"

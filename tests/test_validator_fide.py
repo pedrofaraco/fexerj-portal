@@ -9,7 +9,7 @@ from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 _FIDE_PLAYERS = (
     FIDE_HEADER + "\n"
-    "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
 )
 _LEGACY_PLAYERS = (
     LEGACY_HEADER + "\n"
@@ -45,7 +45,7 @@ def test_fide_mode_accepts_the_legacy_header():
 def test_unknown_header_names_both_accepted_formats():
     errors = _errors("Foo;Bar\n1;2\n", "fide")
     joined = " ".join(errors)
-    assert "12" in joined and "23" in joined
+    assert "12" in joined and "26" in joined
 
 
 def test_peak_flag_must_be_zero_or_one():
@@ -57,7 +57,7 @@ def test_peak_flag_must_be_zero_or_one():
 def test_rtg_non_numeric_is_rejected():
     bad = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;abc;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;abc;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(bad, "fide")
     assert any("Rtg_Std deve ser inteiro ou vazio" in e for e in errors)
@@ -66,7 +66,7 @@ def test_rtg_non_numeric_is_rejected():
 def test_games_non_numeric_is_rejected():
     bad = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;abc;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;abc;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(bad, "fide")
     assert any("Games_Std deve ser um inteiro" in e for e in errors)
@@ -75,7 +75,7 @@ def test_games_non_numeric_is_rejected():
 def test_sum_opp_non_numeric_is_rejected():
     bad = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;abc;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;abc;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(bad, "fide")
     assert any("SumOpp_Std deve ser um inteiro não negativo" in e for e in errors)
@@ -84,7 +84,7 @@ def test_sum_opp_non_numeric_is_rejected():
 def test_sum_opp_negative_is_rejected():
     bad = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;-5;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;-5;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(bad, "fide")
     assert any("SumOpp_Std deve ser um inteiro não negativo" in e for e in errors)
@@ -93,16 +93,25 @@ def test_sum_opp_negative_is_rejected():
 def test_pts_non_numeric_is_rejected():
     bad = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;abc;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;abc;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(bad, "fide")
     assert any("Pts_Std deve ser um número válido" in e for e in errors)
 
 
+def test_acc_games_non_numeric_is_rejected():
+    bad = (
+        FIDE_HEADER + "\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;abc;;0;0;0;0;0;;0;0;0;0;0\n"
+    )
+    errors = _errors(bad, "fide")
+    assert any("AccGames_Std deve ser um inteiro" in e for e in errors)
+
+
 def test_empty_rating_is_accepted():
     unrated = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;;0;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;;0;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(unrated, "fide")
     assert not any("Rtg_Std" in e for e in errors)
@@ -112,7 +121,7 @@ def test_empty_rating_with_peak_flag_is_accepted():
     """Player who reached 2200 and later fell below the floor (§7)."""
     fallen = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;;300;1;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;;300;1;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(fallen, "fide")
     assert not any("Peak2200_Std" in e for e in errors)
@@ -142,7 +151,7 @@ def test_wrong_column_count_is_rejected():
 def test_id_no_empty_is_rejected():
     no_id = (
         FIDE_HEADER + "\n"
-        ";;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        ";;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(no_id, "fide")
     assert any("Id_No é obrigatório" in e for e in errors)
@@ -151,7 +160,7 @@ def test_id_no_empty_is_rejected():
 def test_name_empty_is_rejected():
     no_name = (
         FIDE_HEADER + "\n"
-        "1;;;;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(no_name, "fide")
     assert any("Name é obrigatório" in e for e in errors)
@@ -161,7 +170,7 @@ def test_missing_birthday_is_rejected():
     """§5.3: birthday becomes required in the per-game model — the under-18 K depends on it."""
     no_birthday = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(no_birthday, "fide")
     assert any("Birthday" in e for e in errors)
@@ -170,8 +179,8 @@ def test_missing_birthday_is_rejected():
 def test_duplicate_id_no_is_rejected():
     dup = (
         FIDE_HEADER + "\n"
-        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
-        "1;;;Player Two;CLUB A;01/01/1991;M;BRA;1600;40;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
+        "1;;;Player Two;CLUB A;01/01/1991;M;BRA;1600;40;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(dup, "fide")
     assert any("Id_No duplicado" in e for e in errors)
@@ -187,8 +196,8 @@ def test_duplicate_id_cbx_is_rejected():
     """
     dup = (
         FIDE_HEADER + "\n"
-        "1;999;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
-        "2;999;;Player Two;CLUB A;01/01/1991;M;BRA;1600;40;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;999;;Player One;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
+        "2;999;;Player Two;CLUB A;01/01/1991;M;BRA;1600;40;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     errors = _errors(dup, "fide")
     assert any("Id_CBX duplicado" in e for e in errors)
@@ -203,7 +212,7 @@ def test_unknown_mode_returns_error():
 # _build_players_index dispatch (binary-vs-rating-list cross-check)
 #
 # _build_players_index only knew the legacy 12-column format; fed a
-# 23-column list, it returned an empty index, so every player in the binary
+# 26-column list, it returned an empty index, so every player in the binary
 # was reported as absent from the rating list — the new-format mode was
 # unusable end-to-end. These tests lock in the fix.
 # ---------------------------------------------------------------------------
@@ -211,7 +220,7 @@ def test_unknown_mode_returns_error():
 def _fide_row(id_no: int, id_cbx: str = "") -> str:
     return (
         f"{id_no};{id_cbx};;Player {id_no};CLUB A;01/01/1990;M;BRA;"
-        "1500;50;0;0;0;;0;0;0;0;;0;0;0;0"
+        "1500;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0"
     )
 
 
@@ -228,7 +237,7 @@ def _legacy_players_list(ids: list[int]) -> str:
 
 
 def test_fide_format_players_list_matching_binary_returns_no_errors():
-    """The bug case: a valid 23-column list with every binary player present."""
+    """The bug case: a valid 26-column list with every binary player present."""
     players = _fide_players_list(_BINARY_PLAYER_IDS)
     errors = _errors(players, "fide", binaries={"1-99999.TURX": _TURX_DATA})
     assert errors == []
@@ -260,13 +269,13 @@ def test_legacy_format_players_list_missing_one_binary_player_still_reported():
 def test_irt_fide_format_translates_binary_id_via_id_cbx():
     """IRT tournaments key the binary's id off Id_CBX, not Id_No.
 
-    The 23-column format must build that CBX→FEXERJ mapping from the same
+    The 26-column format must build that CBX→FEXERJ mapping from the same
     second column the legacy format uses.
     """
     tournaments = TOURNAMENTS_HEADER + "\n1;12345;IRT Memorial;2026-03-15;SS;1;1;STD\n"
     players = (
         FIDE_HEADER + "\n"
-        "1;36633;;Player One;CLUB A;01/01/1990;M;BRA;1500;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+        "1;36633;;Player One;CLUB A;01/01/1990;M;BRA;1500;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
     )
     data = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
     with patch(

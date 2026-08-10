@@ -209,7 +209,7 @@ def _validate_players_csv(content: str) -> list[str]:
 
 
 def _validate_fide_players_csv(content: str) -> list[str]:
-    """Rules for the 23-column format (spec §2.1)."""
+    """Rules for the 26-column format (spec §2.1)."""
     errors: list[str] = []
     reader = csv.reader(io.StringIO(content), delimiter=";")
     next(reader, None)
@@ -239,7 +239,7 @@ def _validate_fide_players_csv(content: str) -> list[str]:
             errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
 
         for index, modality in enumerate(MODALITIES):
-            base = 8 + index * 5
+            base = 8 + index * 6
             suffix = COLUMN_SUFFIX[modality]
             rating = row[base].strip()
             if rating and not _is_int(rating):
@@ -259,6 +259,8 @@ def _validate_fide_players_csv(content: str) -> list[str]:
                     Decimal(points)
                 except InvalidOperation:
                     errors.append(f"players.csv linha {row_num}: Pts_{suffix} deve ser um número válido")
+            if not _is_int(row[base + 5].strip() or "0"):
+                errors.append(f"players.csv linha {row_num}: AccGames_{suffix} deve ser um inteiro")
 
         # Uniqueness — mirrors the legacy validator's checks below.  A shared
         # Id_CBX is not cosmetic: in an IRT tournament, collect_games maps the
@@ -299,7 +301,7 @@ def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
 
     Dispatches on the header, like the rest of the validator: Id_No and
     Id_CBX sit in the same first two columns in both the legacy 12-column
-    format and the FIDE 23-column format, so only the expected row width
+    format and the FIDE 26-column format, so only the expected row width
     differs between them.
     """
     lines = content.splitlines()

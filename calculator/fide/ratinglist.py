@@ -1,6 +1,6 @@
 """Reading and writing the rating list.
 
-Reads and writes the 23-column format (spec §2.1) and the legacy 12-column
+Reads and writes the 26-column format (spec §2.1) and the legacy 12-column
 format (spec §2.2).
 """
 import csv
@@ -23,16 +23,23 @@ FIDE_HEADER = _DELIMITER.join(
     + [
         _DELIMITER.join(
             f"{prefix}_{COLUMN_SUFFIX[modality]}"
-            for prefix in ("Rtg", "Games", "Peak2200", "SumOpp", "Pts")
+            for prefix in ("Rtg", "Games", "Peak2200", "SumOpp", "Pts", "AccGames")
         )
         for modality in MODALITIES
     ]
 )
 
 _IDENTITY_FIELD_COUNT = 8
-_FIELDS_PER_MODALITY = 5
+_FIELDS_PER_MODALITY = 6
 FIDE_COLUMN_COUNT = _IDENTITY_FIELD_COUNT + _FIELDS_PER_MODALITY * len(MODALITIES)
 LEGACY_COLUMN_COUNT = 12
+
+# calculator/classes.py (`_MAX_NUM_GAMES_TEMP_RATING`) zeroes SumOpponRating and
+# TotalPoints once a legacy player's TotalNumGames reaches this many, and never
+# accumulates into them again afterwards. The §2.2 conversion below relies on
+# that to know how many of a legacy player's lifetime games are actually behind
+# the SumOpponRating/TotalPoints figures still in the file.
+_LEGACY_TEMP_RATING_GAMES = 15
 
 
 def _rows(csv_text: str) -> list[list[str]]:
@@ -46,7 +53,7 @@ def _optional_int(value: str) -> int | None:
 
 
 def read_rating_list(csv_text: str) -> dict[int, PlayerState]:
-    """Read the rating list, in either the 23-column or the legacy 12-column format."""
+    """Read the rating list, in either the 26-column or the legacy 12-column format."""
     rows = _rows(csv_text)
     if not rows:
         return {}
@@ -83,6 +90,7 @@ def _read_fide_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 reached_2200=row[base + 2].strip() == "1",
                 sum_opponents=int(row[base + 3] or 0),
                 points=Decimal(row[base + 4].strip() or "0"),
+                accumulated_games=int(row[base + 5] or 0),
             )
         players[player.id_fexerj] = player
     return players
@@ -105,6 +113,17 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
 
     Rapid and Blitz start empty, which triggers the §1.1 carry-over on each
     modality's first tournament.
+
+    A fourth quantity — the §6.1 accumulated-games count — has to be derived
+    rather than copied, because the legacy format has no column for it. For
+    the two unrated-entering cases, `SumOpponRating`/`TotalPoints` are only
+    real accumulator values while `TotalNumGames` is still below
+    `_LEGACY_TEMP_RATING_GAMES`; from that point on the legacy engine has
+    already zeroed both (see the module-level comment on
+    `_LEGACY_TEMP_RATING_GAMES`), so the accumulated count must be zero too —
+    never `games`, which would overstate how many games are actually behind
+    the (by then zeroed) sums. A rated player carries no unrated accumulator
+    at all, so its accumulated count is always zero.
     """
     players: dict[int, PlayerState] = {}
     for row in rows:
@@ -120,6 +139,7 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 reached_2200=False,
                 sum_opponents=sum_opponents,
                 points=points,
+                accumulated_games=games if games < _LEGACY_TEMP_RATING_GAMES else 0,
             )
         else:
             std = ModalityState(
@@ -128,6 +148,7 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 reached_2200=legacy_rating >= K10_THRESHOLD,
                 sum_opponents=sum_opponents,
                 points=points,
+                accumulated_games=0,
             )
 
         player = PlayerState(
@@ -146,7 +167,7 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
 
 
 def write_rating_list(players: dict[int, PlayerState]) -> str:
-    """Write the list in the 23-column format."""
+    """Write the list in the 26-column format."""
     buf = io.StringIO()
     print(FIDE_HEADER, file=buf)
     for player in players.values():
@@ -168,6 +189,7 @@ def write_rating_list(players: dict[int, PlayerState]) -> str:
                 "1" if state.reached_2200 else "0",
                 str(state.sum_opponents),
                 _format_points(state.points),
+                str(state.accumulated_games),
             ])
         print(_DELIMITER.join(cells), file=buf)
     return buf.getvalue()

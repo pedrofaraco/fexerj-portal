@@ -11,7 +11,7 @@ _LEGACY_PLAYERS = (
 )
 _FIDE_PLAYERS = (
     FIDE_HEADER + "\n"
-    "1;;;Carlos Mendes;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    "1;;;Carlos Mendes;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;0;0;0;0;0;;0;0;0;0;0\n"
 )
 
 

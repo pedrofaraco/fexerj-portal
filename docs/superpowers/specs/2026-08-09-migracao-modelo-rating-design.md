@@ -104,16 +104,16 @@ legível.
 
 ## 2. Formatos de arquivo
 
-### 2.1 `players.csv` — formato novo (23 colunas)
+### 2.1 `players.csv` — formato novo (26 colunas)
 
 ```
 Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;
-Rtg_Std;Games_Std;Peak2200_Std;SumOpp_Std;Pts_Std;
-Rtg_Rpd;Games_Rpd;Peak2200_Rpd;SumOpp_Rpd;Pts_Rpd;
-Rtg_Blz;Games_Blz;Peak2200_Blz;SumOpp_Blz;Pts_Blz
+Rtg_Std;Games_Std;Peak2200_Std;SumOpp_Std;Pts_Std;AccGames_Std;
+Rtg_Rpd;Games_Rpd;Peak2200_Rpd;SumOpp_Rpd;Pts_Rpd;AccGames_Rpd;
+Rtg_Blz;Games_Blz;Peak2200_Blz;SumOpp_Blz;Pts_Blz;AccGames_Blz
 ```
 
-Oito colunas de identidade, depois cinco por modalidade.
+Oito colunas de identidade, depois seis por modalidade.
 
 - **`Rtg_Nat` vira `Rtg_Std`.** A #205 já documentou que o nome mente — guarda o rating
   FEXERJ, não o nacional. Um formato novo é o momento de corrigir, e como a conversão é
@@ -124,6 +124,13 @@ Oito colunas de identidade, depois cinco por modalidade.
 - **`Peak2200_` é `0`/`1`.**
 - **`SumOpp_` e `Pts_` por modalidade** — a §11.1 rebaixa essas duas ao acúmulo de
   não-rated até as 5 partidas, e esse acúmulo é por modalidade.
+- **`AccGames_` — sexta coluna, adicionada após a revisão final da branch (bloqueador
+  1).** `Games_` acumula duas coisas incompatíveis se for reaproveitada como o contador
+  de partidas rumo às 5: a contagem vitalícia que o fator K usa e que a §7 preserva
+  quando o piso age, e a contagem do acúmulo de não-rated, que tem de **zerar** quando o
+  piso age (o acúmulo recomeça do zero, não continua da vitalícia). Coluna nova,
+  separada, andando sempre junto com `SumOpp_`/`Pts_`: zerada com os dois quando o
+  jogador passa a ter rating, zerada com os dois quando o piso age.
 
 ### 2.2 Conversão do formato de 12 colunas
 
@@ -149,6 +156,16 @@ O terceiro caso existe porque o modelo atual tem piso de 1 ponto e o novo tem pi
 1200 (§12 da spec), então a lista de origem pode conter jogadores entre 1 e 1199. A §7 é
 aplicada na conversão, preservando a contagem de partidas — sem isso o modelo novo
 começaria num estado que ele mesmo considera impossível.
+
+`AccGames_Std` (§2.1) não tem coluna correspondente no formato de 12 colunas e por isso
+tem de ser derivada, não copiada. O motor atual (`calculator/classes.py`,
+`_MAX_NUM_GAMES_TEMP_RATING = 15`) zera `SumOpponRating`/`TotalPoints` assim que
+`TotalNumGames` chega a 15, e nunca mais acumula neles depois disso — então esses dois
+campos só são um acúmulo real de partidas enquanto `TotalNumGames < 15`. `AccGames_Std`
+segue essa mesma fronteira: nos dois primeiros casos da tabela, vale `TotalNumGames` se
+for menor que 15, senão `0` (nunca a contagem vitalícia inteira, que superestimaria
+quantas partidas ainda estão de fato por trás de `SumOpp_`/`Pts_`); no terceiro caso —
+rated — vale sempre `0`, porque um jogador rated não carrega acúmulo de não-rated.
 
 Jogadores hoje na faixa "temporária" (1 a 14 partidas) entram como **rated** com o
 rating publicado. A §12 aposenta a regra `TEMPORARY` para o cálculo daqui em diante; ela
@@ -180,7 +197,7 @@ válido**, é um número que não existe.
 |---|---|
 | `RatingList.csv` | a lista final do período, formato novo |
 | `Audit_Games.csv` | uma linha por partida: torneio, modalidade, jogador, adversário, **rating cru do adversário**, D já limitado, marcador de que o teto agiu, PD, resultado, ΔR, K |
-| `Audit_Period.csv` | uma linha por jogador × modalidade: torneios do período, rating inicial, n, ΣΔR, K, variação bruta, variação arredondada, rating final, caminho aplicado, e o acumulado de adversários e pontos de quem ainda não tem rating |
+| `Audit_Period.csv` | uma linha por jogador × modalidade: torneios do período, rating inicial, n, ΣΔR, K, variação bruta, variação arredondada, rating final, caminho aplicado, e o acumulado de adversários, pontos e partidas de quem ainda não tem rating |
 
 Duas decisões dessas colunas vieram da implementação e valem registro:
 
@@ -301,15 +318,15 @@ confirmar.
 O portão de formato continua no validador, antes de rodar
 (`backend/validator.py` compara o cabeçalho por igualdade exata e exige 12 colunas).
 
-- **Despacho por cabeçalho**: 12 colunas → formato legado; 23 → formato novo; qualquer
+- **Despacho por cabeçalho**: 12 colunas → formato legado; 26 → formato novo; qualquer
   outro → erro nomeando os dois aceitos.
 - **`TimeControl`** obrigatório e dentro de {STD, RPD, BLZ} nos modos FIDE e comparar.
 - **`Birthday` obrigatório no modo FIDE** (§5.3), opcional no modo atual.
 - **`EndDate` obrigatório no modo FIDE**, hoje opcional. O fator K de sub-18 depende do
   ano do período, e o `EndDate` é a única fonte desse ano (§3.1).
-- **No formato de 23 colunas**: cada `Rtg_` é inteiro ou vazio; `Games_` é inteiro não
-  negativo; `Peak2200_` é `0` ou `1`; rating vazio com `Peak2200_ = 1` é aceito (jogador
-  que atingiu 2200 e caiu abaixo do piso, §7).
+- **No formato de 26 colunas**: cada `Rtg_` é inteiro ou vazio; `Games_` é inteiro não
+  negativo; `Peak2200_` é `0` ou `1`; `AccGames_` é inteiro não negativo; rating vazio com
+  `Peak2200_ = 1` é aceito (jogador que atingiu 2200 e caiu abaixo do piso, §7).
 - **No modo comparar**: `players.csv` tem de ser o de 12 colunas, e todo torneio do
   período tem de ser `TimeControl = STD`. As duas condições viram mensagem própria, não
   um erro genérico de formato — o operador precisa saber que a restrição é do modo, não
@@ -401,7 +418,7 @@ que fizemos da spec: vem da própria FIDE.
 | Teto de 700 | Por período, decidido pela FEXERJ. O teste fixa o exemplo dos 40 jogos sob K=40, que por torneio chegaria ao dobro |
 | Piso de 1200, teto de 2000, transposto, primeiro evento zerado | Casos raros, e por isso os que ninguém repara quando quebram |
 | Período: dois torneios juntos ≠ dois separados | A diferença estrutural entre os modelos |
-| Conversão de 12 → 23 colunas | Caminho exercitado em toda execução até a federação migrar o arquivo |
+| Conversão de 12 → 26 colunas | Caminho exercitado em toda execução até a federação migrar o arquivo |
 
 Cobertura mantém o portão de 80% do RUNBOOK. Nomes de jogadores são placeholders
 genéricos, seguindo o padrão de `tests/test_backend.py`.

@@ -1,6 +1,8 @@
 """Conversion from the 12-column legacy format — spec §2.2."""
 from decimal import Decimal
 
+from calculator.fide.model import Game
+from calculator.fide.period import compute_unrated_period
 from calculator.fide.ratinglist import LEGACY_HEADER, read_rating_list
 
 _LEGACY_CSV = (
@@ -18,6 +20,16 @@ _LEGACY_CSV = (
     "5;;;Lucas Carvalho;1450;CLUB E;01/01/1998;M;BRA;8;0;0\n"
     # one point below the 2200 threshold
     "6;;;Bruno Teixeira;2199;CLUB F;01/01/1975;M;BRA;120;0;0\n"
+    # below the floor, at/above the legacy engine's 15-game threshold: the
+    # engine has already zeroed SumOpponRating/TotalPoints by the time
+    # TotalNumGames reaches this many (calculator/classes.py), so this row is
+    # what a real federation export looks like — matches the reported bug's
+    # reproduction case (60 lifetime games, expelled by the 1200 floor)
+    "7;;;Marcos Lima;800;CLUB G;01/01/1993;M;BRA;60;0;0\n"
+    # below the floor, under the legacy engine's 15-game threshold: here
+    # SumOpponRating/TotalPoints are still a real, lock-step accumulation of
+    # every game played, so the full count is preserved instead of zeroed
+    "8;;;Diego Alves;700;CLUB H;01/01/1996;M;BRA;10;8500;1.5\n"
 )
 
 
@@ -39,6 +51,11 @@ class TestLegacyConversion:
         assert _std(players[1]).sum_opponents == 7100
         assert _std(players[1]).points == Decimal("3.5")
 
+    def test_rated_player_has_no_accumulated_games(self):
+        """A rated player carries no §6.1 accumulator at all."""
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[1]).accumulated_games == 0
+
     def test_zero_games_becomes_unrated_despite_the_rating_column(self):
         """In the current model, TotalNumGames = 0 decides, not Rtg_Nat."""
         players = read_rating_list(_LEGACY_CSV)
@@ -49,6 +66,10 @@ class TestLegacyConversion:
         players = read_rating_list(_LEGACY_CSV)
         assert _std(players[2]).sum_opponents == 3200
         assert _std(players[2]).points == Decimal("1.5")
+
+    def test_zero_games_has_zero_accumulated_games(self):
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[2]).accumulated_games == 0
 
     def test_below_the_floor_becomes_unrated_but_keeps_the_game_count(self):
         """§7 applied at conversion time: without it the initial list would be invalid."""
@@ -61,6 +82,17 @@ class TestLegacyConversion:
         assert _std(players[3]).sum_opponents == 5600
         assert _std(players[3]).points == Decimal("2.5")
         assert _std(players[3]).games == 40
+
+    def test_below_the_floor_at_or_above_fifteen_games_zeroes_the_accumulated_count(self):
+        """Player 3 has 40 lifetime games — past the legacy engine's 15-game
+        threshold — yet this fixture still carries non-zero SumOpponRating/
+        TotalPoints (row crafted to also exercise
+        `test_below_the_floor_keeps_the_accumulators_too` above). The
+        accumulated-games count must never claim more games than the
+        threshold allows: it comes out zero regardless, the safe side of
+        `nunca a um número maior`."""
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[3]).accumulated_games == 0
 
     def test_at_or_above_2200_sets_the_peak_flag(self):
         """Boundary case: rating is exactly 2200. Pins the threshold so that
@@ -79,6 +111,10 @@ class TestLegacyConversion:
         players = read_rating_list(_LEGACY_CSV)
         assert _std(players[5]).rating == 1450
         assert _std(players[5]).games == 8
+
+    def test_temporary_band_rated_player_has_no_accumulated_games(self):
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[5]).accumulated_games == 0
 
     def test_rapid_and_blitz_start_empty(self):
         players = read_rating_list(_LEGACY_CSV)
@@ -104,3 +140,38 @@ class TestLegacyConversion:
         assert player.federation == "ARG"
         assert player.club == "CLUB C"
         assert player.birthday == "01/01/1988"
+
+    def test_established_low_rated_player_gets_a_clean_accumulator(self):
+        """Realistic version of the reported bug: a player with 60 lifetime
+        games, below the new 1200 floor, whose SumOpponRating/TotalPoints the
+        legacy engine already zeroed (past its own 15-game threshold). The
+        accumulated-games count must be coherent with that — zero, not the
+        lifetime count — so the player can start accumulating cleanly."""
+        players = read_rating_list(_LEGACY_CSV)
+        std = _std(players[7])
+        assert std.rating is None
+        assert std.games == 60
+        assert std.sum_opponents == 0
+        assert std.points == Decimal("0")
+        assert std.accumulated_games == 0
+
+    def test_established_low_rated_player_can_receive_a_rating_afterward(self):
+        """Same player as above, run through the six-win reproduction case
+        from the bug report end to end, starting from the converted state."""
+        players = read_rating_list(_LEGACY_CSV)
+        state = _std(players[7])
+        games = [Game(1, "STD", False, 7, 900 + i, Decimal("1")) for i in range(6)]
+        result = compute_unrated_period(7, "STD", state, games, {900 + i: 1500 for i in range(6)})
+        assert result.final_rating == 1861
+        assert result.path == "INITIAL_RATING"
+
+    def test_below_the_floor_under_fifteen_games_keeps_the_full_count(self):
+        """Below the legacy engine's 15-game threshold, SumOpponRating/
+        TotalPoints are still a real, lock-step accumulation of every game
+        played, so the accumulated-games count equals the full game count —
+        not zero, and not more than what the accumulators actually hold."""
+        players = read_rating_list(_LEGACY_CSV)
+        std = _std(players[8])
+        assert std.accumulated_games == 10
+        assert std.sum_opponents == 8500
+        assert std.points == Decimal("1.5")
