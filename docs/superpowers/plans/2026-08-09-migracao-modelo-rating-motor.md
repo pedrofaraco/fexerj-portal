@@ -18,7 +18,8 @@
 - **Avisos por `logger.warning()`**, nunca `print()` para stdout. `print(..., file=buf)` para buffers CSV é intencional.
 - **Nomes de jogadores em testes e fixtures são placeholders genéricos.** Seguir o padrão de `tests/conftest.py` (`Carlos Mendes`, `Roberto Faria`, …). Nunca nomes reais.
 - **Delimitador CSV é `;`** em todos os arquivos.
-- **Mensagens de erro voltadas ao operador são em português.** Docstrings e comentários de código em português, seguindo o restante do projeto.
+- **O código é todo em inglês** — identificadores, docstrings, comentários e nomes de teste. É a convenção do repositório: `backend/validator.py` e `calculator/classes.py` são inteiramente em inglês. **A única exceção são as strings mostradas ao operador**, que seguem em português, como já acontece hoje (`"players.csv: cabeçalho inválido — esperado ..."`).
+- **Os blocos de código deste plano têm docstrings e comentários em português.** Isso é um erro de redação do plano, não uma instrução: ao implementar, escreva-os em inglês. Os **valores** dos blocos — números, dados de tabela, nomes de coluna, cabeçalhos de CSV e o texto português das mensagens ao operador — são para copiar verbatim.
 - **Modalidades:** `STD`, `RPD`, `BLZ`. Sufixos de coluna: `Std`, `Rpd`, `Blz`.
 - **Constantes FEXERJ (§2 da spec):** piso 1200, adversário fictício 1600, teto do rating inicial 2000, K=10 a partir de 2200, teto sub-18 2100, teto da diferença 400 sempre, 5 partidas para o primeiro rating, 30 partidas para sair do K=40, teto `n × K` de 700.
 - **Rodar os testes:** `.venv/bin/pytest -q`
@@ -997,15 +998,16 @@ def _optional_int(value: str) -> int | None:
 
 
 def read_rating_list(csv_text: str) -> dict[int, PlayerState]:
-    """Lê a lista de rating, aceitando o formato novo ou o legado de 12 colunas."""
+    """Lê a lista de rating no formato de 23 colunas.
+
+    O formato legado de 12 colunas entra na Task 7.
+    """
     rows = _rows(csv_text)
     if not rows:
         return {}
     header = _DELIMITER.join(cell.strip() for cell in rows[0])
     if header == FIDE_HEADER:
         return _read_fide_rows(rows[1:])
-    if header == LEGACY_HEADER:
-        return _read_legacy_rows(rows[1:])
     raise ValueError(
         "players.csv: cabeçalho não reconhecido. Esperado o formato de "
         f"{LEGACY_COLUMN_COUNT} colunas ou o de {FIDE_COLUMN_COUNT} colunas."
@@ -1072,12 +1074,8 @@ def _format_points(points: Decimal) -> str:
     return str(points.to_integral_value()) if points == points.to_integral_value() else str(points)
 ```
 
-`_read_legacy_rows` entra na Task 7. Por ora, defina-a levantando `NotImplementedError` para o módulo importar:
-
-```python
-def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
-    raise NotImplementedError("conversão do formato legado: Task 7")
-```
+Não defina nenhum stub para o formato legado: nesta task ele simplesmente não é
+aceito, e o erro de cabeçalho já cobre esse caso. A Task 7 acrescenta o ramo.
 
 - [ ] **Step 5: Rodar e confirmar que passa**
 
@@ -1184,11 +1182,19 @@ class TestLegacyConversion:
 - [ ] **Step 2: Rodar e confirmar que falha**
 
 Run: `.venv/bin/pytest tests/fide/test_ratinglist_legacy.py -q --no-cov`
-Expected: FAIL com `NotImplementedError: conversão do formato legado: Task 7`
+Expected: FAIL com `ValueError: players.csv: cabeçalho não reconhecido...`
 
 - [ ] **Step 3: Implementar**
 
-Substituir o stub em `calculator/fide/ratinglist.py`:
+Em `calculator/fide/ratinglist.py`, acrescentar o ramo do formato legado a
+`read_rating_list`, logo antes do `raise`:
+
+```python
+    if header == LEGACY_HEADER:
+        return _read_legacy_rows(rows[1:])
+```
+
+E acrescentar a função:
 
 ```python
 def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
@@ -3164,7 +3170,9 @@ def validate_inputs(
     errors: list[str] = []
     players_errors = _validate_players_for_mode(players_content, mode)
     errors.extend(players_errors)
-    tournaments_errors = _validate_tournaments_for_mode(tournaments_content, mode)
+    # A validação de torneios por modo entra na Task 16; aqui as regras atuais
+    # valem para os três modos.
+    tournaments_errors = _validate_tournaments_csv(tournaments_content)
     errors.extend(tournaments_errors)
     if not tournaments_errors:
         players_index = (
@@ -3239,12 +3247,9 @@ def _is_int(value: str) -> bool:
     return True
 ```
 
-`_validate_tournaments_for_mode` entra na Task 16; por ora, defina-a chamando o validador atual:
-
-```python
-def _validate_tournaments_for_mode(content: str, mode: str) -> list[str]:
-    return _validate_tournaments_csv(content)
-```
+Nesta task o `tournaments.csv` ainda é validado pelas regras atuais nos três
+modos — os testes acima só exercitam o `players.csv`. A Task 16 acrescenta o
+despacho por modo.
 
 - [ ] **Step 4: Rodar e confirmar que passa**
 
@@ -3347,7 +3352,9 @@ Expected: FAIL — nenhuma das mensagens novas existe
 
 - [ ] **Step 3: Implementar**
 
-Em `backend/validator.py`, substituir o stub e acrescentar as restrições do modo comparar:
+Em `backend/validator.py`, trocar a chamada direta a `_validate_tournaments_csv`
+dentro de `validate_inputs` por `_validate_tournaments_for_mode(tournaments_content, mode)`
+e acrescentar a função, junto das restrições do modo comparar:
 
 ```python
 _FIDE_TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj;TimeControl"

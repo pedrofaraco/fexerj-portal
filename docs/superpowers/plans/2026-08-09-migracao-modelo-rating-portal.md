@@ -15,7 +15,8 @@
 ## Global Constraints
 
 - **Chrome 109 no Windows 7 é o piso de suporte.** O Tailwind v4 emite `oklch()` e `color-mix()`, que o Chrome 109 ignora. Toda cor vem das classes nomeadas de `frontend/src/index.css` (`.t-fg`, `.t-body`, `.t-muted`, `.btn-primary`, `.input`, `.alert-error`, …). **Nunca** usar utilitário de cor do Tailwind no JSX (`text-gray-700`, `bg-blue-600`). Utilitários de espaçamento e layout (`flex`, `gap-4`, `px-4`) são seguros.
-- **Textos de interface em português.**
+- **O código é todo em inglês** — identificadores, comentários, nomes de teste e de componente. **A exceção é o texto que o operador lê na tela**, que segue em português, como já acontece hoje.
+- **Os blocos de código deste plano têm comentários e nomes de teste em português.** Isso é um erro de redação do plano, não uma instrução: ao implementar, escreva-os em inglês. O **texto de interface** dos blocos (rótulos, ajuda, mensagens) é para copiar verbatim em português.
 - **Nomes de jogadores em teste são placeholders genéricos.**
 - **Rodar os testes:** `cd frontend && npx vitest run`
 - **Lint:** `cd frontend && npm run lint`
