@@ -4,6 +4,13 @@ import { buildCycleFormData, postMultipart } from '../portalApi'
 import { readCsvFile } from '../csvUploadValidation'
 import { parseRunResult } from '../resultParser'
 
+/** Must match backend `main.py` `_ZIP_NAME_BY_MODE`. */
+const ZIP_NAME_BY_MODE = {
+  legacy: 'rating_cycle_output.zip',
+  fide: 'rating_cycle_fide.zip',
+  compare: 'rating_cycle_comparison.zip',
+}
+
 export default function useRunCycle(form, credentials, { onAuthError } = {}) {
   const [status, setStatus] = useState('idle') // idle | loading | error
   const [runErrors, setRunErrors] = useState([])
@@ -80,15 +87,21 @@ export default function useRunCycle(form, credentials, { onAuthError } = {}) {
         setRunResult({
           zipBlob: parsed.zipBlob,
           zipFilename: parsed.zipFilename,
+          kind: parsed.kind,
           tournaments: parsed.tournaments,
+          modalities: parsed.modalities,
+          comparison: parsed.comparison,
           parseError: null,
           requestId: reqId ?? undefined,
         })
       } catch (parseErr) {
         const msg = parseErr instanceof Error ? parseErr.message : String(parseErr)
+        // The zip could not be read, so its shape cannot name it: fall back to
+        // the mode that was asked for, so the download keeps the right name.
         setRunResult({
           zipBlob: blob,
-          zipFilename: 'rating_cycle_output.zip',
+          zipFilename: ZIP_NAME_BY_MODE[form.mode] ?? ZIP_NAME_BY_MODE.legacy,
+          kind: form.mode ?? 'legacy',
           tournaments: [],
           parseError: msg,
           requestId: reqId ?? undefined,

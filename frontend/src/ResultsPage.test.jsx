@@ -305,3 +305,75 @@ describe('ResultsPage', () => {
     expect(screen.queryByText(/1 torneios/)).not.toBeInTheDocument()
   })
 })
+
+// The per-tournament view has no meaning in the per-game model: the period is
+// one round, and its audit has no per-tournament aggregates to show.
+describe('ResultsPage in the per-game model', () => {
+  const FIDE_RESULT = {
+    kind: 'fide',
+    zipBlob: new Blob(['x']),
+    zipFilename: 'rating_cycle_fide.zip',
+    tournaments: [],
+    modalities: [
+      {
+        modality: 'STD',
+        players: [
+          {
+            fexerjId: 3741,
+            name: 'Carlos Mendes',
+            initialRating: 1800,
+            finalRating: 1807,
+            delta: 7,
+            games: 5,
+            path: 'RATED',
+          },
+        ],
+        summary: { total: 1, up: 1, down: 0, unchanged: 0, maxUp: 7, maxDown: 7, medianAbs: 7 },
+      },
+    ],
+  }
+
+  const COMPARE_RESULT = {
+    ...FIDE_RESULT,
+    kind: 'compare',
+    zipFilename: 'rating_cycle_comparison.zip',
+    comparison: {
+      players: [
+        {
+          fexerjId: 3741,
+          name: 'Carlos Mendes',
+          ratingCurrent: 1810,
+          ratingFide: 1807,
+          difference: -3,
+        },
+      ],
+      summary: { total: 1, up: 0, down: 1, unchanged: 0, maxUp: -3, maxDown: -3, medianAbs: 3 },
+    },
+  }
+
+  it('shows the period summary instead of the per-tournament tabs', () => {
+    render(<ResultsPage runResult={FIDE_RESULT} onNewRun={vi.fn()} onLogout={vi.fn()} />)
+    expect(screen.getByText(/clássico/i)).toBeInTheDocument()
+    expect(screen.getByText('Carlos Mendes')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /por torneio/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the comparison in compare mode', () => {
+    render(<ResultsPage runResult={COMPARE_RESULT} onNewRun={vi.fn()} onLogout={vi.fn()} />)
+    expect(screen.getByText(/ratings diferentes.*histórico idêntico/i)).toBeInTheDocument()
+    expect(screen.getByText('1810')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /por torneio/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps the parse-error path, which must not depend on the mode', () => {
+    render(
+      <ResultsPage
+        runResult={{ ...FIDE_RESULT, parseError: 'Versão de arquivo não reconhecida.' }}
+        onNewRun={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/não foi possível exibir o resumo/i)).toBeInTheDocument()
+    expect(screen.queryByText(/clássico/i)).not.toBeInTheDocument()
+  })
+})

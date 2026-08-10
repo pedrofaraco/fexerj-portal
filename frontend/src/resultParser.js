@@ -9,6 +9,22 @@ export const AUDIT_PREAMBLE = '# audit_v1'
 
 const AUDIT_FILENAME_RE = /^Audit_of_Tournament_(\d+)\.csv$/i
 
+/** Must match calculator `calculator/fide/audit.py` `PERIOD_AUDIT_PREAMBLE` */
+export const FIDE_PERIOD_PREAMBLE = '# fide_period_v1'
+
+/** Must match calculator `calculator/fide/audit.py` `GAMES_AUDIT_PREAMBLE` */
+export const FIDE_GAMES_PREAMBLE = '# fide_games_v1'
+
+/** Must match calculator `calculator/compare.py` `COMPARISON_PREAMBLE` */
+export const COMPARISON_PREAMBLE = '# fide_comparison_v1'
+
+/** Must match backend `main.py` `_ZIP_NAME_BY_MODE` */
+const ZIP_NAME_BY_KIND = {
+  legacy: 'rating_cycle_output.zip',
+  fide: 'rating_cycle_fide.zip',
+  compare: 'rating_cycle_comparison.zip',
+}
+
 /** @param {string} text */
 export function stripUtf8Bom(text) {
   return text.startsWith('\ufeff') ? text.slice(1) : text
@@ -229,6 +245,136 @@ export function parseAuditCsv(auditCsvText) {
   return players
 }
 
+/**
+ * Split "preamble line + CSV" the way `parseAuditCsv` does, but for the
+ * per-game model's files, whose version marker is their own preamble.
+ * @param {string} text
+ * @param {string} expectedPreamble
+ */
+function splitPreambleAndBody(text, expectedPreamble) {
+  const lines = stripUtf8Bom(text)
+    .split(/\r?\n/)
+    .map(l => l.trimEnd())
+    .filter(line => line.length > 0)
+  const actual = lines[0] ?? ''
+  if (actual !== expectedPreamble) {
+    const shown = actual.length > 80 ? `${actual.slice(0, 80)}…` : actual
+    throw new Error(
+      `Versão de arquivo não reconhecida. Esperado "${expectedPreamble}"; encontrado "${shown}".\n` +
+        'O ZIP pode ser baixado normalmente; o resumo na tela não está disponível.',
+    )
+  }
+  return parseSemicolonCsv(lines.slice(1).join('\n'))
+}
+
+/**
+ * Cells by header name, so a column added to the audit shifts nothing here.
+ * @param {string[]} headers
+ * @param {string[]} row
+ */
+function cellsByHeader(headers, row) {
+  /** @type {Record<string, string>} */
+  const out = {}
+  headers.forEach((h, i) => {
+    out[h.trim()] = row[i]
+  })
+  return out
+}
+
+function isBlankRow(row) {
+  return row.every(c => c === '' || c === undefined)
+}
+
+/**
+ * @param {string} text Audit_Period.csv contents
+ */
+export function parseFidePeriodAudit(text) {
+  const { headers, rows } = splitPreambleAndBody(text, FIDE_PERIOD_PREAMBLE)
+  return rows
+    .filter(row => !isBlankRow(row))
+    .map(row => {
+      const c = cellsByHeader(headers, row)
+      const initialRating = parseNumericCell(c.InitialRating)
+      const finalRating = parseNumericCell(c.FinalRating)
+      return {
+        tournaments: (c.Tournaments ?? '').trim(),
+        fexerjId: parseIntCell(c.PlayerId),
+        name: c.PlayerName ?? '',
+        modality: (c.TimeControl ?? '').trim(),
+        initialRating,
+        games: parseIntCell(c.Games),
+        sumDelta: parseNumericCell(c.SumDeltaR),
+        variation: parseNumericCell(c.Variation),
+        roundedVariation: parseIntCell(c.RoundedVariation),
+        finalRating,
+        // Null on the unrated paths: a player without a rating on either side
+        // of the period has no variation to report, and counting them as zero
+        // would pad the "unchanged" bucket with people who never moved.
+        delta:
+          initialRating !== null && finalRating !== null ? finalRating - initialRating : null,
+        path: (c.Path ?? '').trim(),
+      }
+    })
+}
+
+/**
+ * @param {string} text Comparison.csv contents
+ */
+export function parseComparisonCsv(text) {
+  const { headers, rows } = splitPreambleAndBody(text, COMPARISON_PREAMBLE)
+  return rows
+    .filter(row => !isBlankRow(row))
+    .map(row => {
+      const c = cellsByHeader(headers, row)
+      return {
+        fexerjId: parseIntCell(c.PlayerId),
+        name: c.PlayerName ?? '',
+        ratingCurrent: parseNumericCell(c.RatingCurrent),
+        ratingFide: parseNumericCell(c.RatingFide),
+        difference: parseNumericCell(c.Difference) ?? 0,
+      }
+    })
+}
+
+/**
+ * Variation statistics for the on-screen summary.
+ * @param {Array<number|null|undefined>} deltas
+ */
+export function summarizeDeltas(deltas) {
+  const values = deltas.filter(d => d !== null && d !== undefined && !Number.isNaN(d))
+  if (values.length === 0) {
+    return { total: 0, up: 0, down: 0, unchanged: 0, maxUp: null, maxDown: null, medianAbs: null }
+  }
+  const sortedAbs = values.map(Math.abs).sort((a, b) => a - b)
+  const mid = Math.floor(sortedAbs.length / 2)
+  const medianAbs =
+    sortedAbs.length % 2 === 1 ? sortedAbs[mid] : (sortedAbs[mid - 1] + sortedAbs[mid]) / 2
+  return {
+    total: values.length,
+    up: values.filter(d => d > 0).length,
+    down: values.filter(d => d < 0).length,
+    unchanged: values.filter(d => d === 0).length,
+    maxUp: Math.max(...values),
+    maxDown: Math.min(...values),
+    medianAbs,
+  }
+}
+
+/** @param {ReturnType<typeof parseFidePeriodAudit>} periodRows */
+function groupByModality(periodRows) {
+  /** @type {Map<string, object[]>} */
+  const byModality = new Map()
+  for (const row of periodRows) {
+    if (!byModality.has(row.modality)) byModality.set(row.modality, [])
+    byModality.get(row.modality).push(row)
+  }
+  return [...byModality.entries()].map(([modality, players]) => ({
+    modality,
+    players,
+    summary: summarizeDeltas(players.map(p => p.delta)),
+  }))
+}
+
 const TYPE_LABEL_PT = {
   SS: 'Suíço individual',
   RR: 'Round-robin',
@@ -242,6 +388,48 @@ const TYPE_LABEL_PT = {
  */
 export async function parseRunResult(zipBlob, tournamentsCsvText, playersCsvText = '') {
   const zip = await JSZip.loadAsync(zipBlob)
+  const names = new Set(
+    Object.entries(zip.files)
+      .filter(([, entry]) => !entry.dir)
+      .map(([path]) => (path.includes('/') ? path.slice(path.lastIndexOf('/') + 1) : path)),
+  )
+
+  // Dispatch on the shape of the output, not on the mode the operator picked:
+  // the zip is what actually came back.
+  if (names.has('Comparison.csv')) return parseComparisonResult(zip, zipBlob)
+  if (names.has('Audit_Period.csv')) return parseFideResult(zip, zipBlob)
+  return parseLegacyResult(zip, zipBlob, tournamentsCsvText, playersCsvText)
+}
+
+async function parseFideResult(zip, zipBlob) {
+  const periodRows = parseFidePeriodAudit(await zip.file('Audit_Period.csv').async('string'))
+  return {
+    kind: 'fide',
+    zipBlob,
+    zipFilename: ZIP_NAME_BY_KIND.fide,
+    modalities: groupByModality(periodRows),
+    tournaments: [],
+  }
+}
+
+async function parseComparisonResult(zip, zipBlob) {
+  const comparisonRows = parseComparisonCsv(await zip.file('Comparison.csv').async('string'))
+  const periodEntry = zip.file('Audit_Period.csv')
+  const periodRows = periodEntry ? parseFidePeriodAudit(await periodEntry.async('string')) : []
+  return {
+    kind: 'compare',
+    zipBlob,
+    zipFilename: ZIP_NAME_BY_KIND.compare,
+    comparison: {
+      players: comparisonRows,
+      summary: summarizeDeltas(comparisonRows.map(r => r.difference)),
+    },
+    modalities: groupByModality(periodRows),
+    tournaments: [],
+  }
+}
+
+async function parseLegacyResult(zip, zipBlob, tournamentsCsvText, playersCsvText) {
   const tournamentMap = parseTournamentsCsv(tournamentsCsvText)
   const playerLookups = parsePlayersCsv(playersCsvText)
 
@@ -296,8 +484,9 @@ export async function parseRunResult(zipBlob, tournamentsCsvText, playersCsvText
   }
 
   return {
+    kind: 'legacy',
     zipBlob,
-    zipFilename: 'rating_cycle_output.zip',
+    zipFilename: ZIP_NAME_BY_KIND.legacy,
     tournaments,
   }
 }

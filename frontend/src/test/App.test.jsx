@@ -4,8 +4,17 @@ import userEvent from '@testing-library/user-event'
 import JSZip from 'jszip'
 import App from '../App'
 import ErrorBoundary from '../ErrorBoundary'
-import { AUDIT_FILE_HEADER, AUDIT_PREAMBLE } from '../resultParser'
-import { PLAYERS_HEADER, TOURNAMENTS_HEADER } from '../csvUploadValidation'
+import {
+  AUDIT_FILE_HEADER,
+  AUDIT_PREAMBLE,
+  FIDE_GAMES_PREAMBLE,
+  FIDE_PERIOD_PREAMBLE,
+} from '../resultParser'
+import {
+  FIDE_TOURNAMENTS_HEADER,
+  PLAYERS_HEADER,
+  TOURNAMENTS_HEADER,
+} from '../csvUploadValidation'
 
 // ---------------------------------------------------------------------------
 // Fetch mock helpers
@@ -56,6 +65,13 @@ const TOURNAMENTS_CSV_FIXTURE = `${TOURNAMENTS_HEADER}
 
 function tournamentsCsvFixtureFile() {
   return new File([TOURNAMENTS_CSV_FIXTURE], 'tournaments.csv', { type: 'text/csv' })
+}
+
+const FIDE_TOURNAMENTS_CSV_FIXTURE = `${FIDE_TOURNAMENTS_HEADER}
+1;99999;Copa Fixture;2026-03-15;RR;0;1;STD`
+
+function fideTournamentsCsvFixtureFile() {
+  return new File([FIDE_TOURNAMENTS_CSV_FIXTURE], 'tournaments.csv', { type: 'text/csv' })
 }
 
 async function fixtureRunZipBlob() {
@@ -467,6 +483,46 @@ describe('Results page flow', () => {
     expect(screen.getByLabelText(/arquivo de torneios/i).files).toHaveLength(0)
     expect(screen.getByLabelText(/arquivos binários/i).files).toHaveLength(0)
     expect(screen.queryByText(/arquivo selecionado:/i)).not.toBeInTheDocument()
+  })
+
+  it('runs the per-game model end to end and shows the period summary', async () => {
+    // Covers the whole chain in one go: the mode reaches the request, the
+    // browser-side check accepts the per-game formats, and the period audit
+    // becomes the on-screen summary instead of the per-tournament view.
+    const z = new JSZip()
+    z.file('RatingList.csv', 'x')
+    z.file('Audit_Games.csv', `${FIDE_GAMES_PREAMBLE}\nTournament\n`)
+    z.file(
+      'Audit_Period.csv',
+      `${FIDE_PERIOD_PREAMBLE}\n` +
+        'Tournaments;PlayerId;PlayerName;TimeControl;InitialRating;Games;SumDeltaR;Variation;' +
+        'RoundedVariation;FinalRating;Path;AccumSumOpp;AccumPoints;AccumGames;AccumSince\n' +
+        '1;3741;Carlos Mendes;STD;1800;5;0.36;7.2;7;1807;RATED;0;0;0;\n',
+    )
+    const zipBlob = await z.generateAsync({ type: 'blob' })
+
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetchWithSuccessfulRun(zipBlob)
+
+    await user.selectOptions(screen.getByLabelText(/modelo de cálculo/i), 'fide')
+    await uploadAllFiles(user, {
+      tournamentsFile: fideTournamentsCsvFixtureFile(),
+    })
+
+    submitRunForm()
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /resultado do ciclo de rating/i })).toBeInTheDocument(),
+    )
+    expect(screen.getByText(/clássico/i)).toBeInTheDocument()
+    expect(screen.getByText('Carlos Mendes')).toBeInTheDocument()
+    expect(screen.getByText('+7')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /por torneio/i })).not.toBeInTheDocument()
+
+    const runCall = globalThis.fetch.mock.calls.find(([url]) => url === '/run')
+    expect(runCall[1].body.get('mode')).toBe('fide')
   })
 
   it('shows parse error banner when ZIP cannot be summarized but still allows download', async () => {

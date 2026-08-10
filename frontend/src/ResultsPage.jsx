@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 
 import BuildStamp from './BuildStamp'
+import ComparisonSummary from './components/ComparisonSummary'
+import PeriodSummary from './components/PeriodSummary'
 import RequestIdLine from './components/RequestIdLine'
 import { buildPlayerIndex } from './resultParser'
 import { filterPlayersForSearch, filterTournamentsForSearch } from './searchUtils'
@@ -293,6 +295,10 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
   }, [runResult?.zipBlob])
 
   const { zipFilename, parseError } = runResult
+  // The per-tournament and per-player views read the current model's
+  // per-tournament audit, which the per-game model does not produce: its
+  // period is a single round, summarized per modality instead.
+  const isPerGameModel = runResult.kind === 'fide' || runResult.kind === 'compare'
 
   function handleDownloadClick() {
     if (!blobUrl) return
@@ -371,7 +377,16 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
           </div>
         )}
 
-        {!parseError && (
+        {!parseError && isPerGameModel && (
+          <div className="flex flex-col gap-6">
+            {runResult.kind === 'compare' && (
+              <ComparisonSummary comparison={runResult.comparison} />
+            )}
+            <PeriodSummary modalities={runResult.modalities ?? []} />
+          </div>
+        )}
+
+        {!parseError && !isPerGameModel && (
           <>
             <div
               className="flex flex-wrap gap-2 mb-4"
@@ -471,7 +486,10 @@ ResultsPage.propTypes = {
   runResult: PropTypes.shape({
     zipBlob: PropTypes.object.isRequired,
     zipFilename: PropTypes.string.isRequired,
+    kind: PropTypes.oneOf(['legacy', 'fide', 'compare']),
     tournaments: PropTypes.array,
+    modalities: PropTypes.array,
+    comparison: PropTypes.object,
     parseError: PropTypes.string,
     requestId: PropTypes.string,
   }).isRequired,
