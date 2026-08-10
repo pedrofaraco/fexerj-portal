@@ -179,8 +179,21 @@ válido**, é um número que não existe.
 | Arquivo | Conteúdo |
 |---|---|
 | `RatingList.csv` | a lista final do período, formato novo |
-| `Audit_Games.csv` | uma linha por partida: torneio, modalidade, jogador, adversário, rating do adversário já limitado, D, PD, resultado, ΔR |
-| `Audit_Period.csv` | uma linha por jogador × modalidade: torneios do período, rating inicial, n, ΣΔR, K, variação bruta, variação arredondada, rating final, caminho aplicado |
+| `Audit_Games.csv` | uma linha por partida: torneio, modalidade, jogador, adversário, **rating cru do adversário**, D já limitado, marcador de que o teto agiu, PD, resultado, ΔR, K |
+| `Audit_Period.csv` | uma linha por jogador × modalidade: torneios do período, rating inicial, n, ΣΔR, K, variação bruta, variação arredondada, rating final, caminho aplicado, e o acumulado de adversários e pontos de quem ainda não tem rating |
+
+Duas decisões dessas colunas vieram da implementação e valem registro:
+
+- **O rating do adversário sai cru, não limitado.** Quem é limitado a 400 é a
+  diferença; "rating limitado do adversário" não existe como conceito. Com o rating
+  cru na linha, o jogador confere se o próprio `D` está certo — subtrai e aplica o teto
+  na mão. Como isso faz a conta ingênua divergir da coluna `D` sempre que o teto agiu, a
+  linha traz um marcador dizendo que agiu, no espírito do asterisco que a FIDE usa na
+  página de cálculos individuais.
+- **O acumulado de quem ainda não tem rating aparece no arquivo de período.** Sem ele,
+  quem recebe o primeiro rating vê só o resultado, e o cálculo da §6.2 — média dos
+  adversários mais os dois fictícios — fica impossível de refazer. Seria um buraco no
+  próprio motivo de o arquivo existir.
 | `Comparison.csv` | só no modo comparar: jogador, rating STD pelo modelo atual, rating STD pelo modelo novo, diferença |
 
 As colunas atuais de auditoria (`Erm`, `Rm`, `Dif`, `Nwe`, `Dw`, `kDw`) descrevem
