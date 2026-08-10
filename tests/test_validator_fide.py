@@ -1,6 +1,10 @@
 """Validation of the new player format and header-based dispatch."""
+import pathlib
+from unittest.mock import patch
+
 from backend.validator import validate_inputs
 from calculator.fide.ratinglist import FIDE_HEADER, LEGACY_HEADER
+from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
 _FIDE_PLAYERS = (
     FIDE_HEADER + "\n"
@@ -20,9 +24,15 @@ _TOURNAMENTS = (
     "1;99999;Test Tournament;2026-03-15;RR;0;1\n"
 )
 
+# Fexerj ids of the six players baked into tests/binary/round_robin_6players.TURX
+# (see tests/test_validator.py's _VALID_PLAYERS, which cross-checks the same file).
+_BINARY_DIR = pathlib.Path(__file__).parent / "binary"
+_BINARY_PLAYER_IDS = [3741, 643, 1979, 2831, 3541, 5400]
+_TURX_DATA = (_BINARY_DIR / "round_robin_6players.TURX").read_bytes()
 
-def _errors(players, mode, tournaments=_TOURNAMENTS):
-    return validate_inputs(players, tournaments, {}, 1, 1, mode=mode)
+
+def _errors(players, mode, tournaments=_TOURNAMENTS, binaries=None):
+    return validate_inputs(players, tournaments, binaries or {}, 1, 1, mode=mode)
 
 
 def test_fide_mode_accepts_the_new_header():
@@ -112,3 +122,92 @@ def test_duplicate_id_cbx_is_rejected():
 def test_unknown_mode_returns_error():
     errors = _errors(_FIDE_PLAYERS, "bogus")
     assert any("bogus" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# _build_players_index dispatch (binary-vs-rating-list cross-check)
+#
+# _build_players_index only knew the legacy 12-column format; fed a
+# 23-column list, it returned an empty index, so every player in the binary
+# was reported as absent from the rating list — the new-format mode was
+# unusable end-to-end. These tests lock in the fix.
+# ---------------------------------------------------------------------------
+
+def _fide_row(id_no: int, id_cbx: str = "") -> str:
+    return (
+        f"{id_no};{id_cbx};;Player {id_no};CLUB A;01/01/1990;M;BRA;"
+        "1500;50;0;0;0;;0;0;0;0;;0;0;0;0"
+    )
+
+
+def _legacy_row(id_no: int, id_cbx: str = "") -> str:
+    return f"{id_no};{id_cbx};;Player {id_no};1500;CLUB A;01/01/1990;M;BRA;50;0;0"
+
+
+def _fide_players_list(ids: list[int]) -> str:
+    return FIDE_HEADER + "\n" + "\n".join(_fide_row(i) for i in ids) + "\n"
+
+
+def _legacy_players_list(ids: list[int]) -> str:
+    return LEGACY_HEADER + "\n" + "\n".join(_legacy_row(i) for i in ids) + "\n"
+
+
+def test_fide_format_players_list_matching_binary_returns_no_errors():
+    """The bug case: a valid 23-column list with every binary player present."""
+    players = _fide_players_list(_BINARY_PLAYER_IDS)
+    errors = _errors(players, "fide", binaries={"1-99999.TURX": _TURX_DATA})
+    assert errors == []
+
+
+def test_fide_format_players_list_missing_one_binary_player_is_reported():
+    missing_id = _BINARY_PLAYER_IDS[-1]
+    players = _fide_players_list(_BINARY_PLAYER_IDS[:-1])
+    errors = _errors(players, "fide", binaries={"1-99999.TURX": _TURX_DATA})
+    assert any("ausente(s) da lista de rating" in e for e in errors)
+    assert any(f"{missing_id} (" in e for e in errors)
+
+
+def test_legacy_format_players_list_matching_binary_still_returns_no_errors():
+    """Same pair of cases in the legacy 12-column format: behaviour unchanged."""
+    players = _legacy_players_list(_BINARY_PLAYER_IDS)
+    errors = _errors(players, "fide", binaries={"1-99999.TURX": _TURX_DATA})
+    assert errors == []
+
+
+def test_legacy_format_players_list_missing_one_binary_player_still_reported():
+    missing_id = _BINARY_PLAYER_IDS[-1]
+    players = _legacy_players_list(_BINARY_PLAYER_IDS[:-1])
+    errors = _errors(players, "fide", binaries={"1-99999.TURX": _TURX_DATA})
+    assert any("ausente(s) da lista de rating" in e for e in errors)
+    assert any(f"{missing_id} (" in e for e in errors)
+
+
+def test_irt_fide_format_translates_binary_id_via_id_cbx():
+    """IRT tournaments key the binary's id off Id_CBX, not Id_No.
+
+    The 23-column format must build that CBX→FEXERJ mapping from the same
+    second column the legacy format uses.
+    """
+    tournaments = (
+        "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj\n"
+        "1;12345;IRT Memorial;;SS;1;1\n"
+    )
+    players = (
+        FIDE_HEADER + "\n"
+        "1;36633;;Player One;CLUB A;01/01/1990;M;BRA;1500;50;0;0;0;;0;0;0;0;;0;0;0;0\n"
+    )
+    data = BIO_MARKER + PAIRING_MARKER + b"\x00" * 64
+    with patch(
+        "backend.validator.parse_bio_section",
+        return_value={
+            1: {"name": "Listed Player", "fexerj_id": "36633"},
+            2: {"name": "Unlisted Player", "fexerj_id": "90568"},
+        },
+    ):
+        errors = _errors(
+            players, "fide", tournaments=tournaments, binaries={"1-12345.TUNX": data}
+        )
+    missing = [e for e in errors if "ausente(s) da lista de rating" in e]
+    assert len(missing) == 1
+    assert "90568 (Unlisted Player)" in missing[0]
+    assert "36633" not in missing[0]

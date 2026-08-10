@@ -273,13 +273,23 @@ def _is_int(value: str) -> bool:
 
 
 def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
-    """Return FEXERJ ids and CBX→FEXERJ mapping from players.csv data rows."""
+    """Return FEXERJ ids and CBX→FEXERJ mapping from players.csv data rows.
+
+    Dispatches on the header, like the rest of the validator: Id_No and
+    Id_CBX sit in the same first two columns in both the legacy 12-column
+    format and the FIDE 23-column format, so only the expected row width
+    differs between them.
+    """
+    lines = content.splitlines()
+    first_line = lines[0].strip() if lines else ""
+    expected_width = FIDE_COLUMN_COUNT if first_line == FIDE_HEADER else 12
+
     fexerj_ids: set[int] = set()
     cbx_to_fexerj: dict[int, int] = {}
     reader = csv.reader(io.StringIO(content), delimiter=";")
     next(reader, None)  # skip header
     for row in reader:
-        if not any(cell.strip() for cell in row) or len(row) != 12:
+        if not any(cell.strip() for cell in row) or len(row) != expected_width:
             continue
         try:
             fexerj_id = int(row[0].strip())
