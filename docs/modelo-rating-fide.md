@@ -13,9 +13,8 @@ Substitui o modelo por torneio descrito em [`CALCULATOR.md`](../CALCULATOR.md).
   oficial da FIDE — 13 partidas, todas conferem, e a soma do período reproduz o valor
   publicado. Ver seção 10.
 
-> Onde o texto disser **[EM ABERTO]**, a regra ainda não foi decidida. Restou **um**
-> ponto nessa condição; os outros seis foram respondidos pela FEXERJ e estão marcados
-> *Confirmado pela FEXERJ* onde aparecem. Ver a seção 13.
+> Todos os pontos levantados foram respondidos pela FEXERJ e estão marcados
+> *Confirmado pela FEXERJ* ou *Decidido pela FEXERJ* onde aparecem. Ver a seção 13.
 
 ---
 
@@ -169,26 +168,32 @@ uma exceção, o torneio interno (seção 5.2).
 
 ### 5.1 Teto de 700 (8.3.3)
 
-Se `n × K > 700`, onde `n` é o número de partidas do jogador no período, então `K`
-passa a ser o **maior inteiro** tal que `K × n ≤ 700`.
+Se `n × K > 700`, onde `n` é o número de partidas do jogador **no período**, então
+`K` passa a ser o **maior inteiro** tal que `K × n ≤ 700`.
 
-O teto é aplicado **por último**, depois de qualquer redução do §2º. *Confirmado
-pela FEXERJ.*
+**O teto é por período, não por torneio.** *Decidido pela FEXERJ.* Aplicar o teto
+torneio a torneio deixava o período total passar do limite por um múltiplo dele: um
+jogador com 40 partidas sob K=40, em dois torneios de 20, chegaria a K=35 em cada
+torneio (700 ÷ 20) — 1.400 no período, o dobro do teto. Com o teto sobre as 40
+partidas do período inteiro, K vira 17 (40 × 17 = 680).
+
+**Consequência:** isso inverte a ordem descrita antes — o teto deixa de ser "aplicado
+por último" e passa a ser aplicado **primeiro**, antes da metade do torneio interno
+(seção 5.2). O teto é calculado sobre o total de partidas do período; só depois se
+aplica a metade, partida a partida, nas que vierem de torneio interno. É a única
+ordem em que a metade do torneio interno continua sendo exatamente metade do K já
+limitado — aplicar a metade antes do teto reabriria o mesmo estouro por múltiplo do
+limite.
 
 ### 5.2 Torneio interno
 
-Em torneio interno (seção 2.1), o K é dividido por dois: 40→20, 20→10, 10→5.
+Em torneio interno (seção 2.1), o K é dividido por dois — 40→20, 20→10, 10→5 —
+**depois de já aplicado o teto de 700 do período** (seção 5.1).
 
 **O torneio interno é a exceção à regra de K constante no período.** Num período que
 misture torneios internos e não internos, o K **muda durante o torneio interno** e
 volta ao valor normal nos demais. Ou seja, o K é por período, salvo nos torneios
-internos, que usam metade. *Confirmado pela FEXERJ.*
-
-> **[EM ABERTO]** Como o teto de 700 se aplica quando o K varia dentro do período.
-> O teto é definido sobre `n × K` com um K único; com K variável não há um K só para
-> limitar. Só acontece com jogador muito ativo (mais de 17 partidas no período com
-> K=40, ou 35 com K=20), mas precisa de definição. **Proposta:** aplicar o teto por
-> torneio, usando o K e a contagem de partidas daquele torneio — basta confirmar.
+internos, que usam metade do K já limitado pelo teto. *Confirmado pela FEXERJ.*
 
 ### 5.3 Dependência de data de nascimento
 
@@ -387,7 +392,7 @@ deixam de existir no modelo novo.
 
 ---
 
-## 13. Pontos resolvidos e o que resta
+## 13. Pontos resolvidos
 
 Os seis pontos levantados na primeira versão foram respondidos pela FEXERJ:
 
@@ -395,17 +400,9 @@ Os seis pontos levantados na primeira versão foram respondidos pela FEXERJ:
 |---|---|---|
 | Art. 68 vale para as três modalidades? | Sim. Só diverge da FIDE no teto 2400/2650, ignorado | 1 |
 | K do jogador transposto | Da modalidade nova — zero partidas, portanto K=40 | 1.1 |
-| Ordem entre metade do K e teto de 700 | Teto aplicado por último | 5.1 |
+| Ordem entre metade do K e teto de 700 | Teto por período, aplicado antes da metade do torneio interno | 5.1 |
 | K único no período com torneio interno junto | Interno é a exceção: muda naquele torneio | 5.2 |
 | Data de nascimento ausente | Passa a ser dado obrigatório | 5.3 |
 | Cair abaixo de 1200 | Zera o rating, preserva a contagem de partidas | 7 |
 
-### Ainda em aberto
-
-**Como o teto de 700 se aplica quando o K varia dentro do período** (seção 5.1) —
-consequência direta da decisão sobre torneio interno. O teto é definido sobre
-`n × K` supondo um K único; com K variável não há um K só para limitar.
-
-Só afeta jogador com mais de 17 partidas no período sob K=40, ou 35 sob K=20. A
-proposta da seção 5.1 é aplicar o teto por torneio, com o K e a contagem daquele
-torneio. Não bloqueia a implementação do restante.
+Não há mais pontos em aberto no fator K.

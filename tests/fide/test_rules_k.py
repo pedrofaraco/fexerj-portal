@@ -34,10 +34,22 @@ class TestBaseK:
     def test_missing_birth_year_falls_back_to_the_non_u18_path(self):
         assert rules.base_k(1800, 50, False, None, 2026) == 20
 
-    def test_under_18_takes_precedence_over_permanent_k10(self):
-        """A player who reached 2200 and then dropped below 2100 before turning 18
-        gets the under-18 K=40, not the permanent K=10 (§5 table order)."""
-        assert rules.base_k(1900, 100, True, 2009, 2026) == 40
+    def test_permanent_k10_takes_precedence_over_under_18(self):
+        """K is a brake that only tightens (§5, decided by FEXERJ): a player who reached
+        2200 and then dropped below 2100 before turning 18 keeps the permanent K=10,
+        not the under-18 K=40 — the opposite of the old §5 table order."""
+        assert rules.base_k(1900, 100, True, 2009, 2026) == 10
+
+    def test_permanent_k10_takes_precedence_over_new_player(self):
+        """Same rule, other collision: a player who reached 2200 in a modality but has
+        fewer than 30 games in it keeps K=10, not the new-player K=40."""
+        assert rules.base_k(1900, 5, True, 1990, 2026) == 10
+
+    def test_transposed_player_keeps_new_player_40_despite_high_rating(self):
+        """§1.1: `reached_2200` is per modality. A player entering a new modality with a
+        high STD rating and zero games there still has the flag False and gets the
+        new-player K=40 — the permanent K=10 never triggers on rating alone."""
+        assert rules.base_k(2250, 0, False, 1990, 2026) == 40
 
 
 class TestIsUnder18AtYearEnd:
@@ -70,6 +82,11 @@ class TestCapKByGames:
     def test_zero_games_is_a_no_op(self):
         assert rules.cap_k_by_games(40, 0) == 40
 
+    def test_period_example_40_games_at_k40_caps_to_17(self):
+        """The headline §5.1 example: 40 games in the period under K=40 must cap to a
+        single period K=17 (40 x 17 = 680), not to 35 per 20-game tournament."""
+        assert rules.cap_k_by_games(40, 40) == 17
+
 
 class TestParseBirthYear:
     @pytest.mark.parametrize("birthday,expected", [
@@ -92,11 +109,17 @@ class TestParseBirthYear:
         assert rules.parse_birth_year("1990-01-01") == 1990
 
 
-def test_order_is_halve_then_cap():
-    """§5.1: the 700 cap is applied last, after the Art. 68 §2 halving."""
-    k = rules.halve_for_internal(rules.base_k(1500, 0, False, 1990, 2026))
-    assert k == 20
-    assert rules.cap_k_by_games(k, 40) == 17   # 40 x 17 = 680 <= 700
+def test_order_is_cap_then_halve():
+    """§5.1, decided by FEXERJ: the period cap runs first, then the Art. 68 §2 halving
+    — the reverse of the old order. Halving the raw K=40 first and capping the halved
+    K=20 on 40 games would also land on 17 here by coincidence (700 // 40 doesn't
+    depend on K once the product exceeds 700); halving *after* the cap is what makes
+    the internal-tournament K land at exactly half of 17, not half of 40."""
+    period_k = rules.base_k(1500, 0, False, 1990, 2026)
+    assert period_k == 40
+    capped = rules.cap_k_by_games(period_k, 40)   # 40 x 40 = 1600 > 700 -> 700 // 40 = 17
+    assert capped == 17
+    assert rules.halve_for_internal(capped) == 8   # half of the capped 17, not of the raw 40
 
 
 def test_sentinel_date_falls_into_the_safe_not_under_18_path():

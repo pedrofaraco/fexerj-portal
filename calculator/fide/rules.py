@@ -75,13 +75,24 @@ def base_k(
 ) -> int:
     """K factor from §5, before the internal-tournament halving and the 700 cap.
 
-    The conditions are checked in the order the §5 table lists them, top to
-    bottom. That gives the under-18 K=40 branch precedence over the permanent
-    K=10 from `reached_2200` whenever both would apply — mirroring FIDE 8.3.3,
-    where the age cutoff takes precedence. The collision is real, if rare: a
-    player who reached 2200 and then dropped back below 2100 before the end of
-    the year they turn 18 still gets K=40, not the "permanent" K=10.
+    `reached_2200` is checked first, ahead of every other condition. Decided
+    by FEXERJ: the permanent K=10 is a brake that only tightens — once a
+    player's rating has reached 2200 on a published list, no other rule is
+    allowed to raise K back up. This reverses the §5 table's own top-to-bottom
+    order, where the under-18 K=40 branch sits above `reached_2200` and FIDE
+    8.3.3's age cutoff wins the collision. Under FEXERJ's reading, a player
+    who reached 2200 and then dropped back below 2100 before the end of the
+    year they turn 18 keeps K=10, not the under-18 K=40 — and the same goes
+    for a player who reached 2200 in a modality but still has fewer than 30
+    games in it: K=10 wins over the new-player K=40 too.
+
+    A transposed player (§1.1) is unaffected: `reached_2200` is tracked per
+    modality, so a player entering a new modality with the STD rating still
+    has it `False` there and gets the new-player K=40, even at a rating of
+    2200 or above.
     """
+    if reached_2200:
+        return 10
     if games < NEW_PLAYER_GAMES:
         return 40
     if (
@@ -91,8 +102,6 @@ def base_k(
         and is_under_18_at_year_end(birth_year, period_year)
     ):
         return 40
-    if reached_2200:
-        return 10
     return 20
 
 
@@ -104,14 +113,19 @@ def halve_for_internal(k: int) -> int:
 def cap_k_by_games(k: int, games: int) -> int:
     """§5.1 cap: if `games * k > 700`, K becomes the largest integer with `k * games <= 700`.
 
-    Applied last, after any reduction from Art. 68 §2.
+    Decided by FEXERJ: the cap is **per period**, not per tournament — `k` is
+    the player's base K for the period (before the internal-tournament
+    halving) and `games` is the player's total game count for the whole
+    period, not any single tournament's. Applying it per tournament instead
+    let a period made of several tournaments blow past 700 by a multiple of
+    the limit — the case this function's caller, `_k_by_tournament` in
+    `period.py`, now exists to prevent.
 
-    **Open point with FEXERJ** (spec §5.1): the cap is defined over a single
-    K, but the internal-tournament exception makes K vary within the period.
-    The proposal on record, implemented here, is to apply it per tournament,
-    using that tournament's K and game count. If the federation decides
-    otherwise, this function and its call site in `cycle.py` are the only
-    places that need to change.
+    Consequence: this inverts the order the spec describes ("cap applied
+    last, after the Art. 68 §2 halving"). With the cap computed on the period
+    total, it has to run **before** the internal-tournament halving, not
+    after — halving the already-capped K is the only order left where an
+    internal-tournament game still gets exactly half of the period K.
     """
     if games <= 0 or k * games <= K_GAMES_PRODUCT_CAP:
         return k

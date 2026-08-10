@@ -251,8 +251,26 @@ agregados de torneio que deixam de existir e não têm sucessor — não são tr
 
 ### 3.1 Leituras registradas
 
-Pontos que a spec não decide e a implementação precisa. Nenhum bloqueia; todos ficam
-aqui para a federação confirmar quando quiser.
+Pontos que a spec não decidia e a implementação precisava. Duas foram respondidas pela
+federação, junto das duas perguntas do fator K; as demais ficam aqui até a federação
+confirmar.
+
+**Decidido pela FEXERJ:**
+
+- **Teto de 700 por período, não por torneio.** Esta seção registrava a proposta de
+  aplicar o teto torneio a torneio; a federação decidiu que é sobre o total de partidas
+  do período — ver `docs/modelo-rating-fide.md` §5.1. Consequência direta: a metade do
+  torneio interno (§5.2) passa a ser aplicada **depois** do teto, não antes — é a única
+  ordem em que ela continua sendo exatamente metade do K já limitado.
+- **O K=10 permanente vence o K=40 de sub-18 e o K=40 de jogador novo.** Esta seção
+  registrava a ordem literal da tabela da §5, que dava precedência ao sub-18 (a mesma
+  estrutura da FIDE 8.3.3, onde o corte etário vem por último e prevalece). A federação
+  decidiu o oposto: uma vez que o rating atinge 2200, K=10 é definitivo, e nenhuma outra
+  regra da §5 pode voltar a subir o K — nem o sub-18, nem o jogador novo com menos de 30
+  partidas na modalidade. Não afeta o jogador transposto (§1.1): o indicador de 2200 é
+  por modalidade, então ele continua entrando com K=40 na modalidade nova.
+
+**Leituras registradas, ainda em aberto:**
 
 - **O transposto conta como rated também para os adversários dele.** A §1.1 diz que ele
   "entra no cálculo daquela modalidade" e "é tratado como rated"; o cálculo dos
@@ -261,18 +279,10 @@ aqui para a federação confirmar quando quiser.
   lista publicada, então a §5 já responde: quem estiver com 2200 ou mais nela entra com
   o indicador ligado. Como é uma coluna do CSV, a federação pode ligar na mão quem tenha
   passado de 2200 e caído antes do corte.
-- **Teto de 700 aplicado por torneio**, conforme a proposta da §5.1.
 - **A §7 é aplicada na conversão do corte**, não só durante o cálculo: quem está entre 1
   e 1199 na lista de origem entra como não-rated com a contagem preservada (§2.2). A
   alternativa seria começar rated abaixo do piso e ser expulso no primeiro período, o
   que produziria uma lista inicial que o próprio modelo considera inválida.
-- **O K=40 de sub-18 tem precedência sobre o K=10 permanente.** A tabela da §5 lista o
-  sub-18 acima do "já atingiu 2200", e a implementação segue essa ordem. A colisão é
-  real, não hipotética: um jogador que atingiu 2200 e caiu abaixo de 2100 antes do fim
-  do ano em que completa 18 recebe K=40, não o K=10 dito permanente. Passado esse ano,
-  o K=10 volta. É a mesma estrutura da FIDE 8.3.3, onde o corte etário também vem por
-  último e prevalece. Fica registrado por ser raro o bastante para ninguém notar até
-  acontecer.
 - **O ano do período é o do `EndDate` mais recente entre os torneios do período.** A
   regra de sub-18 da §5 é "até o fim do ano em que completa 18 anos", o que exige saber
   a que ano o período pertence. O `EndDate` é hoje opcional no validador e **passa a ser
@@ -415,12 +425,12 @@ diferença, não para minimizá-la.
 
 ## 8. O que fica em aberto
 
-- **Teto de 700 quando o K varia dentro do período** (§5.1 da spec). Proposta
-  registrada e implementada; aguarda um sim ou não da FEXERJ. Não bloqueia.
 - **Data de aposentadoria do modelo atual.** A coexistência não é permanente, mas o
   momento da virada é decisão da federação. Enquanto o modelo atual for o padrão, ele é
   o oficial.
-- **As três leituras registradas na §3.1**, que valem até a federação dizer o contrário.
+- **As quatro leituras registradas na §3.1** ainda em aberto, que valem até a federação
+  dizer o contrário. O teto de 700 por período e a precedência do K=10 permanente, as
+  outras duas leituras da §3.1, já foram decididos pela FEXERJ.
 
 ## 9. Fora de escopo
 

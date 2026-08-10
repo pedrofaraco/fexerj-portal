@@ -106,6 +106,44 @@ class TestKWithinThePeriod:
         assert result.rounded_variation == 11
 
 
+class TestPeriodCap:
+    def test_700_cap_applies_to_the_period_total_not_per_tournament(self):
+        """§5.1, decided by FEXERJ: two 20-game tournaments in the same period share one
+        cap. The old per-tournament cap let each 20-game tournament reach its own K=35
+        (700 // 20), for a period total of 1400 — double the 700 limit. Capped over the
+        period's 40 games, K must be 17 (40 x 17 = 680) in both tournaments."""
+        state = ModalityState(rating=1500, games=0)
+        games = [_game(1, 2, "0.5") for _ in range(20)] + [_game(2, 2, "0.5") for _ in range(20)]
+        result = compute_rated_period(
+            player_id=1, modality="STD", state=state,
+            games=games,
+            opponent_ratings={2: 1500},
+            period_year=2026, birth_year=1990,
+        )
+        ks = {g.k for g in result.game_results}
+        assert ks == {17}
+
+    def test_internal_tournament_half_is_exactly_half_of_the_capped_k(self):
+        """The cap now runs before the halving: the internal tournament's K is half of
+        the already-capped period K=17, not half of the raw K=40 — the only order where
+        the internal-tournament half stays exactly a half."""
+        state = ModalityState(rating=1500, games=0)
+        games = (
+            [_game(1, 2, "0.5") for _ in range(20)]
+            + [_game(2, 2, "0.5", internal=True) for _ in range(20)]
+        )
+        result = compute_rated_period(
+            player_id=1, modality="STD", state=state,
+            games=games,
+            opponent_ratings={2: 1500},
+            period_year=2026, birth_year=1990,
+        )
+        by_tournament = {g.game.tournament_ord: g.k for g in result.game_results}
+        assert by_tournament[1] == 17
+        assert by_tournament[2] == 8
+        assert by_tournament[2] == by_tournament[1] // 2
+
+
 class TestFloor:
     def test_dropping_below_1200_clears_the_rating(self):
         """§7: rating cleared, game count preserved."""
