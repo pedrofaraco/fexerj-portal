@@ -12,12 +12,12 @@ TUNX_MISSING_ID = (BINARY_DIR / "swiss_system_18players.TUNX").read_bytes()
 
 _VALID_PLAYERS = textwrap.dedent("""\
     Id_No;Id_CBX;Title;Name;Rtg_Nat;ClubName;Birthday;Sex;Fed;TotalNumGames;SumOpponRating;TotalPoints
-    3741;;;Roberto Oliveira Lima, Marcio;1500;CLUB A;01/01/1990;M;BRA;50;0;0
-    643;;;Petrenko, Willy;1500;CLUB A;01/01/1990;M;BRA;50;0;0
-    1979;;;De Castro Coutinho, Marco;1500;CLUB A;01/01/1990;M;BRA;50;0;0
-    2831;;;Cesar Ourique Schlobach, Ernesto;1500;CLUB A;01/01/1990;M;BRA;50;0;0
-    3541;;;Teixeira Azeredo Martins, Claudio;1500;CLUB A;01/01/1990;M;BRA;50;0;0
-    5400;;;Batista Rodrigues, Tairon;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    3741;;;Carlos Mendes;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    643;;;Roberto Faria;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    1979;;;Andre Nunes;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    2831;;;Felipe Borges;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    3541;;;Lucas Carvalho;1500;CLUB A;01/01/1990;M;BRA;50;0;0
+    5400;;;Bruno Teixeira;1500;CLUB A;01/01/1990;M;BRA;50;0;0
 """)
 
 _VALID_TOURNAMENTS = textwrap.dedent("""\

@@ -15,8 +15,8 @@ class TestResolveId:
         assert p.resolve_id('1078') == 1078
 
     def test_raises_when_id_empty(self, make_tournament_player):
-        p = make_tournament_player(name="Newton Gomes", snr=18)
-        with pytest.raises(ValueError, match="Newton Gomes"):
+        p = make_tournament_player(name="Carlos Mendes", snr=18)
+        with pytest.raises(ValueError, match="Carlos Mendes"):
             p.resolve_id('')
 
     def test_raises_mentions_snr(self, make_tournament_player):

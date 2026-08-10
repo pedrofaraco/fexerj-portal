@@ -272,7 +272,7 @@ class TestWriteTournamentAudit:
         fp.name = "SELMO BASTOS PINTO"
         t = _make_tournament(rating_list={1559: fp})
         tp = _make_calculated_tp(t, fexerj_id=1559, new_rating=2071, calc_rule=CalcRule.NORMAL)
-        tp.name = "Bastos Pinto, Selmo"
+        tp.name = "Carlos Mendes"
         t.players = {1: tp}
         reader = csv.reader(io.StringIO(t.write_tournament_audit()), delimiter=";")
         next(reader)
