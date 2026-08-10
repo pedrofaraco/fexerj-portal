@@ -253,6 +253,12 @@ aqui para a federação confirmar quando quiser.
   e 1199 na lista de origem entra como não-rated com a contagem preservada (§2.2). A
   alternativa seria começar rated abaixo do piso e ser expulso no primeiro período, o
   que produziria uma lista inicial que o próprio modelo considera inválida.
+- **O ano do período é o do `EndDate` mais recente entre os torneios do período.** A
+  regra de sub-18 da §5 é "até o fim do ano em que completa 18 anos", o que exige saber
+  a que ano o período pertence. O `EndDate` é hoje opcional no validador e **passa a ser
+  obrigatório no modo FIDE**. Quando um período cruza a virada do ano, usar o ano mais
+  recente é a leitura conservadora: o jogador que completou 18 no ano anterior sai do
+  K=40 no período seguinte, não meio período depois.
 
 ---
 
@@ -265,6 +271,8 @@ O portão de formato continua no validador, antes de rodar
   outro → erro nomeando os dois aceitos.
 - **`TimeControl`** obrigatório e dentro de {STD, RPD, BLZ} nos modos FIDE e comparar.
 - **`Birthday` obrigatório no modo FIDE** (§5.3), opcional no modo atual.
+- **`EndDate` obrigatório no modo FIDE**, hoje opcional. O fator K de sub-18 depende do
+  ano do período, e o `EndDate` é a única fonte desse ano (§3.1).
 - **No formato de 23 colunas**: cada `Rtg_` é inteiro ou vazio; `Games_` é inteiro não
   negativo; `Peak2200_` é `0` ou `1`; rating vazio com `Peak2200_ = 1` é aceito (jogador
   que atingiu 2200 e caiu abaixo do piso, §7).
