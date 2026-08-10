@@ -55,6 +55,22 @@ class TestOutputShape:
         assert len(lines) == 7  # header + 6 players
 
 
+class TestEmptyWindow:
+    """A window that catches no tournament is an operator mistake — a mistyped
+    interval. The current engine produces no files at all, which the backend
+    turns into a 422; the per-game engine must not answer it with a full
+    RatingList.csv the operator cannot tell from a published list."""
+
+    def test_no_tournament_in_the_window_produces_no_files(self):
+        output = _cycle(_ONE_TOURNAMENT, first=99, count=1, binaries={}).run_cycle()
+        assert output == {}
+
+    def test_the_outcome_of_an_empty_window_reports_itself_as_empty(self):
+        outcome = _cycle(_ONE_TOURNAMENT, first=99, count=1, binaries={}).run_period()
+        assert outcome.is_empty_window
+        assert not _cycle(_ONE_TOURNAMENT).run_period().is_empty_window
+
+
 class TestPeriodSemantics:
     def test_two_tournaments_together_differ_from_two_runs(self):
         """The structural difference between the models: the period is a single round."""

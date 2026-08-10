@@ -4,11 +4,11 @@ Same usage shape as the current engine (`FexerjRatingCycle`), so the backend
 can treat both the same way.
 """
 import copy
-from dataclasses import dataclass, field
 
 from . import audit
 from .model import Accumulator, Game, ModalityState, PlayerState
 from .period import (
+    PeriodOutcome,
     PeriodResult,
     compute_rated_period,
     compute_unrated_period,
@@ -16,20 +16,11 @@ from .period import (
 )
 from .ratinglist import read_rating_list, write_rating_list
 from .rules import K10_THRESHOLD, parse_birth_year
-from .tournaments import TournamentRow, collect_games, period_month, period_year, read_tournaments
+from .tournaments import collect_games, period_month, period_year, read_tournaments
 
 # Paths on which the player ends the period still without a published rating,
 # so the §6.1 accumulator must survive into the next period.
 _STILL_UNRATED_PATHS = frozenset({"ACCUMULATING", "FIRST_EVENT_ZEROED"})
-
-
-@dataclass
-class PeriodOutcome:
-    """The period's raw result, before it becomes CSV."""
-
-    players: dict[int, PlayerState]
-    tournaments: list[TournamentRow] = field(default_factory=list)
-    results: list[PeriodResult] = field(default_factory=list)
 
 
 class FideRatingCycle:
@@ -56,7 +47,9 @@ class FideRatingCycle:
             self.tournaments_csv, self.first_item, self.items_to_process
         )
         if not tournaments:
-            return PeriodOutcome(players=initial_players)
+            # Copied like every other path, so what the caller gets back is
+            # always its own to mutate.
+            return PeriodOutcome(players=copy.deepcopy(initial_players))
 
         year = period_year(tournaments)
         month = period_month(tournaments)
@@ -99,8 +92,17 @@ class FideRatingCycle:
         return PeriodOutcome(players=final_players, tournaments=tournaments, results=results)
 
     def run_cycle(self) -> dict[str, str]:
-        """Returns `{filename: CSV content}` for the period."""
+        """Returns `{filename: CSV content}` for the period.
+
+        A window that caught no tournament produces no files, exactly as the
+        current engine does: the backend turns that into a 422 naming the
+        interval. Emitting the three files here would hand an operator who
+        mistyped the interval a complete `RatingList.csv`, indistinguishable
+        from a published list.
+        """
         outcome = self.run_period()
+        if outcome.is_empty_window:
+            return {}
         return {
             "RatingList.csv": write_rating_list(outcome.players),
             "Audit_Games.csv": audit.write_games_audit(outcome),

@@ -75,6 +75,22 @@ def test_zip_filename_differs_by_mode(client, auth):
     assert "rating_cycle_fide.zip" in fide.headers["content-disposition"]
 
 
+def test_an_empty_window_is_rejected_in_every_mode(client, auth):
+    """A mistyped interval must fail the same way whichever engine is running,
+    instead of handing the operator a zip that reads as a published list."""
+    for mode, tournaments in [
+        (None, _LEGACY_TOURNAMENTS),
+        ("fide", _FIDE_TOURNAMENTS),
+        ("compare", _FIDE_TOURNAMENTS),
+    ]:
+        data = {"first": "99", "count": "1"}
+        if mode is not None:
+            data["mode"] = mode
+        response = client.post("/run", data=data, files=_files(tournaments), auth=auth)
+        assert response.status_code == 422, mode
+        assert "Nenhum torneio encontrado" in response.json()["detail"], mode
+
+
 def test_unknown_mode_is_rejected(client, auth):
     response = _post(client, "/run", _FIDE_TOURNAMENTS, mode="turbo", auth=auth)
     assert response.status_code == 422
