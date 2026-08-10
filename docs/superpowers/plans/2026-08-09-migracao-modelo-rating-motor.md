@@ -3140,6 +3140,14 @@ from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
 from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER
 ```
 
+> **Acrescentado depois da Task 8:** `_validate_fide_players_csv` também precisa checar
+> **unicidade de `Id_No` e de `Id_CBX`**, como o validador legado já faz. A unicidade de
+> `Id_CBX` não é cosmética: `collect_games` monta o mapa de CBX para id da federação a
+> partir da lista inteira, e em torneio IRT dois jogadores com o mesmo `Id_CBX` fariam as
+> partidas de um ser atribuídas ao outro — sem erro e sem aviso, num programa que gera
+> rating oficial. Escreva um teste que prove isso, com dois jogadores compartilhando um
+> `Id_CBX`.
+
 Trocar a assinatura de `validate_inputs` para aceitar o modo e despachar a validação do players:
 
 ```python
