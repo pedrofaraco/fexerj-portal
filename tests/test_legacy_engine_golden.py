@@ -1,7 +1,7 @@
-"""Teste de ouro do motor atual: a saída não pode mudar em nenhum byte.
+"""Golden test for the current engine: the output must not change by a single byte.
 
-O motor de `calculator/classes.py` gera rating oficial da FEXERJ e não é
-tocado pela migração. Este teste falha se alguém o alterar por acidente.
+The engine in `calculator/classes.py` generates the official FEXERJ rating and
+is not touched by the migration. This test fails if someone changes it by accident.
 """
 import pathlib
 

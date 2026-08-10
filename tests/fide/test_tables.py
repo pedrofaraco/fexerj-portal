@@ -1,4 +1,4 @@
-"""Tabelas 8.1.2 e 8.1.1 do Handbook FIDE B02."""
+"""Tables 8.1.2 and 8.1.1 from the FIDE Handbook B02."""
 from decimal import Decimal
 
 import pytest
@@ -8,11 +8,11 @@ from calculator.fide.tables import dp_for_score_ratio, pd_for_diff
 
 class TestPdForDiff:
     @pytest.mark.parametrize("diff,expected", [
-        (0, "0.50"), (3, "0.50"),        # fronteira inferior da primeira faixa
+        (0, "0.50"), (3, "0.50"),        # lower boundary of the first range
         (4, "0.51"), (10, "0.51"),
-        (91, "0.62"), (92, "0.63"),      # fronteira que um `<` no lugar de `<=` erraria
+        (91, "0.62"), (92, "0.63"),      # boundary a `<` instead of `<=` would get wrong
         (391, "0.91"), (392, "0.92"), (411, "0.92"),
-        (412, "0.93"),                   # inalcançável na FEXERJ pelo teto de 400
+        (412, "0.93"),                   # unreachable in FEXERJ given the 400 cap
         (735, "0.99"), (736, "1.00"),
     ])
     def test_higher_rated_side(self, diff, expected):
@@ -29,12 +29,12 @@ class TestPdForDiff:
         assert pd_for_diff(magnitude) + pd_for_diff(-magnitude) == Decimal("1.00")
 
     @pytest.mark.parametrize("diff,expected", [
-        (400, "0.92"),   # §10 da spec: a fórmula logística daria 0,9091
-        (367, "0.90"),   # §10 da spec: a fórmula daria 0,8921
-        (46, "0.56"),    # §10 da spec: a fórmula daria 0,5658
+        (400, "0.92"),   # §10 of the spec: the logistic formula would give 0.9091
+        (367, "0.90"),   # §10 of the spec: the formula would give 0.8921
+        (46, "0.56"),    # §10 of the spec: the formula would give 0.5658
     ])
     def test_matches_official_fide_consultation(self, diff, expected):
-        """As três partidas documentadas na §10, onde a fórmula logística diverge."""
+        """The three games documented in §10, where the logistic formula diverges."""
         assert pd_for_diff(diff) == Decimal(expected)
 
 
@@ -52,5 +52,5 @@ class TestDpForScoreRatio:
         assert dp_for_score_ratio(p) == -dp_for_score_ratio(1 - p)
 
     def test_rounds_to_two_decimals(self):
-        """p vem de uma divisão e precisa cair numa casa da tabela."""
+        """p comes from a division and needs to land on a row of the table."""
         assert dp_for_score_ratio(Decimal("0.7499")) == dp_for_score_ratio(Decimal("0.75"))

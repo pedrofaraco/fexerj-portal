@@ -1,7 +1,7 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 120
-exclude = ["calculator/classes.py", "calculator/tunx_parser.py"]  # motor atual: não mantido aqui
+exclude = ["calculator/classes.py", "calculator/tunx_parser.py"]  # current engine: not maintained here
 
 [tool.ruff.lint]
 select = [
@@ -22,7 +22,7 @@ ignore_missing_imports = true
 check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-# calculator/classes.py e calculator/tunx_parser.py: motor atual, sem type hints, não mantido aqui
+# calculator/classes.py and calculator/tunx_parser.py: current engine, no type hints, not maintained here
 exclude = ["calculator/classes.py", "calculator/tunx_parser.py"]
 
 [[tool.mypy.overrides]]

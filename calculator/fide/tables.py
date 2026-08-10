@@ -1,13 +1,13 @@
-"""Tabelas 8.1.2 e 8.1.1 do Handbook FIDE B02.
+"""Tables 8.1.2 and 8.1.1 from the FIDE Handbook B02.
 
-A §3 da spec proíbe trocar a 8.1.2 pela fórmula logística: a divergência foi
-medida contra uma consulta oficial e está registrada na §10 — 7 de 13 partidas
-divergem, e o período fecharia 0,76 ponto errado.
+§3 of the spec forbids swapping table 8.1.2 for the logistic formula: the
+divergence was measured against an official FIDE consultation and is recorded
+in §10 — 7 of 13 games diverge, and the period would close 0.76 point wrong.
 """
 from decimal import ROUND_HALF_UP, Decimal
 
-# Tabela 8.1.2 — (limite superior da faixa de D, PD do jogador de rating maior).
-# As faixas são fechadas: D de 0 a 3 → .50; de 4 a 10 → .51; e assim por diante.
+# Table 8.1.2 — (upper bound of the D range, PD of the higher-rated player).
+# The ranges are closed: D from 0 to 3 → .50; from 4 to 10 → .51; and so on.
 _PD_BY_MAX_DIFF: tuple[tuple[int, str], ...] = (
     (3, "0.50"), (10, "0.51"), (17, "0.52"), (25, "0.53"), (32, "0.54"),
     (39, "0.55"), (46, "0.56"), (53, "0.57"), (61, "0.58"), (68, "0.59"),
@@ -23,8 +23,8 @@ _PD_BY_MAX_DIFF: tuple[tuple[int, str], ...] = (
 _PD_ABOVE_LAST_BAND = Decimal("1.00")
 _ONE = Decimal("1.00")
 
-# Tabela 8.1.1 — dp para p de 0,50 a 1,00, em passos de 0,01.
-# A metade inferior sai por antissimetria: dp(p) = -dp(1-p).
+# Table 8.1.1 — dp for p from 0.50 to 1.00, in steps of 0.01.
+# The lower half comes out via antisymmetry: dp(p) = -dp(1-p).
 _DP_FROM_HALF: tuple[int, ...] = (
     0, 7, 14, 21, 29, 36, 43, 50, 57, 65,
     72, 80, 87, 95, 102, 110, 117, 125, 133, 141,
@@ -36,10 +36,10 @@ _DP_FROM_HALF: tuple[int, ...] = (
 
 
 def pd_for_diff(diff: int) -> Decimal:
-    """PD da tabela 8.1.2 para `diff = rating_do_jogador - rating_do_adversário`.
+    """PD from table 8.1.2 for `diff = player_rating - opponent_rating`.
 
-    `diff >= 0` usa a coluna H (jogador de rating maior); `diff < 0` usa a
-    coluna L, que é `1 - H`.
+    `diff >= 0` uses column H (higher-rated player); `diff < 0` uses column L,
+    which is `1 - H`.
     """
     magnitude = abs(diff)
     higher = _PD_ABOVE_LAST_BAND
@@ -51,10 +51,10 @@ def pd_for_diff(diff: int) -> Decimal:
 
 
 def dp_for_score_ratio(p: Decimal) -> int:
-    """dp da tabela 8.1.1 para o percentual de pontos `p`.
+    """dp from table 8.1.1 for the score percentage `p`.
 
-    `p` é arredondado para duas casas antes da consulta, porque vem de uma
-    divisão e precisa cair numa linha da tabela.
+    `p` is rounded to two decimal places before the lookup, because it comes
+    from a division and needs to land on a row of the table.
     """
     hundredths = int(p.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) * 100)
     if hundredths >= 50:
