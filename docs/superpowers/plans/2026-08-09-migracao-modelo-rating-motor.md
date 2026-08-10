@@ -748,7 +748,7 @@ Expected: FAIL com `ImportError: cannot import name 'initial_rating'`
 
 - [ ] **Step 3: Implementar**
 
-Acrescentar ao fim de `calculator/fide/rules.py` (e o import de `Sequence` e de `dp_for_score_ratio` no topo):
+Acrescentar ao fim de `calculator/fide/rules.py`, com o import de `dp_for_score_ratio` no topo:
 
 ```python
 def initial_rating(opponents_sum: int, opponents_count: int, points: Decimal) -> int | None:
