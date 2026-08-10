@@ -226,3 +226,6 @@ CLAUDE.md
 
 # gstack local state (tool scratch, not project code)
 .gstack/
+
+# PDFs gerados a partir dos .md — regeráveis, não versionados
+docs/**/*.pdf
