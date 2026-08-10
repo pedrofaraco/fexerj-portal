@@ -10,7 +10,7 @@ class TestPdForDiff:
     @pytest.mark.parametrize("diff,expected", [
         (0, "0.50"), (3, "0.50"),        # lower boundary of the first range
         (4, "0.51"), (10, "0.51"),
-        (91, "0.62"), (92, "0.63"),      # boundary a `<` instead of `<=` would get wrong
+        (91, "0.62"), (92, "0.63"),      # boundary where `<` instead of `<=` would yield wrong range
         (391, "0.91"), (392, "0.92"), (411, "0.92"),
         (412, "0.93"),                   # unreachable in FEXERJ given the 400 cap
         (735, "0.99"), (736, "1.00"),
@@ -24,7 +24,7 @@ class TestPdForDiff:
     def test_lower_rated_side(self, diff, expected):
         assert pd_for_diff(diff) == Decimal(expected)
 
-    @pytest.mark.parametrize("magnitude", [0, 1, 46, 91, 92, 200, 367, 400])
+    @pytest.mark.parametrize("magnitude", range(0, 401))
     def test_two_sides_sum_to_one(self, magnitude):
         assert pd_for_diff(magnitude) + pd_for_diff(-magnitude) == Decimal("1.00")
 
@@ -52,5 +52,5 @@ class TestDpForScoreRatio:
         assert dp_for_score_ratio(p) == -dp_for_score_ratio(1 - p)
 
     def test_rounds_to_two_decimals(self):
-        """p comes from a division and needs to land on a row of the table."""
-        assert dp_for_score_ratio(Decimal("0.7499")) == dp_for_score_ratio(Decimal("0.75"))
+        """Verifies rounding mode: ROUND_HALF_UP rounds 0.745 to 0.75 (discriminates from ROUND_HALF_EVEN)."""
+        assert dp_for_score_ratio(Decimal("0.745")) == 193

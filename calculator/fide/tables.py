@@ -54,7 +54,8 @@ def dp_for_score_ratio(p: Decimal) -> int:
     """dp from table 8.1.1 for the score percentage `p`.
 
     `p` is rounded to two decimal places before the lookup, because it comes
-    from a division and needs to land on a row of the table.
+    from a division and needs to land on a row of the table. `p` must be
+    in the range [0, 1].
     """
     hundredths = int(p.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) * 100)
     if hundredths >= 50:
