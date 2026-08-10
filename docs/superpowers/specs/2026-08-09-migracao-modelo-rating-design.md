@@ -253,6 +253,13 @@ aqui para a federação confirmar quando quiser.
   e 1199 na lista de origem entra como não-rated com a contagem preservada (§2.2). A
   alternativa seria começar rated abaixo do piso e ser expulso no primeiro período, o
   que produziria uma lista inicial que o próprio modelo considera inválida.
+- **O K=40 de sub-18 tem precedência sobre o K=10 permanente.** A tabela da §5 lista o
+  sub-18 acima do "já atingiu 2200", e a implementação segue essa ordem. A colisão é
+  real, não hipotética: um jogador que atingiu 2200 e caiu abaixo de 2100 antes do fim
+  do ano em que completa 18 recebe K=40, não o K=10 dito permanente. Passado esse ano,
+  o K=10 volta. É a mesma estrutura da FIDE 8.3.3, onde o corte etário também vem por
+  último e prevalece. Fica registrado por ser raro o bastante para ninguém notar até
+  acontecer.
 - **O ano do período é o do `EndDate` mais recente entre os torneios do período.** A
   regra de sub-18 da §5 é "até o fim do ano em que completa 18 anos", o que exige saber
   a que ano o período pertence. O `EndDate` é hoje opcional no validador e **passa a ser
