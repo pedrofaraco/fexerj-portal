@@ -1611,7 +1611,7 @@ O coração do modelo. Todas as partidas do período contra o rating do início 
 - Produces:
   - `GameResult(game: Game, opponent_rating: int, capped_diff: int, pd: Decimal, delta: Decimal, k: int)`
   - `PeriodResult(player_id, modality, initial_rating, games_counted, sum_delta, variation, rounded_variation, final_rating, path, game_results)`
-  - `compute_rated_period(player_id, modality, state, games, opponent_ratings, period_year, birth_year, internal_by_tournament) -> PeriodResult`
+  - `compute_rated_period(player_id, modality, state, games, opponent_ratings, period_year, birth_year, path) -> PeriodResult`
 
 - [ ] **Step 1: Escrever o teste**
 
