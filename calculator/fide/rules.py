@@ -4,6 +4,7 @@ All numbers come from the table in §2 of the spec, which translates FEXERJ's
 Art. 68 onto the FIDE text. Pure functions: none of them reads a file or
 holds state.
 """
+import re
 from decimal import ROUND_HALF_UP, Decimal
 
 # §2 — parameters with the FEXERJ adaptation
@@ -40,3 +41,74 @@ def round_half_away_from_zero(value: Decimal) -> int:
 def applies_rating_floor(rating: int) -> bool:
     """True when the rating falls below the floor and the player becomes unrated (§7)."""
     return rating < RATING_FLOOR
+
+
+_BIRTH_YEAR_RE = re.compile(r"(?:^|\D)(\d{4})(?:\D|$)")
+
+
+def parse_birth_year(birthday: str) -> int | None:
+    """Birth year from the `Birthday` column.
+
+    Accepts `DD/MM/YYYY` and `YYYY-MM-DD`, the two formats found in the
+    federation's files. Returns `None` when no recognizable year is present —
+    it is the validation that rejects an empty field (§5.3), not this function.
+    """
+    if not birthday:
+        return None
+    match = _BIRTH_YEAR_RE.search(birthday.strip())
+    return int(match.group(1)) if match else None
+
+
+def is_under_18_at_year_end(birth_year: int, period_year: int) -> bool:
+    """True until the end of the year the player turns 18 (§5)."""
+    return period_year <= birth_year + 18
+
+
+def base_k(
+    rating: int | None,
+    games: int,
+    reached_2200: bool,
+    birth_year: int | None,
+    period_year: int,
+) -> int:
+    """K factor from §5, before the internal-tournament halving and the 700 cap.
+
+    The order follows the §5 table top to bottom. The first two conditions
+    never collide with `reached_2200`: the initial rating is capped at 2000
+    (§6.2), so no one reaches 2200 with fewer than 30 games, and the 2100 cap
+    takes the under-18 player out of that range.
+    """
+    if games < NEW_PLAYER_GAMES:
+        return 40
+    if (
+        birth_year is not None
+        and rating is not None
+        and rating < U18_RATING_CAP
+        and is_under_18_at_year_end(birth_year, period_year)
+    ):
+        return 40
+    if reached_2200:
+        return 10
+    return 20
+
+
+def halve_for_internal(k: int) -> int:
+    """Art. 68 §2: in an internal tournament, K is halved (40->20, 20->10, 10->5)."""
+    return k // 2
+
+
+def cap_k_by_games(k: int, games: int) -> int:
+    """§5.1 cap: if `games * k > 700`, K becomes the largest integer with `k * games <= 700`.
+
+    Applied last, after any reduction from Art. 68 §2.
+
+    **Open point with FEXERJ** (spec §5.1): the cap is defined over a single
+    K, but the internal-tournament exception makes K vary within the period.
+    The proposal on record, implemented here, is to apply it per tournament,
+    using that tournament's K and game count. If the federation decides
+    otherwise, this function and its call site in `cycle.py` are the only
+    places that need to change.
+    """
+    if games <= 0 or k * games <= K_GAMES_PRODUCT_CAP:
+        return k
+    return K_GAMES_PRODUCT_CAP // games
