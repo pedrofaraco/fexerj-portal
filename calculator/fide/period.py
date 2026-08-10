@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from . import rules
-from .model import Game, ModalityState
+from .model import Game, ModalityState, PlayerState
 from .tables import pd_for_diff
 
 
@@ -132,3 +132,95 @@ def _k_by_tournament(games: list[Game], period_k: int) -> dict[int, int]:
         k = rules.halve_for_internal(period_k) if internal[ord_] else period_k
         effective[ord_] = rules.cap_k_by_games(k, count)
     return effective
+
+
+def transposed_state(player: PlayerState, modality: str) -> ModalityState | None:
+    """Entry state for a cross-modality transposition (§1.1), or `None` when it doesn't apply.
+
+    A player who has no rating in `modality` but does have one in STD enters
+    that modality with the STD rating, and is treated as rated there —
+    including for their opponents, since computing the opponents is part of
+    that modality's own period calculation.
+
+    K comes out of the new modality's own game count, which is zero here, so
+    it resolves to 40 (§5). Game counts and the `reached_2200` flag are
+    independent per modality and never carry over from STD.
+    """
+    if modality == "STD":
+        return None
+    if player.modalities[modality].is_rated:
+        return None
+    std = player.modalities["STD"]
+    if not std.is_rated:
+        return None
+    return ModalityState(rating=std.rating, games=0, reached_2200=False)
+
+
+def compute_unrated_period(
+    player_id: int,
+    modality: str,
+    state: ModalityState,
+    games: list[Game],
+    opponent_ratings: dict[int, int],
+) -> PeriodResult:
+    """Closes the period for a player without a rating in `modality` (§6).
+
+    Games against rated opponents accumulate across periods until the total
+    reaches five, at which point the initial rating is computed from the
+    full accumulated history. Zeroing the very first event discards that
+    event's result instead of counting it (§6.1 / 8.2.1); a zero score in a
+    later event is counted normally.
+    """
+    counted = [g for g in games if g.opponent_id in opponent_ratings]
+    points = sum((g.score for g in counted), Decimal("0"))
+
+    is_first_event = state.games == 0
+    if is_first_event and counted and points == 0:
+        # §6.1 / 8.2.1: the result is discarded — the accumulator does not advance.
+        return PeriodResult(
+            player_id=player_id,
+            modality=modality,
+            initial_rating=None,
+            games_counted=0,
+            sum_delta=Decimal("0"),
+            variation=Decimal("0"),
+            rounded_variation=0,
+            final_rating=None,
+            path="FIRST_EVENT_ZEROED",
+            accumulated_sum_opponents=state.sum_opponents,
+            accumulated_points=state.points,
+        )
+
+    total_games = state.games + len(counted)
+    total_points = state.points + points
+    total_sum_opponents = state.sum_opponents + sum(opponent_ratings[g.opponent_id] for g in counted)
+
+    if total_games < rules.MIN_GAMES_FOR_FIRST_RATING:
+        return PeriodResult(
+            player_id=player_id,
+            modality=modality,
+            initial_rating=None,
+            games_counted=len(counted),
+            sum_delta=Decimal("0"),
+            variation=Decimal("0"),
+            rounded_variation=0,
+            final_rating=None,
+            path="ACCUMULATING",
+            accumulated_sum_opponents=total_sum_opponents,
+            accumulated_points=total_points,
+        )
+
+    ru = rules.initial_rating(total_sum_opponents, total_games, total_points)
+    return PeriodResult(
+        player_id=player_id,
+        modality=modality,
+        initial_rating=None,
+        games_counted=len(counted),
+        sum_delta=Decimal("0"),
+        variation=Decimal("0"),
+        rounded_variation=0,
+        final_rating=ru,
+        path="INITIAL_RATING" if ru is not None else "BELOW_FLOOR",
+        accumulated_sum_opponents=total_sum_opponents,
+        accumulated_points=total_points,
+    )
