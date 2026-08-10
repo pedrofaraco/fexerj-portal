@@ -7,6 +7,8 @@ holds state.
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
+from .tables import dp_for_score_ratio
+
 # §2 — parameters with the FEXERJ adaptation
 RATING_FLOOR = 1200                 # below this, the player becomes unrated (§7)
 FICTITIOUS_OPPONENT_RATING = 1600   # fictitious opponents for the initial rating (§6.2)
@@ -114,3 +116,23 @@ def cap_k_by_games(k: int, games: int) -> int:
     if games <= 0 or k * games <= K_GAMES_PRODUCT_CAP:
         return k
     return K_GAMES_PRODUCT_CAP // games
+
+
+def initial_rating(opponents_sum: int, opponents_count: int, points: Decimal) -> int | None:
+    """Initial rating from §6.2, or `None` when it falls below the 1200 floor.
+
+    `opponents_sum` and `opponents_count` describe the **rated** opponents
+    faced, and `points` the points scored against them. The two fictitious
+    1600 opponents, treated as draws, enter both the average and the score
+    percentage.
+
+    Takes a sum and a count rather than a list because that is how the §6.1
+    accumulator is kept between periods, and rebuilding a list from the
+    average would lose the division remainder.
+    """
+    total_games = opponents_count + 2
+    ra = (Decimal(opponents_sum) + 2 * FICTITIOUS_OPPONENT_RATING) / total_games
+    p = (points + 1) / total_games
+    ru = round_half_away_from_zero(ra + dp_for_score_ratio(p))
+    ru = min(ru, INITIAL_RATING_CAP)
+    return None if applies_rating_floor(ru) else ru
