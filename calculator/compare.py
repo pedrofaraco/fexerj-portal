@@ -1,0 +1,104 @@
+"""Runs both rating engines over the same input and produces a comparison.
+
+Depends on both engines; neither of them depends on this module.
+
+Mode restrictions, checked by the validator before this module runs: the
+players.csv must be in the 12-column format, because the current engine only
+reads that layout, and every tournament in the period must be STD, because
+the current engine has no concept of time control.
+"""
+import csv
+import io
+
+from .classes import FexerjRatingCycle
+from .fide import audit
+from .fide.cycle import FideRatingCycle
+from .fide.model import PlayerState
+from .fide.ratinglist import write_rating_list
+
+_DELIMITER = ";"
+_LEGACY_TOURNAMENT_COLUMNS = 7
+
+COMPARISON_PREAMBLE = "# fide_comparison_v1"
+COMPARISON_HEADER = "PlayerId;PlayerName;RatingAtual;RatingFide;Difference"
+
+
+def run_comparison(
+    tournaments_csv: str,
+    first: int,
+    count: int,
+    players_csv: str,
+    binary_files: dict[str, bytes],
+) -> dict[str, str]:
+    """Returns the outputs of both engines plus `Comparison.csv`."""
+    legacy_output = FexerjRatingCycle(
+        tournaments_csv=_strip_modality_column(tournaments_csv),
+        first_item=first,
+        items_to_process=count,
+        initial_rating_csv=players_csv,
+        binary_files=binary_files,
+    ).run_cycle()
+
+    # A single `run_period` call: calling both `run_cycle` and `run_period`
+    # would recompute the whole period twice, opening room for the two
+    # outputs to diverge from each other.
+    outcome = FideRatingCycle(
+        tournaments_csv=tournaments_csv,
+        first_item=first,
+        items_to_process=count,
+        initial_rating_csv=players_csv,
+        binary_files=binary_files,
+    ).run_period()
+
+    output = dict(legacy_output)
+    output["RatingList.csv"] = write_rating_list(outcome.players)
+    output["Audit_Games.csv"] = audit.write_games_audit(outcome)
+    output["Audit_Period.csv"] = audit.write_period_audit(outcome)
+    output["Comparison.csv"] = _write_comparison(_legacy_final_ratings(legacy_output), outcome.players)
+    return output
+
+
+def _strip_modality_column(tournaments_csv: str) -> str:
+    """Drops the TimeControl column: the current engine reads tournaments.csv by position."""
+    reader = csv.reader(io.StringIO(tournaments_csv.lstrip("﻿")), delimiter=_DELIMITER)
+    buf = io.StringIO()
+    for row in reader:
+        if not any(cell.strip() for cell in row):
+            continue
+        print(_DELIMITER.join(row[:_LEGACY_TOURNAMENT_COLUMNS]), file=buf)
+    return buf.getvalue()
+
+
+def _legacy_final_ratings(legacy_output: dict[str, str]) -> dict[int, int]:
+    """The current engine's final rating per player: the last RatingList_after_<N> of the cycle."""
+    names = sorted(
+        (name for name in legacy_output if name.startswith("RatingList_after_")),
+        key=lambda name: int(name.removeprefix("RatingList_after_").removesuffix(".csv")),
+    )
+    if not names:
+        return {}
+    reader = csv.reader(io.StringIO(legacy_output[names[-1]]), delimiter=_DELIMITER)
+    next(reader, None)  # skip header
+    return {
+        int(row[0]): int(row[4])
+        for row in reader
+        if any(cell.strip() for cell in row)
+    }
+
+
+def _write_comparison(legacy_ratings: dict[int, int], fide_players: dict[int, PlayerState]) -> str:
+    buf = io.StringIO()
+    print(COMPARISON_PREAMBLE, file=buf)
+    print(COMPARISON_HEADER, file=buf)
+    for player_id, player in fide_players.items():
+        legacy = legacy_ratings.get(player_id)
+        fide = player.modalities["STD"].rating
+        difference = "" if legacy is None or fide is None else str(fide - legacy)
+        print(_DELIMITER.join([
+            str(player_id),
+            player.name,
+            "" if legacy is None else str(legacy),
+            "" if fide is None else str(fide),
+            difference,
+        ]), file=buf)
+    return buf.getvalue()
