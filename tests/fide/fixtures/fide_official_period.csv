@@ -1,0 +1,29 @@
+# Official FIDE individual calculations, Standard list of August 2026.
+# One player, two tournaments twelve days apart, thirteen games in the period.
+# Source: ratings.fide.com individual calculations page.
+#
+# Opponent ratings are recorded as FIDE displays them, already capped at a
+# 400-point difference: the page marks those rows with an asterisk and the note
+# "Rating difference of more than 400". This is the evidence behind section 3
+# step 1 of the spec.
+#
+# The player is anonymous here on purpose: only ratings and results matter.
+#
+# initial_rating = 2373
+# k = 10
+# published_period_change = 19.60
+# published_tournament_changes = 11.40, 8.20
+opponent_rating;score;expected_delta
+1973;1;0.08
+1973;1;0.08
+1973;1;0.08
+2006;1;0.10
+2519;0.5;0.20
+2327;1;0.44
+2087;1;0.16
+1973;1;0.08
+1973;1;0.08
+2034;1;0.12
+2047;1;0.13
+2251;1;0.33
+1973;1;0.08

@@ -1882,28 +1882,24 @@ git commit -m "feat(fide): cálculo do período para jogador rated"
 
 ---
 
-## Task 10: Âncora de correção — a consulta oficial da FIDE
+## Task 10: Conferência ponta a ponta contra números publicados pela FIDE
 
-**Bloqueada até Pedro fornecer as 13 partidas.** A §10 da spec registra o total (19,60) e três partidas de amostra; a fixture precisa das treze.
+A fixture **já existe** em `tests/fide/fixtures/fide_official_period.csv`, com as 13 partidas transcritas da página de cálculos individuais da FIDE (lista Clássico de agosto de 2026, um jogador, dois torneios). Esta task escreve o teste que a consome.
+
+O valor dela não é provar que o modelo está certo — as três partidas que a §10 da spec documenta já estão testadas na Task 2. É provar que a **aritmética do período** reproduz números que a FIDE publicou: somar os ΔR, multiplicar pelo K e arredondar **uma vez só**, conforme o 8.3.4.
 
 **Files:**
-- Create: `tests/fide/fixtures/fide_official_period.csv`
 - Test: `tests/fide/test_fide_official_anchor.py`
 
 **Interfaces:**
 - Consumes: `compute_rated_period` da Task 9
 - Produces: nada. É a prova de correção que não depende da nossa leitura da spec.
 
-- [ ] **Step 1: Montar a fixture com as 13 partidas**
+- [ ] **Step 1: Ler a fixture já existente**
 
-Formato do arquivo, uma partida por linha, com o rating do adversário **já limitado** como a FIDE exibe:
+`tests/fide/fixtures/fide_official_period.csv` traz, em comentários `#`, `initial_rating = 2373`, `k = 10`, `published_period_change = 19.60` e `published_tournament_changes = 11.40, 8.20`; depois o cabeçalho `opponent_rating;score;expected_delta` e as 13 linhas.
 
-```
-opponent_rating;score;expected_delta
-1500;1;0.08
-```
-
-Preencher com as treze partidas da consulta. As três documentadas na §10 servem de conferência: `D = 400 → ΔR 0,08`, `D = 367 → ΔR 0,10`, `D = 46 → ΔR 0,44`. Anotar no topo do arquivo, como comentário `#`, o rating inicial do jogador no período e o K aplicado.
+Os ratings de adversário estão como a FIDE exibe — **já limitados** a 400 de diferença. Não aplique o teto de novo em cima deles ao montar o teste; passe-os direto como rating do adversário e deixe `capped_diff` fazer o trabalho, que nesses casos é inócuo.
 
 - [ ] **Step 2: Escrever o teste**
 
@@ -1927,26 +1923,23 @@ EXPECTED_TOTAL_VARIATION = Decimal("19.60")
 
 
 def _load():
-    """Devolve (rating_inicial, k, [(rating_adversario, placar, delta_esperado)])."""
-    initial_rating = None
-    k = None
+    """Return (initial_rating, k, [(opponent_rating, score, expected_delta), ...])."""
+    meta: dict[str, str] = {}
     rows = []
     for line in FIXTURE.read_text(encoding='utf-8').splitlines():
         line = line.strip()
         if not line:
             continue
         if line.startswith('#'):
-            if 'rating_inicial' in line:
-                initial_rating = int(line.split('=')[1].strip())
-            elif line.split('=')[0].strip().endswith('k'):
-                k = int(line.split('=')[1].strip())
+            if '=' in line:
+                key, _, value = line.lstrip('# ').partition('=')
+                meta[key.strip()] = value.strip()
             continue
         if line.startswith('opponent_rating'):
             continue
         opponent, score, delta = line.split(';')
         rows.append((int(opponent), Decimal(score), Decimal(delta)))
-    assert initial_rating is not None and k is not None, "fixture sem rating_inicial ou k"
-    return initial_rating, k, rows
+    return int(meta['initial_rating']), int(meta['k']), rows
 
 
 def test_fixture_has_the_thirteen_games():
