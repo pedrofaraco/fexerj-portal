@@ -2064,7 +2064,7 @@ class TestUnratedPeriod:
             opponent_ratings={2: 1600, 3: 1600},
         )
         assert result.final_rating is None
-        assert result.path == "ACUMULANDO"
+        assert result.path == "ACCUMULATING"
         assert result.games_counted == 2
 
     def test_accumulator_advances_so_the_next_period_can_reach_five(self):
@@ -2097,7 +2097,7 @@ class TestUnratedPeriod:
             opponent_ratings={i: 1600 for i in range(2, 7)},
         )
         assert result.final_rating == 1600
-        assert result.path == "RATING_INICIAL"
+        assert result.path == "INITIAL_RATING"
 
     def test_accumulated_history_counts_toward_the_five(self):
         state = ModalityState(games=3, sum_opponents=4800, points=Decimal("1.5"))
@@ -2119,7 +2119,7 @@ class TestUnratedPeriod:
             opponent_ratings={i: 1600 for i in range(2, 8)},
         )
         assert result.final_rating is None
-        assert result.path == "PRIMEIRO_EVENTO_ZERADO"
+        assert result.path == "FIRST_EVENT_ZEROED"
         assert result.games_counted == 0
 
     def test_a_zeroed_later_event_is_not_discarded(self):
@@ -2130,7 +2130,7 @@ class TestUnratedPeriod:
             games=games,
             opponent_ratings={i: 1600 for i in range(2, 8)},
         )
-        assert result.path == "RATING_INICIAL"
+        assert result.path == "INITIAL_RATING"
 
     def test_below_the_floor_stays_unrated(self):
         state = ModalityState()
@@ -2141,7 +2141,7 @@ class TestUnratedPeriod:
             opponent_ratings={i: 1000 for i in range(2, 7)},
         )
         assert result.final_rating is None
-        assert result.path == "ABAIXO_DO_PISO"
+        assert result.path == "BELOW_FLOOR"
 ```
 
 - [ ] **Step 2: Rodar e confirmar que falha**
@@ -2196,7 +2196,7 @@ def compute_unrated_period(
         return PeriodResult(
             player_id=player_id, modality=modality, initial_rating=None,
             games_counted=0, sum_delta=Decimal("0"), variation=Decimal("0"),
-            rounded_variation=0, final_rating=None, path="PRIMEIRO_EVENTO_ZERADO",
+            rounded_variation=0, final_rating=None, path="FIRST_EVENT_ZEROED",
             accumulated_sum_opponents=state.sum_opponents,
             accumulated_points=state.points,
         )
@@ -2211,7 +2211,7 @@ def compute_unrated_period(
         return PeriodResult(
             player_id=player_id, modality=modality, initial_rating=None,
             games_counted=len(counted), sum_delta=Decimal("0"), variation=Decimal("0"),
-            rounded_variation=0, final_rating=None, path="ACUMULANDO",
+            rounded_variation=0, final_rating=None, path="ACCUMULATING",
             accumulated_sum_opponents=total_sum_opponents,
             accumulated_points=total_points,
         )
@@ -2221,7 +2221,7 @@ def compute_unrated_period(
         player_id=player_id, modality=modality, initial_rating=None,
         games_counted=len(counted), sum_delta=Decimal("0"), variation=Decimal("0"),
         rounded_variation=0, final_rating=ru,
-        path="RATING_INICIAL" if ru is not None else "ABAIXO_DO_PISO",
+        path="INITIAL_RATING" if ru is not None else "BELOW_FLOOR",
         accumulated_sum_opponents=total_sum_opponents,
         accumulated_points=total_points,
     )
@@ -2395,7 +2395,7 @@ from .tournaments import TournamentRow, collect_games, period_year, read_tournam
 
 # Caminhos em que o jogador termina o período ainda sem rating publicado e o
 # acumulado da §6.1 precisa sobreviver para o período seguinte.
-_STILL_UNRATED_PATHS = frozenset({"ACUMULANDO", "PRIMEIRO_EVENTO_ZERADO"})
+_STILL_UNRATED_PATHS = frozenset({"ACCUMULATING", "FIRST_EVENT_ZEROED"})
 
 
 @dataclass
@@ -2511,7 +2511,7 @@ def _opponent_ratings_by_modality(
 
 
 def _path_for(player: PlayerState, modality: str) -> str:
-    return "TRANSPOSTO" if not player.modalities[modality].is_rated else "RATED"
+    return "TRANSPOSED" if not player.modalities[modality].is_rated else "RATED"
 
 
 def _apply_results(
