@@ -129,6 +129,20 @@ class TestCompareModeRestrictions:
         assert not any("comparar" in e.lower() for e in errors)
 
 
+class TestDuplicateOrd:
+    def test_rejected_in_fide_mode_too(self):
+        """The per-game engine pools every game under its tournament's Ord, so
+        two rows sharing one become a single tournament — with §6.1's
+        first-tournament discard reading the merged result."""
+        duplicated = (
+            TOURNAMENTS_HEADER + "\n"
+            "1;99999;Torneio Um;2026-03-15;RR;0;1;STD\n"
+            "1;88888;Torneio Dois;2026-04-20;RR;0;1;STD\n"
+        )
+        errors = _errors(_FIDE_PLAYERS, duplicated, "fide")
+        assert any("Ord duplicado" in e for e in errors)
+
+
 class TestTournamentsColumnReductionIsCsvAware:
     # _validate_tournaments_for_mode reduces the 8-column fide/compare rows
     # to 7 columns to reuse the legacy row checks. That reduction must

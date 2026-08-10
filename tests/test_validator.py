@@ -251,6 +251,19 @@ class TestTournamentsCSVValidation:
         errors = _validate(tournaments=bad)
         assert any("esperadas 7 colunas" in e for e in errors)
 
+    def test_duplicate_ord_returns_error(self):
+        """Two tournaments sharing an Ord are silently merged downstream: the
+        current engine overwrites RatingList_after_<Ord>.csv, and the per-game
+        engine pools both under one tournament, which changes §6.1's
+        first-tournament discard. Nothing further down can tell them apart."""
+        bad = textwrap.dedent("""\
+            Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
+            1;99999;T1;2025-01-01;RR;0;1
+            1;88888;T2;2025-02-01;RR;0;1
+        """)
+        errors = _validate(tournaments=bad)
+        assert any("Ord duplicado" in e for e in errors)
+
     def test_blank_row_between_data_rows_is_skipped(self):
         csv = textwrap.dedent("""\
             Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj

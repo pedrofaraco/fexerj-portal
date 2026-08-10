@@ -429,6 +429,8 @@ def _validate_tournaments_csv(content: str) -> list[str]:
     reader = csv.reader(io.StringIO(content), delimiter=";")
     next(reader)  # skip header
 
+    ord_seen: dict[str, int] = {}
+
     for row_num, row in enumerate(reader, start=2):
         if not any(cell.strip() for cell in row):
             continue  # skip blank rows
@@ -470,6 +472,19 @@ def _validate_tournaments_csv(content: str) -> list[str]:
 
         if is_fex and is_fex not in {"0", "1"}:
             errors.append(f"tournaments.csv linha {row_num}: IsFexerj deve ser 0 ou 1")
+
+        # Uniqueness: Ord identifies the tournament everywhere downstream — it
+        # names the binary file, the current engine's output file, and the
+        # per-game engine's game grouping. Two rows sharing it merge into one
+        # tournament with no warning anywhere after this point.
+        if id_:
+            if id_ in ord_seen:
+                errors.append(
+                    f"tournaments.csv: Ord duplicado: {id_} "
+                    f"(linhas {ord_seen[id_]} e {row_num})"
+                )
+            else:
+                ord_seen[id_] = row_num
 
     return errors
 
