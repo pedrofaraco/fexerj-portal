@@ -16,6 +16,7 @@ export function buildCycleFormData(form) {
   for (const file of form.binaryFiles) body.append('binary_files', file)
   body.append('first', form.first)
   body.append('count', form.count)
+  body.append('mode', form.mode ?? 'legacy')
   return body
 }
 

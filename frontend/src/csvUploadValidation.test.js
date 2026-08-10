@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  FIDE_PLAYERS_HEADER,
+  FIDE_TOURNAMENTS_HEADER,
   PLAYERS_HEADER,
   TOURNAMENTS_HEADER,
   decodeCsvUpload,
@@ -173,6 +175,85 @@ describe('validateTournamentsCsv', () => {
   it('rejects invalid CrId', () => {
     const errors = validateTournamentsCsv(tournamentsCsv('1;abc;Copa;;RR;0;1'))
     expect(errors.some(e => errorMessage(e).includes('CrId deve ser um número inteiro'))).toBe(true)
+  })
+})
+
+// The per-game model's file formats. Without these, the browser-side check
+// rejects the very files the FIDE and compare modes require, the "Executar"
+// button never enables, and the server never gets to say anything.
+describe('the per-game model formats, by mode', () => {
+  const FIDE_TOURNAMENT_ROW = '1;99999;Copa;2026-03-15;RR;0;1;STD'
+
+  function fideTournamentsCsv(...rows) {
+    return [FIDE_TOURNAMENTS_HEADER, ...rows].join('\n')
+  }
+
+  function fidePlayersCsv(...rows) {
+    return [FIDE_PLAYERS_HEADER, ...rows].join('\n')
+  }
+
+  const FIDE_PLAYER_ROW =
+    '3741;;;Carlos Mendes;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;'
+
+  describe('tournaments.csv', () => {
+    it('accepts the TimeControl header in fide mode', () => {
+      expect(validateTournamentsCsv(fideTournamentsCsv(FIDE_TOURNAMENT_ROW), 'fide')).toEqual([])
+    })
+
+    it('accepts it in compare mode too', () => {
+      expect(validateTournamentsCsv(fideTournamentsCsv(FIDE_TOURNAMENT_ROW), 'compare')).toEqual([])
+    })
+
+    it('still rejects it in the current model, which reads seven columns', () => {
+      const errors = validateTournamentsCsv(fideTournamentsCsv(FIDE_TOURNAMENT_ROW), 'legacy')
+      expect(errorMessage(errors[0])).toMatch(/cabeçalho inválido/)
+    })
+
+    it('rejects the seven-column header in fide mode, naming the missing column', () => {
+      const errors = validateTournamentsCsv(tournamentsCsv('1;99999;Copa;2026-03-15;RR;0;1'), 'fide')
+      expect(errorMessage(errors[0])).toMatch(/TimeControl/)
+    })
+
+    it('keeps checking the columns the two formats share', () => {
+      const errors = validateTournamentsCsv(fideTournamentsCsv('1;99999;Copa;2026-03-15;XX;2;1;STD'), 'fide')
+      expect(errors.some(e => errorMessage(e).includes("Type 'XX' inválido"))).toBe(true)
+      expect(errors.some(e => errorMessage(e).includes('IsIrt deve ser 0 ou 1'))).toBe(true)
+    })
+
+    it('rejects an unknown TimeControl', () => {
+      const errors = validateTournamentsCsv(fideTournamentsCsv('1;99999;Copa;2026-03-15;RR;0;1;RAPIDO'), 'fide')
+      expect(errors.some(e => errorMessage(e).includes("TimeControl 'RAPIDO' inválido"))).toBe(true)
+    })
+
+    it('rejects a row with the wrong column count', () => {
+      const errors = validateTournamentsCsv(fideTournamentsCsv('1;99999;Copa;2026-03-15;RR;0;1'), 'fide')
+      expect(errorMessage(errors[0])).toMatch(/esperadas 8 colunas/)
+    })
+  })
+
+  describe('players.csv', () => {
+    it('accepts the 29-column format in fide mode', () => {
+      expect(validatePlayersCsv(fidePlayersCsv(FIDE_PLAYER_ROW), 'fide')).toEqual([])
+    })
+
+    it('still accepts the 12-column format in fide mode', () => {
+      expect(validatePlayersCsv(playersCsv(VALID_PLAYER_ROW), 'fide')).toEqual([])
+    })
+
+    it('rejects the 29-column format in the current model', () => {
+      const errors = validatePlayersCsv(fidePlayersCsv(FIDE_PLAYER_ROW), 'legacy')
+      expect(errorMessage(errors[0])).toMatch(/cabeçalho inválido/)
+    })
+
+    it('checks the column count of a 29-column row', () => {
+      const errors = validatePlayersCsv(fidePlayersCsv('3741;;;Carlos Mendes;CLUB A'), 'fide')
+      expect(errorMessage(errors[0])).toMatch(/esperadas 29 colunas/)
+    })
+
+    it('catches a duplicate id in the 29-column format', () => {
+      const errors = validatePlayersCsv(fidePlayersCsv(FIDE_PLAYER_ROW, FIDE_PLAYER_ROW), 'fide')
+      expect(errors.some(e => errorMessage(e).includes('Id_No duplicado'))).toBe(true)
+    })
   })
 })
 

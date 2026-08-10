@@ -62,6 +62,22 @@ export default function RunPage({
         <HelpSection />
 
         <form onSubmit={onRun} className="flex flex-col gap-6">
+          {/* Before the uploads: the mode decides which validation rules apply to them. */}
+          <Field
+            label="Modelo de cálculo"
+            hint="O modelo atual é o oficial. Os demais são para avaliação."
+          >
+            <select
+              value={form.mode}
+              onChange={e => setForm(f => ({ ...f, mode: e.target.value }))}
+              className="input"
+            >
+              <option value="legacy">Modelo atual (oficial)</option>
+              <option value="fide">Modelo FIDE (por partida)</option>
+              <option value="compare">Comparar os dois</option>
+            </select>
+          </Field>
+
           <Field label="Lista de Jogadores" hint="players.csv — lista de rating inicial">
             <input
               key={`players-${formResetKey}`}
@@ -133,6 +149,14 @@ export default function RunPage({
               />
             </Field>
           </div>
+
+          {form.mode !== 'legacy' && (
+            <p className="field-hint">
+              O intervalo selecionado é o período de cálculo: todas as partidas usam o rating do
+              início do período e o rating é arredondado uma única vez, no fim. Rodar cinco
+              torneios de uma vez e rodar cinco vezes um torneio dão resultados diferentes.
+            </p>
+          )}
 
           {validationStatus === 'checking' && (
             <p className="status-muted">Validando arquivos…</p>
@@ -206,6 +230,7 @@ RunPage.propTypes = {
     binaryFiles: PropTypes.array.isRequired,
     first: PropTypes.string.isRequired,
     count: PropTypes.string.isRequired,
+    mode: PropTypes.oneOf(['legacy', 'fide', 'compare']).isRequired,
   }).isRequired,
   setForm: PropTypes.func.isRequired,
   status: PropTypes.oneOf(['idle', 'loading', 'error']).isRequired,

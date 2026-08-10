@@ -14,6 +14,9 @@ const INITIAL_FORM = {
   binaryFiles: [],
   first: '1',
   count: '1',
+  // Not remembered between sessions: a forgotten selection is the failure
+  // that matters here, since it changes which engine produces the rating.
+  mode: 'legacy',
 }
 
 export default function App() {
@@ -34,7 +37,7 @@ export default function App() {
     tournamentsCsvStatus,
     csvFilesValid,
     csvFilesChecking,
-  } = useCsvFileValidation(form.playersCsv, form.tournamentsCsv)
+  } = useCsvFileValidation(form.playersCsv, form.tournamentsCsv, form.mode)
 
   const {
     validationErrors,

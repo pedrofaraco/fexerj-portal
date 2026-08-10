@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { validatePlayersCsvFile, validateTournamentsCsvFile } from '../csvUploadValidation'
 
-export default function useCsvFileValidation(playersCsv, tournamentsCsv) {
+export default function useCsvFileValidation(playersCsv, tournamentsCsv, mode = 'legacy') {
   const [playersCsvErrors, setPlayersCsvErrors] = useState([])
   const [tournamentsCsvErrors, setTournamentsCsvErrors] = useState([])
   const [playersCsvStatus, setPlayersCsvStatus] = useState('idle') // idle | checking | done
@@ -28,7 +28,7 @@ export default function useCsvFileValidation(playersCsv, tournamentsCsv) {
       setPlayersCsvErrors([])
     })
 
-    validatePlayersCsvFile(playersCsv).then(errors => {
+    validatePlayersCsvFile(playersCsv, mode).then(errors => {
       if (cancelled) return
       setPlayersCsvErrors(errors)
       setPlayersCsvStatus('done')
@@ -37,7 +37,7 @@ export default function useCsvFileValidation(playersCsv, tournamentsCsv) {
     return () => {
       cancelled = true
     }
-  }, [playersCsv])
+  }, [playersCsv, mode])
 
   useEffect(() => {
     if (!tournamentsCsv) {
@@ -59,7 +59,7 @@ export default function useCsvFileValidation(playersCsv, tournamentsCsv) {
       setTournamentsCsvErrors([])
     })
 
-    validateTournamentsCsvFile(tournamentsCsv).then(errors => {
+    validateTournamentsCsvFile(tournamentsCsv, mode).then(errors => {
       if (cancelled) return
       setTournamentsCsvErrors(errors)
       setTournamentsCsvStatus('done')
@@ -68,7 +68,7 @@ export default function useCsvFileValidation(playersCsv, tournamentsCsv) {
     return () => {
       cancelled = true
     }
-  }, [tournamentsCsv])
+  }, [tournamentsCsv, mode])
 
   const csvFilesValid =
     (!playersCsv || (playersCsvStatus === 'done' && playersCsvErrors.length === 0)) &&
