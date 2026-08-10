@@ -714,9 +714,12 @@ def test_five_draws_against_1600_lands_on_1600():
 
 def test_fictitious_opponents_enter_the_average_and_the_score():
     """Ra e p incluem os dois adversários fictícios de 1600 empatados (§6.2)."""
-    # Ra = (5×1800 + 2×1600) / 7 = 12200/7 = 1742,857…
-    # p  = (5 + 1) / 7 = 0,857… → 0,86 na tabela → dp = 309 → 2052, limitado a 2000
-    assert initial_rating(1800 * 5, 5, Decimal("5")) == 2000
+    # Ra = (5×1700 + 2×1600) / 7 = 11700/7 = 1671,428…
+    # p  = (2,5 + 1) / 7 = 0,50 → dp = 0
+    # Uma implementação que esquecesse os dois fictícios daria 1700. O caso é
+    # escolhido longe do teto de 2000 e do piso de 1200, para que a diferença
+    # apareça em vez de ser absorvida.
+    assert initial_rating(1700 * 5, 5, Decimal("2.5")) == 1671
 
 
 def test_caps_at_2000():
@@ -736,9 +739,10 @@ def test_uses_the_table_not_the_logistic_formula():
 
 def test_uses_the_exact_sum_not_a_rounded_average():
     """O acumulado guarda a soma; reconstruir pela média perderia o resto da divisão."""
-    # soma = 1500+1501+1502+1503+1504 = 7510 ; Ra = (7510 + 3200) / 7 = 1530,0
-    # p = (2,5 + 1) / 7 = 0,50 → dp = 0
-    assert initial_rating(7510, 5, Decimal("2.5")) == 1530
+    # soma = 7514, que não é divisível por 5 — 7514 ÷ 5 = 1502,8.
+    # Ra = (7514 + 3200) / 7 = 10714/7 = 1530,571… ; p = (2,5 + 1) / 7 = 0,50 → dp = 0
+    # Reconstruir Ra a partir da média arredondada (1502 × 5 = 7510) daria 1530.
+    assert initial_rating(7514, 5, Decimal("2.5")) == 1531
 ```
 
 - [ ] **Step 2: Rodar e confirmar que falha**
