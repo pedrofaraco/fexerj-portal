@@ -123,6 +123,21 @@ Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj
 
 `first` and `count` form parameters on `/validate` and `/run` must be integers ≥ 1.
 
+`/validate` and `/run` also accept a `mode` form parameter — `legacy` (default), `fide`, or
+`compare`. Omitting it, or explicitly sending `legacy`, keeps the current behavior exactly:
+same validation rules, same engine (`calculator.FexerjRatingCycle`), same output files. `fide`
+runs the new per-game engine (`calculator.fide.FideRatingCycle`); `compare` runs both engines and
+adds a diff. See [`CALCULATOR.md`](CALCULATOR.md) for what each engine does. An unrecognized
+`mode` is rejected as a validation error, not silently treated as `legacy`.
+
+The `/run` zip's filename and contents vary by mode:
+
+| Mode      | Zip filename                    | Contents                                                              |
+|-----------|----------------------------------|-------------------------------------------------------------------------|
+| `legacy`  | `rating_cycle_output.zip`        | `RatingList_after_<Ord>.csv` and `Audit_of_Tournament_<Ord>.csv` per tournament |
+| `fide`    | `rating_cycle_fide.zip`          | `RatingList.csv`, `Audit_Games.csv`, `Audit_Period.csv`                 |
+| `compare` | `rating_cycle_comparison.zip`    | Both engines' outputs above, plus `Comparison.csv`                      |
+
 - **`422 Unprocessable Entity`** — file-level validation failures return `detail` as a list of strings (the same messages as `/validate`'s `errors`). Invalid form fields or missing files may instead return FastAPI's structured validation entries (objects with a `msg` field).
 - **`413 Payload Too Large`** — returned when `Content-Length` exceeds `PORTAL_MAX_UPLOAD_MEGABYTES`. For chunked uploads with no `Content-Length`, the reverse proxy must enforce the limit.
 

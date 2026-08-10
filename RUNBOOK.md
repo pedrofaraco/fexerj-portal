@@ -314,3 +314,7 @@ pytest -q                                     # backend + calculator — 80% cov
 ( cd frontend && npx vitest run )             # frontend unit tests
 ( cd frontend && npm run lint )               # ESLint
 ```
+
+`tests/test_legacy_engine_golden.py` is the test that pins the official engine
+(`calculator.FexerjRatingCycle`, `mode=legacy`) — it must keep passing unmodified, since it
+guards the rating values the federation publishes.

@@ -1,6 +1,16 @@
 # Calculator (`calculator/`) — how it works
 
-This note explains what the **rating calculator** does: which files it reads, what it writes, which
+There are **two rating engines** in this repository:
+
+- **Current engine** (`calculator.FexerjRatingCycle`, in `calculator/classes.py`) — the
+  per-tournament model that produces the official FEXERJ rating today. This is the **default**
+  engine (`mode=legacy`) and the one this note describes.
+- **Per-game engine** (`calculator.fide.FideRatingCycle`, in `calculator/fide/`) — the FIDE
+  Handbook B02 per-game model with the FEXERJ Art. 68 adaptations, reachable via `mode=fide` (and
+  compared against the current engine via `mode=compare`). Fully specified in
+  [`docs/modelo-rating-fide.md`](docs/modelo-rating-fide.md).
+
+This note explains what the **current engine** does: which files it reads, what it writes, which
 parts of the Swiss Manager binary file it trusts, and how it picks a rating rule.
 
 It stays close to the real code on purpose (file names, column names, and rule order match the

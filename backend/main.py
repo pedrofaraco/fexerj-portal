@@ -6,9 +6,8 @@ Exposes authenticated endpoints:
 - ``GET  /me``       — validate credentials without performing any action.
 - ``POST /validate`` — validates the input files and returns a JSON list of
   errors without running the calculation.
-- ``POST /run``      — validates inputs, runs the FEXERJ rating cycle, and
-  returns a zip archive containing one rating-list CSV and one audit CSV per
-  processed tournament.
+- ``POST /run``      — validates inputs, runs a rating cycle in the selected
+  ``mode`` (``legacy`` by default), and returns a zip archive of the results.
 """
 import asyncio
 import io
@@ -27,8 +26,10 @@ from backend.config import settings
 from backend.logging_setup import configure_logging
 from backend.request_id import request_id_middleware
 from backend.upload_text import decode_csv_upload
-from backend.validator import validate_inputs
+from backend.validator import MODE_COMPARE, MODE_FIDE, MODE_LEGACY, validate_inputs
 from calculator import FexerjRatingCycle
+from calculator.compare import run_comparison
+from calculator.fide import FideRatingCycle
 
 configure_logging(json_logs=settings.portal_json_logs)
 logger = logging.getLogger(__name__)
@@ -39,6 +40,14 @@ app = FastAPI(title="Portal FEXERJ")
 _security = HTTPBasic(auto_error=False)
 
 _UPLOAD_PATHS = frozenset({"/validate", "/run"})
+
+# Output zip filename per execution mode, so a downloaded file tells its
+# origin at a glance. Falls back to the legacy name for an unrecognized mode.
+_ZIP_NAME_BY_MODE = {
+    MODE_LEGACY: "rating_cycle_output.zip",
+    MODE_FIDE: "rating_cycle_fide.zip",
+    MODE_COMPARE: "rating_cycle_comparison.zip",
+}
 
 
 class _RunConcurrencyGuard:
@@ -194,25 +203,29 @@ async def validate(
     players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
     tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
     binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
+    mode: Annotated[str, Form(description="Execution mode: legacy | fide | compare")] = MODE_LEGACY,
     _: None = Depends(require_auth),
 ) -> dict:
     """Validate input files without running the rating cycle.
 
     Returns ``{"errors": [...]}`` where the list is empty when all inputs are
     valid.  The HTTP status is always 200 when the endpoint itself succeeds —
-    the ``errors`` list carries validation results.
+    the ``errors`` list carries validation results, including an unrecognized
+    ``mode``.
     """
     logger.info(
-        "POST /validate — first=%d count=%d files=%d",
+        "POST /validate — first=%d count=%d files=%d mode=%s",
         first,
         count,
         len(binary_files),
+        mode,
         extra={
             "event": "validate_start",
             "path": "/validate",
             "first": first,
             "count": count,
             "binary_file_count": len(binary_files),
+            "mode": mode,
         },
     )
     decode_errors, players_content, tournaments_content, binary_files_dict = await _read_uploads(
@@ -221,13 +234,38 @@ async def validate(
     if decode_errors:
         return {"errors": decode_errors}
 
-    errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
+    errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count, mode=mode)
     logger.info(
         "POST /validate — %d error(s) found",
         len(errors),
         extra={"event": "validate_done", "path": "/validate", "error_count": len(errors)},
     )
     return {"errors": errors}
+
+
+def _run_for_mode(
+    mode: str,
+    tournaments_content: str,
+    first: int,
+    count: int,
+    players_content: str,
+    binary_files: dict[str, bytes],
+) -> dict[str, str]:
+    """Dispatches to the engine for the requested mode.
+
+    ``legacy`` (the default) runs the unmodified current engine, so existing
+    portal users see no change in behavior.
+    """
+    if mode == MODE_COMPARE:
+        return run_comparison(tournaments_content, first, count, players_content, binary_files)
+    cycle_class = FideRatingCycle if mode == MODE_FIDE else FexerjRatingCycle
+    return cycle_class(
+        tournaments_csv=tournaments_content,
+        first_item=first,
+        items_to_process=count,
+        initial_rating_csv=players_content,
+        binary_files=binary_files,
+    ).run_cycle()
 
 
 @app.post("/run")
@@ -237,16 +275,20 @@ async def run(
     players_csv: UploadFile = File(..., description="Initial rating list CSV (players.csv)"),
     tournaments_csv: UploadFile = File(..., description="Tournament list CSV (tournaments.csv)"),
     binary_files: list[UploadFile] = File(..., description="Binary tournament files (.TUNX/.TURX/.TUMX)"),
+    mode: Annotated[str, Form(description="Execution mode: legacy | fide | compare")] = MODE_LEGACY,
     _: None = Depends(require_auth),
 ) -> StreamingResponse:
-    """Run a FEXERJ rating cycle and return results as a zip archive.
+    """Run a rating cycle and return results as a zip archive.
 
-    The returned zip contains ``RatingList_after_N.csv`` and
-    ``Audit_of_Tournament_N.csv`` for each processed tournament.
+    ``mode`` selects the engine and defaults to ``legacy`` (the current
+    per-tournament model), so existing callers that omit it are unaffected.
+    ``fide`` runs the new per-game model; ``compare`` runs both and adds a
+    diff. The output filenames and the zip's own name vary by mode — see
+    ``README.md``.
 
-    When input validation fails (same rules as ``POST /validate``), the response
-    is **422** with ``detail`` set to the **full list** of error strings, not
-    only the first one.
+    When input validation fails (same rules as ``POST /validate``, including
+    an unrecognized ``mode``), the response is **422** with ``detail`` set to
+    the **full list** of error strings, not only the first one.
     """
     if not await _run_busy.try_enter():
         raise HTTPException(
@@ -256,16 +298,18 @@ async def run(
         )
     try:
         logger.info(
-            "POST /run — first=%d count=%d files=%d",
+            "POST /run — first=%d count=%d files=%d mode=%s",
             first,
             count,
             len(binary_files),
+            mode,
             extra={
                 "event": "run_start",
                 "path": "/run",
                 "first": first,
                 "count": count,
                 "binary_file_count": len(binary_files),
+                "mode": mode,
             },
         )
         decode_errors, players_content, tournaments_content, binary_files_dict = await _read_uploads(
@@ -277,7 +321,7 @@ async def run(
                 detail=decode_errors,
             )
 
-        errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count)
+        errors = validate_inputs(players_content, tournaments_content, binary_files_dict, first, count, mode=mode)
         if errors:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -285,20 +329,15 @@ async def run(
             )
 
         try:
-            cycle = FexerjRatingCycle(
-                tournaments_csv=tournaments_content,
-                first_item=first,
-                items_to_process=count,
-                initial_rating_csv=players_content,
-                binary_files=binary_files_dict,
+            output_files = _run_for_mode(
+                mode, tournaments_content, first, count, players_content, binary_files_dict
             )
-            output_files = cycle.run_cycle()
         except ValueError as e:
             logger.error(
                 "Erro no ciclo de rating: %s",
                 e,
                 exc_info=True,
-                extra={"event": "rating_cycle_failed", "path": "/run"},
+                extra={"event": "rating_cycle_failed", "path": "/run", "mode": mode},
             )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -323,10 +362,11 @@ async def run(
                 zf.writestr(filename, content)
         zip_buffer.seek(0)
 
+        zip_name = _ZIP_NAME_BY_MODE.get(mode, _ZIP_NAME_BY_MODE[MODE_LEGACY])
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
-            headers={"Content-Disposition": "attachment; filename=rating_cycle_output.zip"},
+            headers={"Content-Disposition": f"attachment; filename={zip_name}"},
         )
     finally:
         await _run_busy.leave()

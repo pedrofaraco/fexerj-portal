@@ -1,10 +1,13 @@
-"""Shared pytest fixtures for the calculator package test suite."""
+"""Shared pytest fixtures for the calculator and backend test suites."""
 import pathlib
 import textwrap
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi.testclient import TestClient
 
+from backend.config import settings
+from backend.main import app
 from calculator.classes import FexerjPlayer, Tournament, TournamentPlayer
 
 BINARY_DIR = pathlib.Path(__file__).parent / 'binary'
@@ -88,3 +91,17 @@ def _make_tournament(is_irt=0, is_fexerj=1, rating_list=None, cbx_to_fexerj=None
 @pytest.fixture
 def make_tournament():
     return _make_tournament
+
+
+# ---------------------------------------------------------------------------
+# Backend API fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+
+@pytest.fixture
+def auth():
+    return (settings.portal_user, settings.portal_password)
