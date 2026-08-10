@@ -30,9 +30,9 @@ module = ["calculator.classes", "calculator.tunx_parser"]
 ignore_errors = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=backend --cov=calculator/fide --cov-branch --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=backend --cov=calculator/fide --cov=calculator.compare --cov-branch --cov-report=term-missing --cov-fail-under=80"
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["backend", "calculator/fide"]
+source = ["backend", "calculator/fide", "calculator.compare"]
 omit = ["tests/*"]

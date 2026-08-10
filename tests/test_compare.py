@@ -1,4 +1,6 @@
 """Comparison between the current model and the per-game model."""
+import csv
+import io
 import pathlib
 
 from calculator.compare import COMPARISON_HEADER, COMPARISON_PREAMBLE, run_comparison
@@ -54,8 +56,8 @@ def test_difference_is_new_minus_current():
         if not line:
             continue
         cells = dict(zip(header, line.split(';'), strict=True))
-        if cells["RatingFide"] and cells["RatingAtual"]:
-            assert int(cells["Difference"]) == int(cells["RatingFide"]) - int(cells["RatingAtual"])
+        if cells["RatingFide"] and cells["RatingCurrent"]:
+            assert int(cells["Difference"]) == int(cells["RatingFide"]) - int(cells["RatingCurrent"])
 
 
 def test_models_disagree_on_at_least_one_player():
@@ -68,3 +70,44 @@ def test_models_disagree_on_at_least_one_player():
         cells = dict(zip(header, line.split(';'), strict=True))
         diffs.append(int(cells["Difference"] or 0))
     assert any(diff != 0 for diff in diffs)
+
+
+# Two tournaments in the period, but the row for Ord 2 appears before the row for
+# Ord 1. The current engine processes tournaments.csv in file order, not sorted by
+# Ord (see `FexerjRatingCycle.run_cycle`), so it writes RatingList_after_2.csv
+# first and RatingList_after_1.csv last — the latter is the actual final state.
+_OUT_OF_ORDER_TOURNAMENTS = (
+    TOURNAMENTS_HEADER + "\n"
+    "2;99999;Torneio Dois;2026-03-22;RR;0;1;STD\n"
+    "1;99999;Torneio Um;2026-03-15;RR;0;1;STD\n"
+)
+
+
+def _run_out_of_order():
+    data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+    binaries = {"2-99999.TURX": data, "1-99999.TURX": data}
+    return run_comparison(_OUT_OF_ORDER_TOURNAMENTS, 1, 2, _PLAYERS_CSV, binaries)
+
+
+def _legacy_ratings_from(rating_list_csv):
+    reader = csv.reader(io.StringIO(rating_list_csv), delimiter=';')
+    next(reader, None)  # skip header
+    return {int(row[0]): int(row[4]) for row in reader if any(cell.strip() for cell in row)}
+
+
+def test_current_rating_is_the_last_list_the_engine_actually_wrote():
+    """Rows out of Ord order must not fool the comparison into reporting the list
+    with the highest Ord number as RatingCurrent: it must report the list the
+    engine actually wrote last."""
+    output = _run_out_of_order()
+    actual_last = _legacy_ratings_from(output["RatingList_after_1.csv"])
+    stale = _legacy_ratings_from(output["RatingList_after_2.csv"])
+    assert actual_last != stale  # otherwise this test cannot tell the two apart
+
+    header = COMPARISON_HEADER.split(';')
+    for line in output["Comparison.csv"].splitlines()[2:]:
+        if not line:
+            continue
+        cells = dict(zip(header, line.split(';'), strict=True))
+        player_id = int(cells["PlayerId"])
+        assert cells["RatingCurrent"] == str(actual_last[player_id])

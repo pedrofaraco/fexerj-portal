@@ -20,7 +20,7 @@ _DELIMITER = ";"
 _LEGACY_TOURNAMENT_COLUMNS = 7
 
 COMPARISON_PREAMBLE = "# fide_comparison_v1"
-COMPARISON_HEADER = "PlayerId;PlayerName;RatingAtual;RatingFide;Difference"
+COMPARISON_HEADER = "PlayerId;PlayerName;RatingCurrent;RatingFide;Difference"
 
 
 def run_comparison(
@@ -70,14 +70,21 @@ def _strip_modality_column(tournaments_csv: str) -> str:
 
 
 def _legacy_final_ratings(legacy_output: dict[str, str]) -> dict[int, int]:
-    """The current engine's final rating per player: the last RatingList_after_<N> of the cycle."""
-    names = sorted(
-        (name for name in legacy_output if name.startswith("RatingList_after_")),
-        key=lambda name: int(name.removeprefix("RatingList_after_").removesuffix(".csv")),
-    )
-    if not names:
+    """The current engine's final rating per player: the last RatingList_after_<N> of the cycle.
+
+    `run_cycle` processes tournaments.csv rows in file order, not sorted by `Ord`, so the
+    highest `N` is not necessarily the last one processed. `legacy_output` is a plain dict
+    built by inserting each `RatingList_after_<N>.csv` as its tournament is processed, so
+    insertion order mirrors processing order: the last matching key in iteration order is
+    the actual final rating list.
+    """
+    name = None
+    for candidate in legacy_output:
+        if candidate.startswith("RatingList_after_"):
+            name = candidate
+    if name is None:
         return {}
-    reader = csv.reader(io.StringIO(legacy_output[names[-1]]), delimiter=_DELIMITER)
+    reader = csv.reader(io.StringIO(legacy_output[name]), delimiter=_DELIMITER)
     next(reader, None)  # skip header
     return {
         int(row[0]): int(row[4])
