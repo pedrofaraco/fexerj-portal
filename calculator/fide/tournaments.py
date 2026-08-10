@@ -9,6 +9,7 @@ import io
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from ..tunx_parser import parse_tunx_from_bytes
@@ -22,6 +23,8 @@ TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj;TimeControl"
 
 _TYPE_TO_EXT = {"SS": "TUNX", "RR": "TURX", "ST": "TUMX"}
 _YEAR_RE = re.compile(r"(\d{4})")
+# Same two formats `rules.parse_birth_year` accepts for Birthday.
+_END_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y")
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,47 @@ def period_year(tournaments: list[TournamentRow]) -> int:
     if not years:
         raise ValueError("Nenhum torneio no período: não há como determinar o ano.")
     return max(years)
+
+
+def _parsed_end_date(end_date: str) -> tuple[int, int] | None:
+    """(year, month) from an `EndDate` cell, or `None` when unreadable.
+
+    Tries the same two formats `rules.parse_birth_year` accepts for
+    Birthday — `YYYY-MM-DD` and `DD/MM/YYYY`. Unlike `period_year`'s
+    `_YEAR_RE`, the month's position in the string depends on which of the
+    two formats it is, so it has to be parsed rather than pattern-matched.
+    """
+    text = end_date.strip()
+    for fmt in _END_DATE_FORMATS:
+        try:
+            parsed = datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+        return parsed.year, parsed.month
+    return None
+
+
+def period_month(tournaments: list[TournamentRow]) -> str:
+    """Period marker at month precision ("YYYY-MM"), for the §6.2 26-month
+    pooling window.
+
+    Same selection as `period_year` — the latest `EndDate` among the
+    period's tournaments — extended with the month.
+    """
+    parsed: list[tuple[int, int]] = []
+    for tournament in tournaments:
+        result = _parsed_end_date(tournament.end_date)
+        if result is None:
+            raise ValueError(
+                f"Torneio {tournament.ord}: EndDate '{tournament.end_date}' não foi reconhecida "
+                "como uma data (formatos aceitos: AAAA-MM-DD ou DD/MM/AAAA). O acúmulo de rating "
+                "inicial (janela de 26 meses, §6.2) precisa do mês do período."
+            )
+        parsed.append(result)
+    if not parsed:
+        raise ValueError("Nenhum torneio no período: não há como determinar o mês.")
+    year, month = max(parsed)
+    return f"{year:04d}-{month:02d}"
 
 
 def collect_games(

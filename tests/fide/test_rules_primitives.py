@@ -47,6 +47,22 @@ class TestRatingFloor:
         assert rules.applies_rating_floor(rating) is expected
 
 
+class TestAccumulationExpired:
+    """§6.2 / FIDE 7.1.4: "not more than 26 months" — 26 itself is still
+    poolable, 27 is not."""
+
+    @pytest.mark.parametrize("since,period_month,expected", [
+        ("2024-01", "2024-01", False),   # same period
+        ("2024-01", "2026-02", False),   # 25 months
+        ("2024-01", "2026-03", False),   # exactly 26 months — still within
+        ("2024-01", "2026-04", True),    # 27 months — past the window
+        ("2025-12", "2026-01", False),   # crosses a year boundary, 1 month
+        ("2024-06", "2026-06", False),   # exactly 24 months
+    ])
+    def test_expires_only_past_26_months(self, since, period_month, expected):
+        assert rules.accumulation_expired(since, period_month) is expected
+
+
 def test_constants_match_art_68():
     assert rules.RATING_FLOOR == 1200
     assert rules.FICTITIOUS_OPPONENT_RATING == 1600
@@ -55,5 +71,6 @@ def test_constants_match_art_68():
     assert rules.U18_RATING_CAP == 2100
     assert rules.MAX_RATING_DIFF == 400
     assert rules.MIN_GAMES_FOR_FIRST_RATING == 5
+    assert rules.ACCUMULATION_WINDOW_MONTHS == 26
     assert rules.NEW_PLAYER_GAMES == 30
     assert rules.K_GAMES_PRODUCT_CAP == 700

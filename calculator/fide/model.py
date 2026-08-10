@@ -14,26 +14,42 @@ COLUMN_SUFFIX: dict[str, str] = {"STD": "Std", "RPD": "Rpd", "BLZ": "Blz"}
 
 
 @dataclass(frozen=True)
-class ModalityState:
-    """A player's rating, game count and accumulators in one modality.
+class Accumulator:
+    """The §6.1 accumulator a player without a rating carries toward their
+    first one: how many games have gone into it, the sum of those games'
+    opponent ratings, the points scored, and the period the current
+    accumulation began (`since`, "YYYY-MM").
 
-    `games` and `accumulated_games` count different things and must not be
+    The four fields are zeroed together the moment the player gains a
+    rating, and zeroed together again if the floor (§7) later drops them
+    back out — the accumulation starts over from zero rather than resuming
+    from the lifetime `ModalityState.games` count. `since` is what the
+    26-month pooling window (§6.2 / FIDE 7.1.4) is measured against; empty
+    means there is no accumulation in progress.
+    """
+
+    games: int = 0
+    sum_opponents: int = 0
+    points: Decimal = Decimal("0")
+    since: str = ""
+
+
+@dataclass(frozen=True)
+class ModalityState:
+    """A player's rating, game count and §6.1 accumulator in one modality.
+
+    `games` and `accumulator.games` count different things and must not be
     confused: `games` is the lifetime game count — it only grows, it is what
     §5's K factor reads, and §7 preserves it when the floor drops the player
-    out of rated status. `accumulated_games` is how many of those games have
+    out of rated status. `accumulator.games` is how many of those games have
     gone into the still-open §6.1 accumulator toward the five needed for a
-    first rating; it travels with `sum_opponents` and `points` — zeroed
-    together the moment the player becomes rated, and zeroed together again
-    if the floor later drops them back out, because the accumulation starts
-    over from zero rather than resuming from the lifetime count.
+    first rating.
     """
 
     rating: int | None = None
     games: int = 0
     reached_2200: bool = False
-    sum_opponents: int = 0
-    points: Decimal = Decimal("0")
-    accumulated_games: int = 0
+    accumulator: Accumulator = field(default_factory=Accumulator)
 
     @property
     def is_rated(self) -> bool:

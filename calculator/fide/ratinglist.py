@@ -1,13 +1,13 @@
 """Reading and writing the rating list.
 
-Reads and writes the 26-column format (spec §2.1) and the legacy 12-column
+Reads and writes the 29-column format (spec §2.1) and the legacy 12-column
 format (spec §2.2).
 """
 import csv
 import io
 from decimal import Decimal
 
-from .model import COLUMN_SUFFIX, MODALITIES, ModalityState, PlayerState
+from .model import COLUMN_SUFFIX, MODALITIES, Accumulator, ModalityState, PlayerState
 from .rules import K10_THRESHOLD, applies_rating_floor
 
 _DELIMITER = ";"
@@ -18,19 +18,23 @@ LEGACY_HEADER = (
 )
 
 _IDENTITY_COLUMNS = "Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed"
+# The first three fields per modality (Rtg, Games, Peak2200) are what the
+# player *is* in that modality and never zero out together. The last four
+# share the "Acc" prefix, sit adjacent, and are the §6.1 accumulator: they
+# zero out together the moment the player gains a rating.
 FIDE_HEADER = _DELIMITER.join(
     [_IDENTITY_COLUMNS]
     + [
         _DELIMITER.join(
             f"{prefix}_{COLUMN_SUFFIX[modality]}"
-            for prefix in ("Rtg", "Games", "Peak2200", "SumOpp", "Pts", "AccGames")
+            for prefix in ("Rtg", "Games", "Peak2200", "AccGames", "AccSumOpp", "AccPts", "AccSince")
         )
         for modality in MODALITIES
     ]
 )
 
 _IDENTITY_FIELD_COUNT = 8
-_FIELDS_PER_MODALITY = 6
+_FIELDS_PER_MODALITY = 7
 FIDE_COLUMN_COUNT = _IDENTITY_FIELD_COUNT + _FIELDS_PER_MODALITY * len(MODALITIES)
 LEGACY_COLUMN_COUNT = 12
 
@@ -53,7 +57,7 @@ def _optional_int(value: str) -> int | None:
 
 
 def read_rating_list(csv_text: str) -> dict[int, PlayerState]:
-    """Read the rating list, in either the 26-column or the legacy 12-column format."""
+    """Read the rating list, in either the 29-column or the legacy 12-column format."""
     rows = _rows(csv_text)
     if not rows:
         return {}
@@ -88,9 +92,12 @@ def _read_fide_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 rating=_optional_int(row[base]),
                 games=int(row[base + 1] or 0),
                 reached_2200=row[base + 2].strip() == "1",
-                sum_opponents=int(row[base + 3] or 0),
-                points=Decimal(row[base + 4].strip() or "0"),
-                accumulated_games=int(row[base + 5] or 0),
+                accumulator=Accumulator(
+                    games=int(row[base + 3] or 0),
+                    sum_opponents=int(row[base + 4] or 0),
+                    points=Decimal(row[base + 5].strip() or "0"),
+                    since=row[base + 6].strip(),
+                ),
             )
         players[player.id_fexerj] = player
     return players
@@ -124,6 +131,19 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
     never `games`, which would overstate how many games are actually behind
     the (by then zeroed) sums. A rated player carries no unrated accumulator
     at all, so its accumulated count is always zero.
+
+    The accumulator's `since` (§6.2, the 26-month pooling window) has no
+    source in the legacy format either, and unlike the games count above
+    there is no derivation that recovers it — the legacy file simply never
+    recorded when a player's accumulation began. Decided conservatively:
+    leave it empty rather than guess a start. `compute_unrated_period`
+    already treats an accumulator that has games but an empty `since` as
+    expired (only otherwise reachable right after this exact conversion),
+    so an imported player who was mid-accumulation loses that partial
+    progress on the first period the new engine processes for them, and
+    starts a fresh, dateable accumulation from that period's games — instead
+    of silently carrying forward pooled results whose age against the
+    26-month window can no longer be verified.
     """
     players: dict[int, PlayerState] = {}
     for row in rows:
@@ -137,18 +157,18 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 rating=None,
                 games=games,
                 reached_2200=False,
-                sum_opponents=sum_opponents,
-                points=points,
-                accumulated_games=games if games < _LEGACY_TEMP_RATING_GAMES else 0,
+                accumulator=Accumulator(
+                    games=games if games < _LEGACY_TEMP_RATING_GAMES else 0,
+                    sum_opponents=sum_opponents,
+                    points=points,
+                ),
             )
         else:
             std = ModalityState(
                 rating=legacy_rating,
                 games=games,
                 reached_2200=legacy_rating >= K10_THRESHOLD,
-                sum_opponents=sum_opponents,
-                points=points,
-                accumulated_games=0,
+                accumulator=Accumulator(sum_opponents=sum_opponents, points=points),
             )
 
         player = PlayerState(
@@ -167,7 +187,7 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
 
 
 def write_rating_list(players: dict[int, PlayerState]) -> str:
-    """Write the list in the 26-column format."""
+    """Write the list in the 29-column format."""
     buf = io.StringIO()
     print(FIDE_HEADER, file=buf)
     for player in players.values():
@@ -187,9 +207,10 @@ def write_rating_list(players: dict[int, PlayerState]) -> str:
                 "" if state.rating is None else str(state.rating),
                 str(state.games),
                 "1" if state.reached_2200 else "0",
-                str(state.sum_opponents),
-                _format_points(state.points),
-                str(state.accumulated_games),
+                str(state.accumulator.games),
+                str(state.accumulator.sum_opponents),
+                _format_points(state.accumulator.points),
+                state.accumulator.since,
             ])
         print(_DELIMITER.join(cells), file=buf)
     return buf.getvalue()

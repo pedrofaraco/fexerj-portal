@@ -7,6 +7,7 @@ means the inputs are valid.
 """
 import csv
 import io
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
@@ -223,7 +224,7 @@ def _validate_legacy_format_birthdays(content: str) -> list[str]:
     LEGACY_HEADER) — it is the compatibility path exercised on every run, so
     a fide/compare cycle fed this format must not silently drop the under-18
     K=40 the way the legacy engine itself does. Mirrors the check
-    _validate_fide_players_csv performs on the 26-column format's own
+    _validate_fide_players_csv performs on the 29-column format's own
     Birthday column. Relies on the caller having already confirmed the
     header and only adds to what _validate_players_csv already reports, so
     it re-checks the header itself and skips any row that function has
@@ -253,7 +254,7 @@ def _validate_legacy_format_birthdays(content: str) -> list[str]:
 
 
 def _validate_fide_players_csv(content: str) -> list[str]:
-    """Rules for the 26-column format (spec §2.1)."""
+    """Rules for the 29-column format (spec §2.1)."""
     errors: list[str] = []
     reader = csv.reader(io.StringIO(content), delimiter=";")
     next(reader, None)
@@ -292,7 +293,7 @@ def _validate_fide_players_csv(content: str) -> list[str]:
             )
 
         for index, modality in enumerate(MODALITIES):
-            base = 8 + index * 6
+            base = 8 + index * 7
             suffix = COLUMN_SUFFIX[modality]
             rating = row[base].strip()
             if rating:
@@ -312,19 +313,25 @@ def _validate_fide_players_csv(content: str) -> list[str]:
                 errors.append(f"players.csv linha {row_num}: Games_{suffix} deve ser um inteiro")
             if row[base + 2].strip() not in {"0", "1"}:
                 errors.append(f"players.csv linha {row_num}: Peak2200_{suffix} deve ser 0 ou 1")
-            sum_opp = row[base + 3].strip()
-            if sum_opp and (not _is_int(sum_opp) or int(sum_opp) < 0):
-                errors.append(
-                    f"players.csv linha {row_num}: SumOpp_{suffix} deve ser um inteiro não negativo"
-                )
-            points = row[base + 4].strip()
-            if points:
-                try:
-                    Decimal(points)
-                except InvalidOperation:
-                    errors.append(f"players.csv linha {row_num}: Pts_{suffix} deve ser um número válido")
-            if not _is_int(row[base + 5].strip() or "0"):
+            if not _is_int(row[base + 3].strip() or "0"):
                 errors.append(f"players.csv linha {row_num}: AccGames_{suffix} deve ser um inteiro")
+            acc_sum_opp = row[base + 4].strip()
+            if acc_sum_opp and (not _is_int(acc_sum_opp) or int(acc_sum_opp) < 0):
+                errors.append(
+                    f"players.csv linha {row_num}: AccSumOpp_{suffix} deve ser um inteiro não negativo"
+                )
+            acc_points = row[base + 5].strip()
+            if acc_points:
+                try:
+                    Decimal(acc_points)
+                except InvalidOperation:
+                    errors.append(f"players.csv linha {row_num}: AccPts_{suffix} deve ser um número válido")
+            acc_since = row[base + 6].strip()
+            if acc_since and not _is_year_month(acc_since):
+                errors.append(
+                    f"players.csv linha {row_num}: AccSince_{suffix} deve ser vazio ou uma data "
+                    "no formato AAAA-MM"
+                )
 
         # Uniqueness — mirrors the legacy validator's checks below.  A shared
         # Id_CBX is not cosmetic: in an IRT tournament, collect_games maps the
@@ -360,12 +367,21 @@ def _is_int(value: str) -> bool:
     return True
 
 
+def _is_year_month(value: str) -> bool:
+    """True for "AAAA-MM" (§6.2's AccSince_ marker), month between 01 and 12."""
+    try:
+        datetime.strptime(value, "%Y-%m")
+    except ValueError:
+        return False
+    return True
+
+
 def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
     """Return FEXERJ ids and CBX→FEXERJ mapping from players.csv data rows.
 
     Dispatches on the header, like the rest of the validator: Id_No and
     Id_CBX sit in the same first two columns in both the legacy 12-column
-    format and the FIDE 26-column format, so only the expected row width
+    format and the FIDE 29-column format, so only the expected row width
     differs between them.
     """
     lines = content.splitlines()

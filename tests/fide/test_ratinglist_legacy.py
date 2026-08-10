@@ -5,6 +5,8 @@ from calculator.fide.model import Game
 from calculator.fide.period import compute_unrated_period
 from calculator.fide.ratinglist import LEGACY_HEADER, read_rating_list
 
+_MONTH = "2026-01"
+
 _LEGACY_CSV = (
     LEGACY_HEADER + "\n"
     # rated, ordinary case, with non-zero accumulators
@@ -48,13 +50,13 @@ class TestLegacyConversion:
         """sum_opponents/points default to zero, so forgetting to pass them
         through on the rated path wouldn't fail any other test."""
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[1]).sum_opponents == 7100
-        assert _std(players[1]).points == Decimal("3.5")
+        assert _std(players[1]).accumulator.sum_opponents == 7100
+        assert _std(players[1]).accumulator.points == Decimal("3.5")
 
     def test_rated_player_has_no_accumulated_games(self):
         """A rated player carries no §6.1 accumulator at all."""
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[1]).accumulated_games == 0
+        assert _std(players[1]).accumulator.games == 0
 
     def test_zero_games_becomes_unrated_despite_the_rating_column(self):
         """In the current model, TotalNumGames = 0 decides, not Rtg_Nat."""
@@ -64,12 +66,12 @@ class TestLegacyConversion:
 
     def test_zero_games_keeps_the_unrated_accumulators(self):
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[2]).sum_opponents == 3200
-        assert _std(players[2]).points == Decimal("1.5")
+        assert _std(players[2]).accumulator.sum_opponents == 3200
+        assert _std(players[2]).accumulator.points == Decimal("1.5")
 
     def test_zero_games_has_zero_accumulated_games(self):
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[2]).accumulated_games == 0
+        assert _std(players[2]).accumulator.games == 0
 
     def test_below_the_floor_becomes_unrated_but_keeps_the_game_count(self):
         """§7 applied at conversion time: without it the initial list would be invalid."""
@@ -79,8 +81,8 @@ class TestLegacyConversion:
 
     def test_below_the_floor_keeps_the_accumulators_too(self):
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[3]).sum_opponents == 5600
-        assert _std(players[3]).points == Decimal("2.5")
+        assert _std(players[3]).accumulator.sum_opponents == 5600
+        assert _std(players[3]).accumulator.points == Decimal("2.5")
         assert _std(players[3]).games == 40
 
     def test_below_the_floor_at_or_above_fifteen_games_zeroes_the_accumulated_count(self):
@@ -92,7 +94,7 @@ class TestLegacyConversion:
         threshold allows: it comes out zero regardless, the safe side of
         `nunca a um número maior`."""
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[3]).accumulated_games == 0
+        assert _std(players[3]).accumulator.games == 0
 
     def test_at_or_above_2200_sets_the_peak_flag(self):
         """Boundary case: rating is exactly 2200. Pins the threshold so that
@@ -114,7 +116,7 @@ class TestLegacyConversion:
 
     def test_temporary_band_rated_player_has_no_accumulated_games(self):
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[5]).accumulated_games == 0
+        assert _std(players[5]).accumulator.games == 0
 
     def test_rapid_and_blitz_start_empty(self):
         players = read_rating_list(_LEGACY_CSV)
@@ -151,9 +153,9 @@ class TestLegacyConversion:
         std = _std(players[7])
         assert std.rating is None
         assert std.games == 60
-        assert std.sum_opponents == 0
-        assert std.points == Decimal("0")
-        assert std.accumulated_games == 0
+        assert std.accumulator.sum_opponents == 0
+        assert std.accumulator.points == Decimal("0")
+        assert std.accumulator.games == 0
 
     def test_established_low_rated_player_can_receive_a_rating_afterward(self):
         """Same player as above, run through the six-win reproduction case
@@ -161,7 +163,9 @@ class TestLegacyConversion:
         players = read_rating_list(_LEGACY_CSV)
         state = _std(players[7])
         games = [Game(1, "STD", 7, 900 + i, Decimal("1")) for i in range(6)]
-        result = compute_unrated_period(7, "STD", state, games, {900 + i: 1500 for i in range(6)})
+        result = compute_unrated_period(
+            7, "STD", state, games, {900 + i: 1500 for i in range(6)}, period_month=_MONTH,
+        )
         assert result.final_rating == 1861
         assert result.path == "INITIAL_RATING"
 
@@ -172,6 +176,28 @@ class TestLegacyConversion:
         not zero, and not more than what the accumulators actually hold."""
         players = read_rating_list(_LEGACY_CSV)
         std = _std(players[8])
-        assert std.accumulated_games == 10
-        assert std.sum_opponents == 8500
-        assert std.points == Decimal("1.5")
+        assert std.accumulator.games == 10
+        assert std.accumulator.sum_opponents == 8500
+        assert std.accumulator.points == Decimal("1.5")
+
+    def test_legacy_accumulator_carries_no_recorded_start(self):
+        """The legacy format has no column for §6.2's marker at all — see
+        the conversion's own docstring for why an empty `since` here is the
+        conservative choice, not an oversight."""
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[8]).accumulator.since == ""
+
+    def test_legacy_accumulator_with_unknown_start_is_treated_as_expired(self):
+        """Player 8 already has 10 accumulated games from the legacy file
+        but no recorded start, so the first period the new engine processes
+        for them resets the accumulator instead of carrying forward partial
+        progress of unverifiable age — the conservative reading of
+        "não há essa informação no arquivo antigo"."""
+        players = read_rating_list(_LEGACY_CSV)
+        state = _std(players[8])
+        games = [Game(1, "STD", 8, 900 + i, Decimal("1")) for i in range(2)]
+        result = compute_unrated_period(
+            8, "STD", state, games, {900 + i: 1500 for i in range(2)}, period_month=_MONTH,
+        )
+        assert result.accumulator.games == 2          # only this period's games; the old 10 are gone
+        assert result.accumulator.since == _MONTH      # restarted fresh, now dateable

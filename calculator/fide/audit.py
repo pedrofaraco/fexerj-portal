@@ -21,7 +21,7 @@ GAMES_AUDIT_HEADER = (
 PERIOD_AUDIT_PREAMBLE = "# fide_period_v1"
 PERIOD_AUDIT_HEADER = (
     "Tournaments;PlayerId;PlayerName;TimeControl;InitialRating;Games;SumDeltaR;"
-    "Variation;RoundedVariation;FinalRating;Path;AccumSumOpp;AccumPoints;AccumGames"
+    "Variation;RoundedVariation;FinalRating;Path;AccumSumOpp;AccumPoints;AccumGames;AccumSince"
 )
 
 
@@ -74,8 +74,9 @@ def write_period_audit(outcome: "PeriodOutcome") -> str:
             str(result.rounded_variation),
             "" if result.final_rating is None else str(result.final_rating),
             result.path,
-            str(result.accumulated_sum_opponents),
-            str(result.accumulated_points),
-            str(result.accumulated_games),
+            str(result.accumulator.sum_opponents),
+            str(result.accumulator.points),
+            str(result.accumulator.games),
+            result.accumulator.since,
         ]), file=buf)
     return buf.getvalue()

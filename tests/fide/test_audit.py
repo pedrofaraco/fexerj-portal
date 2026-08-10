@@ -196,7 +196,7 @@ class TestPeriodAuditAccumulator:
             Game(1, "STD", 1, 905, Decimal("0")),
         ]
         opponent_ratings = {901: 1600, 902: 1650, 903: 1700, 904: 1550, 905: 1600}
-        result = compute_unrated_period(1, "STD", state, games, opponent_ratings)
+        result = compute_unrated_period(1, "STD", state, games, opponent_ratings, period_month="2026-01")
         assert result.path == "INITIAL_RATING"  # sanity check on the fixture
 
         player = PlayerState(id_fexerj=1, name="Generic Player")
@@ -205,6 +205,7 @@ class TestPeriodAuditAccumulator:
         header = PERIOD_AUDIT_HEADER.split(';')
         row = write_period_audit(outcome).splitlines()[2].split(';')
         cells = dict(zip(header, row, strict=True))
-        assert cells["AccumSumOpp"] == str(result.accumulated_sum_opponents) == "8100"
-        assert cells["AccumPoints"] == str(result.accumulated_points) == "2.5"
-        assert cells["AccumGames"] == str(result.accumulated_games) == "5"
+        assert cells["AccumSumOpp"] == str(result.accumulator.sum_opponents) == "8100"
+        assert cells["AccumPoints"] == str(result.accumulator.points) == "2.5"
+        assert cells["AccumGames"] == str(result.accumulator.games) == "5"
+        assert cells["AccumSince"] == result.accumulator.since == "2026-01"

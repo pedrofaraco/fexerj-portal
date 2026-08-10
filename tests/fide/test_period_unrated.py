@@ -1,8 +1,11 @@
 """Cross-modality transposition (§1.1) and the in-period initial rating (§6)."""
 from decimal import Decimal
 
-from calculator.fide.model import Game, ModalityState, PlayerState
+from calculator.fide.model import Accumulator, Game, ModalityState, PlayerState
 from calculator.fide.period import compute_rated_period, compute_unrated_period, transposed_state
+
+_MONTH = "2026-01"
+_LATER_MONTH = "2026-03"
 
 
 def _game(ord_, opponent_id, score):
@@ -51,6 +54,7 @@ class TestUnratedPeriod:
             player_id=1, modality="RPD", state=state,
             games=[_game(1, 2, "1"), _game(1, 3, "0")],
             opponent_ratings={2: 1600, 3: 1600},
+            period_month=_MONTH,
         )
         assert result.final_rating is None
         assert result.path == "ACCUMULATING"
@@ -58,15 +62,19 @@ class TestUnratedPeriod:
 
     def test_accumulator_advances_so_the_next_period_can_reach_five(self):
         """Without this, the player counts games but never accumulates opponent sum and points."""
-        state = ModalityState(games=1, accumulated_games=1, sum_opponents=1600, points=Decimal("0.5"))
+        state = ModalityState(games=1, accumulator=Accumulator(
+            games=1, sum_opponents=1600, points=Decimal("0.5"), since="2025-12",
+        ))
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=[_game(1, 2, "1"), _game(1, 3, "0")],
             opponent_ratings={2: 1700, 3: 1500},
+            period_month=_MONTH,
         )
-        assert result.accumulated_sum_opponents == 1600 + 1700 + 1500
-        assert result.accumulated_points == Decimal("1.5")
-        assert result.accumulated_games == 3
+        assert result.accumulator.sum_opponents == 1600 + 1700 + 1500
+        assert result.accumulator.points == Decimal("1.5")
+        assert result.accumulator.games == 3
+        assert result.accumulator.since == "2025-12"  # unchanged: the accumulation already had a start
 
     def test_a_discarded_first_event_does_not_advance_the_accumulator(self):
         state = ModalityState()
@@ -74,9 +82,10 @@ class TestUnratedPeriod:
             player_id=1, modality="RPD", state=state,
             games=[_game(1, i, "0") for i in range(2, 8)],
             opponent_ratings={i: 1600 for i in range(2, 8)},
+            period_month=_MONTH,
         )
-        assert result.accumulated_sum_opponents == 0
-        assert result.accumulated_points == Decimal("0")
+        assert result.accumulator.sum_opponents == 0
+        assert result.accumulator.points == Decimal("0")
 
     def test_five_games_produce_an_initial_rating(self):
         # Opponents at 1800, not 1600: at 1600 the result comes out 1600
@@ -89,6 +98,7 @@ class TestUnratedPeriod:
             player_id=1, modality="RPD", state=state,
             games=games,
             opponent_ratings={i: 1800 for i in range(2, 7)},
+            period_month=_MONTH,
         )
         assert result.final_rating == 1743
         assert result.path == "INITIAL_RATING"
@@ -96,35 +106,45 @@ class TestUnratedPeriod:
     def test_accumulated_history_counts_toward_the_five(self):
         # Same reasoning as above: opponents at 1800, not 1600, so the
         # fictitious opponents are actually exercised by the assertion.
-        state = ModalityState(games=3, accumulated_games=3, sum_opponents=5400, points=Decimal("1.5"))
+        state = ModalityState(games=3, accumulator=Accumulator(
+            games=3, sum_opponents=5400, points=Decimal("1.5"), since="2025-11",
+        ))
         games = [_game(1, i, "0.5") for i in range(2, 4)]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=games,
             opponent_ratings={2: 1800, 3: 1800},
+            period_month=_MONTH,
         )
         assert result.final_rating == 1743
 
     def test_a_zeroed_first_event_is_discarded(self):
-        """§6.1 / 8.2.1: zeroing the first event discards the result."""
+        """§6.1 / 8.2.1: zeroing the first event discards the result from
+        the accumulator — but the games still count toward `games_counted`,
+        the lifetime total that feeds §5's K factor (pendência B)."""
         state = ModalityState()
         games = [_game(1, i, "0") for i in range(2, 8)]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=games,
             opponent_ratings={i: 1600 for i in range(2, 8)},
+            period_month=_MONTH,
         )
         assert result.final_rating is None
         assert result.path == "FIRST_EVENT_ZEROED"
-        assert result.games_counted == 0
+        assert result.games_counted == 6
+        assert result.accumulator.games == 0
 
     def test_a_zeroed_later_event_is_not_discarded(self):
-        state = ModalityState(games=4, accumulated_games=4, sum_opponents=6400, points=Decimal("2"))
+        state = ModalityState(games=4, accumulator=Accumulator(
+            games=4, sum_opponents=6400, points=Decimal("2"), since="2025-10",
+        ))
         games = [_game(1, i, "0") for i in range(2, 8)]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=games,
             opponent_ratings={i: 1600 for i in range(2, 8)},
+            period_month=_MONTH,
         )
         assert result.path == "INITIAL_RATING"
 
@@ -135,18 +155,133 @@ class TestUnratedPeriod:
             player_id=1, modality="RPD", state=state,
             games=games,
             opponent_ratings={i: 1000 for i in range(2, 7)},
+            period_month=_MONTH,
         )
         assert result.final_rating is None
         assert result.path == "BELOW_FLOOR"
+
+
+class TestPerTournamentDiscard:
+    """§6.1 / 8.2.1: "event" is the tournament, not the period — FEXERJ's
+    reading of the FIDE rule, decided over the period-level reading the
+    engine used to implement."""
+
+    def test_zeroing_the_first_tournament_discards_only_that_tournament(self):
+        """Two tournaments in the same period: zero in the first, a win in
+        the second. Only the first tournament's result is dropped from the
+        accumulator — but games_counted (which feeds the lifetime count and
+        therefore §5's K factor) includes both tournaments, per the
+        federation's "sem alterar o número de partidas" reading."""
+        state = ModalityState()
+        games = [_game(1, 2, "0"), _game(1, 3, "0"), _game(2, 4, "1")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=games,
+            opponent_ratings={2: 1600, 3: 1600, 4: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.games_counted == 3          # both tournaments' games
+        assert result.accumulator.games == 1        # only the second tournament fed the accumulator
+        assert result.accumulator.points == Decimal("1")
+        assert result.accumulator.sum_opponents == 1600
+
+    def test_zeroing_a_tournament_that_is_not_the_first_discards_nothing(self):
+        """Reversed order: a win in the first tournament spends the one
+        discard opportunity, so a zero result in the second tournament of
+        the same period counts normally instead of being discarded too."""
+        state = ModalityState()
+        games = [_game(1, 2, "1"), _game(2, 3, "0")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=games,
+            opponent_ratings={2: 1600, 3: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.games_counted == 2
+        assert result.accumulator.games == 2         # nothing discarded: both tournaments fed it
+        assert result.accumulator.points == Decimal("1")
+
+    def test_a_carried_over_accumulator_is_never_first_again(self):
+        """"Primeiro" also looks at earlier periods: once the accumulator
+        already has games behind it, this period's first tournament is not
+        eligible for the discard even if it scores zero."""
+        state = ModalityState(games=2, accumulator=Accumulator(
+            games=2, sum_opponents=3200, points=Decimal("1"), since="2025-12",
+        ))
+        games = [_game(1, 5, "0")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=games,
+            opponent_ratings={5: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 3          # the zero result was NOT discarded
+        assert result.accumulator.points == Decimal("1")
+
+
+class TestAccumulationWindow:
+    """§6.2 / FIDE 7.1.4: results pool across periods only within a 26-month
+    window measured from the period the accumulation began."""
+
+    def test_within_the_window_the_accumulator_is_preserved(self):
+        state = ModalityState(games=3, accumulator=Accumulator(
+            games=3, sum_opponents=4800, points=Decimal("1.5"), since="2024-01",
+        ))
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=[_game(1, 2, "0.5")],
+            opponent_ratings={2: 1600},
+            period_month="2026-02",  # 25 months after 2024-01
+        )
+        assert result.accumulator.games == 4
+        assert result.accumulator.sum_opponents == 4800 + 1600
+        assert result.accumulator.points == Decimal("2")
+        assert result.accumulator.since == "2024-01"  # start is unchanged
+
+    def test_past_the_window_the_accumulator_is_discarded_and_restarts(self):
+        state = ModalityState(games=3, accumulator=Accumulator(
+            games=3, sum_opponents=4800, points=Decimal("1.5"), since="2024-01",
+        ))
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=[_game(1, 2, "0.5")],
+            opponent_ratings={2: 1600},
+            period_month="2026-04",  # 27 months after 2024-01
+        )
+        assert result.accumulator.games == 1            # the old 3 games are gone
+        assert result.accumulator.sum_opponents == 1600
+        assert result.accumulator.points == Decimal("0.5")
+        assert result.accumulator.since == "2026-04"     # restarted from this period
+
+    def test_a_zeroed_first_tournament_is_eligible_again_after_a_reset(self):
+        """A window reset wipes the accumulator down to zero games, which is
+        exactly the signal `compute_unrated_period` uses to decide whether a
+        zeroed tournament is still the discardable "first" one — so the
+        discard rule applies again right after a reset."""
+        state = ModalityState(games=3, accumulator=Accumulator(
+            games=3, sum_opponents=4800, points=Decimal("1.5"), since="2024-01",
+        ))
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=[_game(1, 2, "0")],
+            opponent_ratings={2: 1600},
+            period_month="2026-04",  # past the window
+        )
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.accumulator.games == 0
+        assert result.accumulator.since == ""
 
 
 class TestFloorExpelledPlayerAccumulator:
     """A player dropped out of rated status by the §7 floor keeps their
     lifetime `games` count (K and §7 need it), but the §6.1 accumulator
     toward the next initial rating has to start over from
-    `accumulated_games`, not from that lifetime count — otherwise the
-    "phantom" lifetime games, which never fed `sum_opponents`/`points`,
-    drag the average down and the player can never climb back out."""
+    `accumulator.games`, not from that lifetime count — otherwise the
+    "phantom" lifetime games, which never fed the accumulator, drag the
+    average down and the player can never climb back out."""
 
     def test_floor_expelled_player_returns_with_a_rating(self):
         """The reported bug: a player with 60 lifetime games, expelled by the
@@ -154,12 +289,13 @@ class TestFloorExpelledPlayerAccumulator:
         lifetime count for the accumulator used to send this player out with
         no rating at all (66 phantom games diluting the average below 1200);
         with the two counts separated, the six real games alone decide it."""
-        state = ModalityState(rating=None, games=60, sum_opponents=0, points=Decimal("0"))
+        state = ModalityState(rating=None, games=60)
         games = [_game(1, i, "1") for i in range(2, 8)]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=games,
             opponent_ratings={i: 1500 for i in range(2, 8)},
+            period_month=_MONTH,
         )
         assert result.final_rating == 1861
         assert result.path == "INITIAL_RATING"
@@ -167,31 +303,31 @@ class TestFloorExpelledPlayerAccumulator:
     def test_accumulates_in_one_period_and_rates_in_the_next(self):
         """Same floor-expelled player, but the six games needed for a first
         rating are spread across two periods — proving the accumulator (not
-        just a single call) carries `accumulated_games` forward correctly."""
-        state = ModalityState(rating=None, games=60, sum_opponents=0, points=Decimal("0"))
+        just a single call) carries forward correctly."""
+        state = ModalityState(rating=None, games=60)
         period_one = [_game(1, i, "1") for i in range(2, 4)]  # 2 games
         result_one = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=period_one,
             opponent_ratings={i: 1500 for i in range(2, 4)},
+            period_month=_MONTH,
         )
         assert result_one.path == "ACCUMULATING"
-        assert result_one.accumulated_games == 2
+        assert result_one.accumulator.games == 2
 
         # The lifetime count keeps growing (as cycle.py's _apply_results does),
         # while the accumulator carries over from result_one.
         state_period_two = ModalityState(
             rating=None,
             games=state.games + result_one.games_counted,
-            sum_opponents=result_one.accumulated_sum_opponents,
-            points=result_one.accumulated_points,
-            accumulated_games=result_one.accumulated_games,
+            accumulator=result_one.accumulator,
         )
         period_two = [_game(2, i, "1") for i in range(4, 8)]  # 4 more games -> 6 total
         result_two = compute_unrated_period(
             player_id=1, modality="RPD", state=state_period_two,
             games=period_two,
             opponent_ratings={i: 1500 for i in range(4, 8)},
+            period_month=_LATER_MONTH,
         )
         assert result_two.path == "INITIAL_RATING"
         assert result_two.final_rating == 1861

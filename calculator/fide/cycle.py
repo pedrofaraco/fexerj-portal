@@ -5,10 +5,9 @@ can treat both the same way.
 """
 import copy
 from dataclasses import dataclass, field
-from decimal import Decimal
 
 from . import audit
-from .model import Game, ModalityState, PlayerState
+from .model import Accumulator, Game, ModalityState, PlayerState
 from .period import (
     PeriodResult,
     compute_rated_period,
@@ -17,7 +16,7 @@ from .period import (
 )
 from .ratinglist import read_rating_list, write_rating_list
 from .rules import K10_THRESHOLD, parse_birth_year
-from .tournaments import TournamentRow, collect_games, period_year, read_tournaments
+from .tournaments import TournamentRow, collect_games, period_month, period_year, read_tournaments
 
 # Paths on which the player ends the period still without a published rating,
 # so the §6.1 accumulator must survive into the next period.
@@ -60,6 +59,7 @@ class FideRatingCycle:
             return PeriodOutcome(players=initial_players)
 
         year = period_year(tournaments)
+        month = period_month(tournaments)
         games = collect_games(tournaments, self.binary_files, initial_players)
 
         # §4: the state at the start of the period is frozen; nothing here changes it.
@@ -92,6 +92,7 @@ class FideRatingCycle:
                     state=state,
                     games=player_games,
                     opponent_ratings=ratings,
+                    period_month=month,
                 ))
 
         final_players = _apply_results(initial_players, results)
@@ -164,9 +165,7 @@ def _apply_results(
                 rating=None,
                 games=games,
                 reached_2200=before.reached_2200,
-                sum_opponents=result.accumulated_sum_opponents,
-                points=result.accumulated_points,
-                accumulated_games=result.accumulated_games,
+                accumulator=result.accumulator,
             )
             continue
 
@@ -178,8 +177,6 @@ def _apply_results(
             reached_2200=before.reached_2200 or (
                 result.final_rating is not None and result.final_rating >= K10_THRESHOLD
             ),
-            sum_opponents=0,
-            points=Decimal("0"),
-            accumulated_games=0,
+            accumulator=Accumulator(),
         )
     return final

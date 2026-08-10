@@ -17,6 +17,7 @@ K10_THRESHOLD = 2200                # rating that locks in K=10 (§5)
 U18_RATING_CAP = 2100               # rating cap for the under-18 K=40 (§5)
 MAX_RATING_DIFF = 400               # diff cap, always applied (Art. 68 §3)
 MIN_GAMES_FOR_FIRST_RATING = 5      # §6.1
+ACCUMULATION_WINDOW_MONTHS = 26     # §6.2 — FIDE 7.1.4
 NEW_PLAYER_GAMES = 30               # §5 — K=40 until 30 games are completed
 K_GAMES_PRODUCT_CAP = 700           # §5.1
 
@@ -137,3 +138,19 @@ def initial_rating(opponents_sum: int, opponents_count: int, points: Decimal) ->
     ru = round_half_away_from_zero(ra + dp_for_score_ratio(p))
     ru = min(ru, INITIAL_RATING_CAP)
     return None if applies_rating_floor(ru) else ru
+
+
+def accumulation_expired(since: str, period_month: str) -> bool:
+    """True when the §6.1 accumulator that began in `since` can no longer be
+    pooled with the current period `period_month` (§6.2 / FIDE 7.1.4:
+    "results from other tournaments played within consecutive rating periods
+    of not more than 26 months are pooled").
+
+    Both markers are "YYYY-MM". This is a window check, not a per-game
+    expiry: it only compares the period the accumulation started against the
+    current one.
+    """
+    since_year, since_month = int(since[:4]), int(since[5:7])
+    period_year, period_month_num = int(period_month[:4]), int(period_month[5:7])
+    elapsed_months = (period_year - since_year) * 12 + (period_month_num - since_month)
+    return elapsed_months > ACCUMULATION_WINDOW_MONTHS

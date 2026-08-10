@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from . import rules
-from .model import Game, ModalityState, PlayerState
+from .model import Accumulator, Game, ModalityState, PlayerState
 from .tables import pd_for_diff
 
 
@@ -28,12 +28,11 @@ class GameResult:
 class PeriodResult:
     """The period's closing result for a player in one modality.
 
-    `accumulated_sum_opponents`, `accumulated_points` and `accumulated_games`
-    are only used on the unrated path (§6.1): they are the accumulator that
-    carries over to the next period while the player hasn't reached five
-    games yet. `accumulated_games` is the count of games behind that
-    accumulator, distinct from `games_counted` below (this period's own game
-    count) and from `ModalityState.games` (the lifetime count).
+    `accumulator` is only meaningful on the unrated path (§6.1): it is the
+    §6.1 accumulator that carries over to the next period while the player
+    hasn't reached five games yet — distinct from `games_counted` below
+    (this period's own game count) and from `ModalityState.games` (the
+    lifetime count).
     """
 
     player_id: int
@@ -46,9 +45,7 @@ class PeriodResult:
     final_rating: int | None
     path: str
     game_results: list[GameResult] = field(default_factory=list)
-    accumulated_sum_opponents: int = 0
-    accumulated_points: Decimal = Decimal("0")
-    accumulated_games: int = 0
+    accumulator: Accumulator = field(default_factory=Accumulator)
 
 
 def compute_rated_period(
@@ -150,60 +147,101 @@ def compute_unrated_period(
     state: ModalityState,
     games: list[Game],
     opponent_ratings: dict[int, int],
+    period_month: str,
 ) -> PeriodResult:
     """Closes the period for a player without a rating in `modality` (§6).
 
     Games against rated opponents accumulate across periods until the total
     reaches five, at which point the initial rating is computed from the
-    full accumulated history. Zeroing the very first event discards that
-    event's result instead of counting it (§6.1 / 8.2.1); a zero score in a
-    later event is counted normally.
+    full accumulated history.
 
-    The accumulator this reads and advances is `state.accumulated_games`,
-    not `state.games`: the latter is the lifetime count, which keeps growing
+    Zeroing the player's first tournament while unrated discards that
+    tournament's result from the accumulator instead of counting it (§6.1 /
+    8.2.1) — "event" is the tournament, not the period, so a second
+    tournament in the same period is counted normally even when the first
+    one was just discarded. "First" also looks past this period:
+    `state.accumulator.games == 0` is what marks the opportunity as still
+    open, so once any tournament has actually contributed to the
+    accumulator — this period or an earlier one — it is gone. The discarded
+    tournament's games still feed `games_counted`, and therefore the
+    lifetime `ModalityState.games` count §5's K factor reads: only the
+    initial-rating calculation drops them, not the player's game count.
+
+    `period_month` ("YYYY-MM") is checked against `state.accumulator.since`
+    for the 26-month pooling window (§6.2 / FIDE 7.1.4): once the gap is
+    more than 26 months, the old accumulation can no longer be grouped and
+    is dropped, restarting from this period's games alone. The same reset
+    applies when the accumulator has games but no recorded start at all —
+    only possible right after the §2.2 legacy conversion, which has no
+    start date to carry over — on the conservative reading that an
+    accumulation of unknown age cannot be assumed to still be inside the
+    window.
+
+    The accumulator this reads and advances is `state.accumulator`, not
+    `state.games`: the latter is the lifetime count, which keeps growing
     after the floor (§7) drops a player back out of rated status, and would
-    otherwise make this path see games that never fed `sum_opponents` or
-    `points` at all.
+    otherwise make this path see games that never fed the accumulator at
+    all.
     """
-    counted = [g for g in games if g.opponent_id in opponent_ratings]
-    points = sum((g.score for g in counted), Decimal("0"))
+    accumulator = state.accumulator
+    if accumulator.games > 0 and (
+        not accumulator.since or rules.accumulation_expired(accumulator.since, period_month)
+    ):
+        accumulator = Accumulator()
 
-    is_first_event = state.accumulated_games == 0
-    if is_first_event and counted and points == 0:
-        # §6.1 / 8.2.1: the result is discarded — the accumulator does not advance.
-        return PeriodResult(
-            player_id=player_id,
-            modality=modality,
-            initial_rating=None,
-            games_counted=0,
-            sum_delta=Decimal("0"),
-            variation=Decimal("0"),
-            rounded_variation=0,
-            final_rating=None,
-            path="FIRST_EVENT_ZEROED",
-            accumulated_sum_opponents=state.sum_opponents,
-            accumulated_points=state.points,
-            accumulated_games=state.accumulated_games,
-        )
+    games_by_tournament: dict[int, list[Game]] = {}
+    for game in games:
+        games_by_tournament.setdefault(game.tournament_ord, []).append(game)
 
-    total_games = state.accumulated_games + len(counted)
-    total_points = state.points + points
-    total_sum_opponents = state.sum_opponents + sum(opponent_ratings[g.opponent_id] for g in counted)
+    first_tournament_pending = accumulator.games == 0
+    games_counted = 0
+    total_games = accumulator.games
+    total_points = accumulator.points
+    total_sum_opponents = accumulator.sum_opponents
+    discarded_first_tournament = False
+
+    for ord_ in sorted(games_by_tournament):
+        counted = [g for g in games_by_tournament[ord_] if g.opponent_id in opponent_ratings]
+        if not counted:
+            continue
+        tournament_points = sum((g.score for g in counted), Decimal("0"))
+        games_counted += len(counted)
+
+        if first_tournament_pending:
+            first_tournament_pending = False
+            if tournament_points == 0:
+                # §6.1 / 8.2.1: discarded from the accumulator, but its games
+                # were already added to games_counted above.
+                discarded_first_tournament = True
+                continue
+
+        total_games += len(counted)
+        total_points += tournament_points
+        total_sum_opponents += sum(opponent_ratings[g.opponent_id] for g in counted)
+
+    since = accumulator.since
+    if accumulator.games == 0 and total_games > 0:
+        # The accumulation actually starts this period — either from
+        # scratch, or right after a window reset above.
+        since = period_month
 
     if total_games < rules.MIN_GAMES_FOR_FIRST_RATING:
         return PeriodResult(
             player_id=player_id,
             modality=modality,
             initial_rating=None,
-            games_counted=len(counted),
+            games_counted=games_counted,
             sum_delta=Decimal("0"),
             variation=Decimal("0"),
             rounded_variation=0,
             final_rating=None,
-            path="ACCUMULATING",
-            accumulated_sum_opponents=total_sum_opponents,
-            accumulated_points=total_points,
-            accumulated_games=total_games,
+            path="FIRST_EVENT_ZEROED" if discarded_first_tournament else "ACCUMULATING",
+            accumulator=Accumulator(
+                games=total_games,
+                sum_opponents=total_sum_opponents,
+                points=total_points,
+                since=since,
+            ),
         )
 
     ru = rules.initial_rating(total_sum_opponents, total_games, total_points)
@@ -211,13 +249,16 @@ def compute_unrated_period(
         player_id=player_id,
         modality=modality,
         initial_rating=None,
-        games_counted=len(counted),
+        games_counted=games_counted,
         sum_delta=Decimal("0"),
         variation=Decimal("0"),
         rounded_variation=0,
         final_rating=ru,
         path="INITIAL_RATING" if ru is not None else "BELOW_FLOOR",
-        accumulated_sum_opponents=total_sum_opponents,
-        accumulated_points=total_points,
-        accumulated_games=total_games,
+        accumulator=Accumulator(
+            games=total_games,
+            sum_opponents=total_sum_opponents,
+            points=total_points,
+            since=since,
+        ),
     )
