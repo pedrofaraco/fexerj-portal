@@ -22,16 +22,38 @@ _LEGACY_CSV = (
     "5;;;Lucas Carvalho;1450;CLUB E;01/01/1998;M;BRA;8;0;0\n"
     # one point below the 2200 threshold
     "6;;;Bruno Teixeira;2199;CLUB F;01/01/1975;M;BRA;120;0;0\n"
-    # below the floor, at/above the legacy engine's 15-game threshold: the
-    # engine has already zeroed SumOpponRating/TotalPoints by the time
-    # TotalNumGames reaches this many (calculator/classes.py), so this row is
-    # what a real federation export looks like — matches the reported bug's
-    # reproduction case (60 lifetime games, expelled by the 1200 floor)
-    "7;;;Marcos Lima;800;CLUB G;01/01/1993;M;BRA;60;0;0\n"
-    # below the floor, under the legacy engine's 15-game threshold: here
-    # SumOpponRating/TotalPoints are still a real, lock-step accumulation of
-    # every game played, so the full count is preserved instead of zeroed
-    "8;;;Diego Alves;700;CLUB H;01/01/1996;M;BRA;10;8500;1.5\n"
+    # no rating on the source list, at/above the legacy engine's 15-game
+    # threshold: the engine has already zeroed SumOpponRating/TotalPoints by
+    # the time TotalNumGames reaches this many (calculator/classes.py), so
+    # this row is what a real federation export looks like — the reported
+    # bug's reproduction case, a player with 60 lifetime games and no rating
+    "7;;;Marcos Lima;0;CLUB G;01/01/1993;M;BRA;60;0;0\n"
+    # no rating on the source list, under the legacy engine's 15-game
+    # threshold: here SumOpponRating/TotalPoints are still a real, lock-step
+    # accumulation of every game played, so the full count is preserved
+    "8;;;Diego Alves;0;CLUB H;01/01/1996;M;BRA;10;8500;1.5\n"
+)
+
+
+# Rows for the two conversion rules the federation settled on 2026-08-11.
+# Kept in their own fixture so the cases above, which predate the decisions,
+# stay readable as the rules they were written for.
+_CONVERSION_CSV = (
+    LEGACY_HEADER + "\n"
+    # C: rating published with fewer than 5 games — zeroed, count preserved
+    "10;;;Jogador C1;1450;CLUB A;01/01/1990;M;BRA;3;2900;1\n"
+    # C boundary: exactly 5 games stays rated
+    "11;;;Jogador C2;1450;CLUB A;01/01/1990;M;BRA;5;0;0\n"
+    # D: below the floor with plenty of games — raised to the floor
+    "12;;;Jogador D1;900;CLUB B;01/01/1990;M;BRA;40;0;0\n"
+    # D boundary: exactly 5 games, below the floor
+    "13;;;Jogador D2;1100;CLUB B;01/01/1990;M;BRA;5;0;0\n"
+    # No rating at all on the source list, but games played: stays unrated —
+    # "abaixo de 1200" is about a published rating, not about its absence
+    "14;;;Jogador D3;0;CLUB C;01/01/1990;M;BRA;40;0;0\n"
+    # Both rules could fire: below the floor AND fewer than 5 games. C wins —
+    # the player has no business holding a rating either way
+    "15;;;Jogador CD;900;CLUB C;01/01/1990;M;BRA;2;1800;0.5\n"
 )
 
 
@@ -73,26 +95,26 @@ class TestLegacyConversion:
         players = read_rating_list(_LEGACY_CSV)
         assert _std(players[2]).accumulator.games == 0
 
-    def test_below_the_floor_becomes_unrated_but_keeps_the_game_count(self):
-        """§7 applied at conversion time: without it the initial list would be invalid."""
+    def test_below_the_floor_with_enough_games_is_raised_to_the_floor(self):
+        """Decision D: a published rating under 1200 cannot survive into the
+        new list, and the player is raised to the floor rather than deleted.
+        Detailed coverage in TestConversionDecisionD; here it is pinned on
+        the shared fixture, whose accumulator assertions below depend on
+        which branch this row takes."""
         players = read_rating_list(_LEGACY_CSV)
-        assert _std(players[3]).rating is None
+        assert _std(players[3]).rating == 1200
         assert _std(players[3]).games == 40
 
-    def test_below_the_floor_keeps_the_accumulators_too(self):
+    def test_raised_to_the_floor_keeps_the_accumulators_too(self):
         players = read_rating_list(_LEGACY_CSV)
         assert _std(players[3]).accumulator.sum_opponents == 5600
         assert _std(players[3]).accumulator.points == Decimal("2.5")
         assert _std(players[3]).games == 40
 
-    def test_below_the_floor_at_or_above_fifteen_games_zeroes_the_accumulated_count(self):
-        """Player 3 has 40 lifetime games — past the legacy engine's 15-game
-        threshold — yet this fixture still carries non-zero SumOpponRating/
-        TotalPoints (row crafted to also exercise
-        `test_below_the_floor_keeps_the_accumulators_too` above). The
-        accumulated-games count must never claim more games than the
-        threshold allows: it comes out zero regardless, the safe side of
-        `nunca a um número maior`."""
+    def test_raised_to_the_floor_has_no_accumulated_games(self):
+        """Player 3 enters rated at the floor, and a rated player carries no
+        §6.1 accumulator: the accumulated count is zero even though the row
+        still holds non-zero SumOpponRating/TotalPoints."""
         players = read_rating_list(_LEGACY_CSV)
         assert _std(players[3]).accumulator.games == 0
 
@@ -145,8 +167,8 @@ class TestLegacyConversion:
 
     def test_established_low_rated_player_gets_a_clean_accumulator(self):
         """Realistic version of the reported bug: a player with 60 lifetime
-        games, below the new 1200 floor, whose SumOpponRating/TotalPoints the
-        legacy engine already zeroed (past its own 15-game threshold). The
+        games and no rating, whose SumOpponRating/TotalPoints the legacy
+        engine already zeroed (past its own 15-game threshold). The
         accumulated-games count must be coherent with that — zero, not the
         lifetime count — so the player can start accumulating cleanly."""
         players = read_rating_list(_LEGACY_CSV)
@@ -169,11 +191,13 @@ class TestLegacyConversion:
         assert result.final_rating == 1861
         assert result.path == "INITIAL_RATING"
 
-    def test_below_the_floor_under_fifteen_games_keeps_the_full_count(self):
+    def test_unrated_under_fifteen_games_keeps_the_full_count(self):
         """Below the legacy engine's 15-game threshold, SumOpponRating/
         TotalPoints are still a real, lock-step accumulation of every game
         played, so the accumulated-games count equals the full game count —
-        not zero, and not more than what the accumulators actually hold."""
+        not zero, and not more than what the accumulators actually hold.
+        Player 8 has no rating on the source list, so this stays reachable
+        after decision D raised the below-the-floor rows to 1200."""
         players = read_rating_list(_LEGACY_CSV)
         std = _std(players[8])
         assert std.accumulator.games == 10
@@ -201,3 +225,77 @@ class TestLegacyConversion:
         )
         assert result.accumulator.games == 2          # only this period's games; the old 10 are gone
         assert result.accumulator.since == _MONTH      # restarted fresh, now dateable
+
+
+class TestConversionDecisionC:
+    """Decided by FEXERJ on 2026-08-11: a player carrying a published rating
+    with fewer than five games has the rating zeroed on conversion, but the
+    game count is kept "para registro". The new model would never produce a
+    rating on fewer than five games (§6.1), so the converted list would
+    otherwise start with numbers the model itself refuses to make.
+    Affects 256 players in the federation's current list."""
+
+    def test_fewer_than_five_games_loses_the_rating(self):
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[10]).rating is None
+
+    def test_but_keeps_the_game_count(self):
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[10]).games == 3
+
+    def test_exactly_five_games_keeps_the_rating(self):
+        """Five is the minimum for a first rating (§6.1), so the boundary
+        belongs on the rated side."""
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[11]).rating == 1450
+
+    def test_the_games_played_carry_over_as_accumulated_progress(self):
+        """The three games are not thrown away: they count toward the five
+        the player now needs."""
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[10]).accumulator.games == 3
+        assert _std(players[10]).accumulator.sum_opponents == 2900
+
+
+class TestConversionDecisionD:
+    """Decided by FEXERJ on 2026-08-11: a player below the 1200 floor with
+    five games or more is raised to the floor and enters rated, instead of
+    entering unrated. Rationale on record: entering unrated removes them from
+    the list in silence, because the initial-rating calculation rarely returns
+    anyone above 1200; entering at the floor makes the exit, if it comes,
+    happen through §7 with an audit line. Affects 60 players."""
+
+    def test_below_the_floor_is_raised_to_the_floor(self):
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[12]).rating == 1200
+
+    def test_the_game_count_is_preserved(self):
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[12]).games == 40
+
+    def test_entering_at_the_floor_does_not_set_the_peak_flag(self):
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[12]).reached_2200 is False
+
+    def test_exactly_five_games_is_raised_too(self):
+        """The federation's note said "supondo > 5 partidas" while the
+        question asked about "5 ou mais". Read as five or more: at exactly
+        five, decision C no longer applies, so anything else would leave a
+        rated player sitting below the floor — a state the model forbids."""
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[13]).rating == 1200
+
+    def test_a_player_with_no_rating_at_all_is_not_raised(self):
+        """`Rtg_Nat = 0` means the source list carries no rating, not a
+        rating of zero. Raising these to 1200 would hand a rating to
+        hundreds of unrated players."""
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[14]).rating is None
+        assert _std(players[14]).games == 40
+
+    def test_decision_c_wins_when_both_could_apply(self):
+        """Below the floor and under five games: the player leaves unrated,
+        not raised to 1200."""
+        players = read_rating_list(_CONVERSION_CSV)
+        assert _std(players[15]).rating is None
+        assert _std(players[15]).games == 2

@@ -8,7 +8,12 @@ import io
 from decimal import Decimal
 
 from .model import COLUMN_SUFFIX, MODALITIES, Accumulator, ModalityState, PlayerState
-from .rules import K10_THRESHOLD, applies_rating_floor
+from .rules import (
+    K10_THRESHOLD,
+    MIN_GAMES_FOR_FIRST_RATING,
+    RATING_FLOOR,
+    applies_rating_floor,
+)
 
 _DELIMITER = ";"
 
@@ -106,17 +111,30 @@ def _read_fide_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
 def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
     """Convert the 12-column format into the internal state (spec §2.2).
 
-    Three distinct cases apply to Classical — copying `Rtg_Nat` verbatim
-    would be wrong in two of them:
+    Four distinct cases apply to Classical — copying `Rtg_Nat` verbatim
+    would be wrong in three of them:
 
     - `TotalNumGames = 0`: unrated today. The number in `Rtg_Nat` doesn't
       count; the game count decides (see `complete_players_info` in the
       current engine).
-    - `Rtg_Nat` below the floor: the current model's floor is 1 point and the
-      new one is 1200, so the source list can contain players between 1 and
-      1199. §7 is applied here, preserving the game count.
+    - **fewer than five games** (decision C, 2026-08-11): the rating is
+      dropped and the player enters unrated, because the new model would
+      never produce a rating on fewer than five games (§6.1) — the converted
+      list would otherwise open with numbers the model itself refuses to
+      make. The game count survives "para registro", and the games already
+      played carry over as progress toward the five now required.
+    - `Rtg_Nat` **below the floor with five games or more** (decision D,
+      2026-08-11): raised to the floor, entering rated. Entering unrated
+      would delete the player from the list in silence, since the
+      initial-rating calculation rarely returns anyone above 1200; at the
+      floor, the exit — if it comes — happens through §7, with an audit
+      line. `Rtg_Nat = 0` is not "below the floor": it means the source list
+      carries no rating at all, and those players stay unrated.
     - everything else enters as rated, with the 2200 peak flag derived from
       the rating itself: the source list is a published rating list (§5).
+
+    C is checked before D: a player below the floor *and* under five games
+    leaves unrated, since neither rule leaves them holding a rating.
 
     Rapid and Blitz start empty, which triggers the §1.1 carry-over on each
     modality's first tournament.
@@ -152,7 +170,18 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
         sum_opponents = int(row[10] or 0)
         points = Decimal(row[11].strip() or "0")
 
-        if games == 0 or applies_rating_floor(legacy_rating):
+        raised_to_floor = (
+            games >= MIN_GAMES_FOR_FIRST_RATING
+            and legacy_rating > 0
+            and applies_rating_floor(legacy_rating)
+        )
+        enters_unrated = not raised_to_floor and (
+            games == 0
+            or games < MIN_GAMES_FOR_FIRST_RATING
+            or applies_rating_floor(legacy_rating)
+        )
+
+        if enters_unrated:
             std = ModalityState(
                 rating=None,
                 games=games,
@@ -162,6 +191,13 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                     sum_opponents=sum_opponents,
                     points=points,
                 ),
+            )
+        elif raised_to_floor:
+            std = ModalityState(
+                rating=RATING_FLOOR,
+                games=games,
+                reached_2200=False,
+                accumulator=Accumulator(sum_opponents=sum_opponents, points=points),
             )
         else:
             std = ModalityState(
