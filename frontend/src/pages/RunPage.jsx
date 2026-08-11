@@ -83,7 +83,10 @@ export default function RunPage({
               key={`players-${formResetKey}`}
               type="file"
               accept=".csv"
-              required
+              // A remounted file input is always empty — the browser will not let
+              // JavaScript refill it — so `required` here would block the submit
+              // over a file the form still holds and will still send.
+              required={!form.playersCsv}
               className="file-input"
               onChange={e => setForm(f => ({ ...f, playersCsv: e.target.files[0] ?? null }))}
             />
@@ -99,7 +102,7 @@ export default function RunPage({
               key={`tournaments-${formResetKey}`}
               type="file"
               accept=".csv"
-              required
+              required={!form.tournamentsCsv}
               className="file-input"
               onChange={e => setForm(f => ({ ...f, tournamentsCsv: e.target.files[0] ?? null }))}
             />
@@ -119,7 +122,7 @@ export default function RunPage({
               type="file"
               accept=".TUNX,.TURX,.TUMX"
               multiple
-              required
+              required={form.binaryFiles.length === 0}
               className="file-input"
               onChange={e => setForm(f => ({ ...f, binaryFiles: Array.from(e.target.files) }))}
             />

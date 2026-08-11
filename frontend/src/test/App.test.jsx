@@ -462,6 +462,45 @@ describe('Results page flow', () => {
     expect(screen.getByText(/arquivo selecionado: 1-99999\.turx/i)).toBeInTheDocument()
   })
 
+  it('the form is still submittable after Nova execução, with the files it kept', async () => {
+    // Coming back remounts the form, and a file input cannot be repopulated by
+    // JavaScript, so the three widgets are empty while the files are still in
+    // state. With `required` on those widgets the browser refuses the submit
+    // ("Please select a file") and the run is impossible without re-picking
+    // files that were never lost. `fireEvent.submit` bypasses that check, so
+    // this asserts what the browser actually evaluates.
+    const zipBlob = await fixtureRunZipBlob()
+
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+    mockFetchWithSuccessfulRun(zipBlob)
+
+    await uploadAllFiles(user, { tournamentsFile: tournamentsCsvFixtureFile() })
+    submitRunForm()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /resultado do ciclo de rating/i })).toBeInTheDocument(),
+    )
+
+    await user.click(screen.getByRole('button', { name: /nova execução/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^executar$/i })).toBeEnabled(),
+    )
+
+    const form = screen.getByRole('button', { name: /^executar$/i }).closest('form')
+    expect(form.checkValidity()).toBe(true)
+  })
+
+  it('still requires a file the first time, when nothing is in state yet', async () => {
+    mockFetch()
+    const user = userEvent.setup()
+    render(<App />)
+    await login(user)
+
+    const form = screen.getByRole('button', { name: /^executar$/i }).closest('form')
+    expect(form.checkValidity()).toBe(false)
+  })
+
   it('Limpar formulário resets inputs and disables run', async () => {
     mockFetch()
     const user = userEvent.setup()
