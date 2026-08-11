@@ -129,6 +129,33 @@ class TestCompareModeRestrictions:
         assert not any("comparar" in e.lower() for e in errors)
 
 
+class TestEndDateIsReadable:
+    """EndDate stops being decoration in the per-game model: the period's year
+    and month come out of it. An unreadable one used to pass validation and
+    blow up mid-run as a 422, which reads as a portal failure rather than a
+    file to fix."""
+
+    # Ord 5 sits outside the 1..1 window `_errors` validates, so no binary is
+    # expected for it — the row-level EndDate check runs either way.
+    def test_accepts_the_dotted_format_the_federation_exports(self):
+        tournaments = TOURNAMENTS_HEADER + "\n5;99999;Torneio;25.01.2026;SS;0;0;STD\n"
+        assert _errors(_FIDE_PLAYERS, tournaments, "fide") == []
+
+    def test_rejects_an_excel_serial_at_validation_time(self):
+        tournaments = TOURNAMENTS_HEADER + "\n5;99999;Torneio;24857;SS;0;0;STD\n"
+        errors = _errors(_FIDE_PLAYERS, tournaments, "fide")
+        assert any("EndDate" in e and "24857" in e for e in errors)
+
+    def test_names_the_formats_it_accepts(self):
+        tournaments = TOURNAMENTS_HEADER + "\n5;99999;Torneio;janeiro de 2026;SS;0;0;STD\n"
+        errors = _errors(_FIDE_PLAYERS, tournaments, "fide")
+        assert any("AAAA-MM-DD" in e and "DD.MM.AAAA" in e for e in errors)
+
+    def test_stays_optional_in_the_current_model(self):
+        legacy = _LEGACY_TOURNAMENTS_HEADER + "\n5;99999;Torneio;24857;SS;0;0\n"
+        assert not any("EndDate" in e for e in _errors(_LEGACY_PLAYERS, legacy, "legacy"))
+
+
 class TestDuplicateOrd:
     def test_rejected_in_fide_mode_too(self):
         """The per-game engine pools every game under its tournament's Ord, so

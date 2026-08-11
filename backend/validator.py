@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
 from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
 from calculator.fide.rules import RATING_FLOOR, parse_birth_year
+from calculator.fide.tournaments import parsed_end_date
 
 # BIO_MARKER and PAIRING_MARKER are imported explicitly so the validator can
 # produce specific Portuguese error messages before attempting to parse.  The
@@ -537,6 +538,16 @@ def _validate_tournaments_for_mode(content: str, mode: str) -> list[str]:
             errors.append(
                 f"tournaments.csv linha {row_num}: EndDate é obrigatório no modelo por partida "
                 f"— o fator K de sub-18 depende do ano do período"
+            )
+        elif parsed_end_date(end_date) is None:
+            # Same parser the calculator uses, so validation and calculation
+            # cannot disagree about what a readable date is. Left unchecked,
+            # an Excel serial (24857) or free text passes here and raises
+            # mid-run instead, which reads as a portal failure rather than a
+            # file to fix.
+            errors.append(
+                f"tournaments.csv linha {row_num}: EndDate '{end_date}' não foi reconhecida "
+                f"como uma data (formatos aceitos: AAAA-MM-DD, DD/MM/AAAA ou DD.MM.AAAA)"
             )
 
         time_control = row[7].strip().upper()

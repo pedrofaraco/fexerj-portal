@@ -23,8 +23,11 @@ TOURNAMENTS_HEADER = "Ord;CrId;Name;EndDate;Type;IsIrt;IsFexerj;TimeControl"
 
 _TYPE_TO_EXT = {"SS": "TUNX", "RR": "TURX", "ST": "TUMX"}
 _YEAR_RE = re.compile(r"(\d{4})")
-# Same two formats `rules.parse_birth_year` accepts for Birthday.
-_END_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y")
+# Day-first, then the ISO form. `%d.%m.%Y` is what the federation's own
+# tournaments.csv carries — the current model never parsed this column, so the
+# format was whatever Swiss Manager wrote, and it writes dots. All three are
+# day-first or unambiguous: no arrangement here reads 05.06.2026 as May.
+_END_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d.%m.%Y")
 
 
 @dataclass(frozen=True)
@@ -106,13 +109,16 @@ def period_year(tournaments: list[TournamentRow]) -> int:
     return max(years)
 
 
-def _parsed_end_date(end_date: str) -> tuple[int, int] | None:
+def parsed_end_date(end_date: str) -> tuple[int, int] | None:
     """(year, month) from an `EndDate` cell, or `None` when unreadable.
 
-    Tries the same two formats `rules.parse_birth_year` accepts for
-    Birthday — `YYYY-MM-DD` and `DD/MM/YYYY`. Unlike `period_year`'s
-    `_YEAR_RE`, the month's position in the string depends on which of the
-    two formats it is, so it has to be parsed rather than pattern-matched.
+    Public so `backend.validator` can reject an unreadable date at validation
+    time using this very function — the same arrangement `parse_birth_year`
+    already has, so validation and calculation can never disagree about what
+    counts as a readable date.
+
+    Unlike `period_year`'s `_YEAR_RE`, the month's position depends on which
+    format the cell is in, so it has to be parsed rather than matched.
     """
     text = end_date.strip()
     for fmt in _END_DATE_FORMATS:
@@ -133,11 +139,11 @@ def period_month(tournaments: list[TournamentRow]) -> str:
     """
     parsed: list[tuple[int, int]] = []
     for tournament in tournaments:
-        result = _parsed_end_date(tournament.end_date)
+        result = parsed_end_date(tournament.end_date)
         if result is None:
             raise ValueError(
                 f"Torneio {tournament.ord}: EndDate '{tournament.end_date}' não foi reconhecida "
-                "como uma data (formatos aceitos: AAAA-MM-DD ou DD/MM/AAAA). O acúmulo de rating "
+                "como uma data (formatos aceitos: AAAA-MM-DD, DD/MM/AAAA ou DD.MM.AAAA). O acúmulo de rating "
                 "inicial (janela de 26 meses, §6.2) precisa do mês do período."
             )
         parsed.append(result)

@@ -8,6 +8,7 @@ from calculator.fide.ratinglist import LEGACY_HEADER, read_rating_list
 from calculator.fide.tournaments import (
     TOURNAMENTS_HEADER,
     collect_games,
+    period_month,
     period_year,
     read_tournaments,
 )
@@ -74,6 +75,43 @@ class TestPeriodYear:
         rows = read_tournaments(csv_text, 1, 1)
         with pytest.raises(ValueError, match="EndDate"):
             period_year(rows)
+
+
+class TestPeriodMonth:
+    """§6.2's 26-month window needs the month, so EndDate has to parse — not
+    just yield a four-digit year like `period_year` settles for."""
+
+    def test_reads_the_dotted_format_the_federation_actually_exports(self):
+        # Every EndDate in the federation's real tournaments.csv looks like
+        # this. The current model never parsed the column, so the format was
+        # free to be whatever Swiss Manager wrote.
+        csv_text = TOURNAMENTS_HEADER + "\n1;99999;Torneio;25.01.2026;SS;0;0;STD\n"
+        rows = read_tournaments(csv_text, 1, 1)
+        assert period_month(rows) == "2026-01"
+        assert period_year(rows) == 2026
+
+    def test_reads_the_two_formats_that_already_worked(self):
+        csv_text = (
+            TOURNAMENTS_HEADER + "\n"
+            "1;99999;Torneio Um;2026-03-15;RR;0;1;STD\n"
+            "2;88888;Torneio Dois;20/04/2026;RR;0;1;STD\n"
+        )
+        rows = read_tournaments(csv_text, 1, 2)
+        assert period_month(rows) == "2026-04"
+
+    def test_still_rejects_a_date_it_cannot_read(self):
+        # An Excel serial, the other thing found in the federation's files.
+        csv_text = TOURNAMENTS_HEADER + "\n1;99999;Torneio;24857;SS;0;0;STD\n"
+        rows = read_tournaments(csv_text, 1, 1)
+        with pytest.raises(ValueError, match="EndDate"):
+            period_month(rows)
+
+    def test_a_dotted_date_is_not_read_as_a_month_of_31(self):
+        """`%d.%m.%Y` and `%m.%d.%Y` both parse 05.06.2026 — one gives June,
+        the other May. Day-first is the format the federation writes."""
+        csv_text = TOURNAMENTS_HEADER + "\n1;99999;Torneio;05.06.2026;SS;0;0;STD\n"
+        rows = read_tournaments(csv_text, 1, 1)
+        assert period_month(rows) == "2026-06"
 
 
 class TestCollectGames:
