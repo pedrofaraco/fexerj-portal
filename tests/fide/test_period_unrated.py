@@ -222,6 +222,108 @@ class TestPerTournamentDiscard:
         assert result.accumulator.points == Decimal("1")
 
 
+class TestZeroingMeansTheWholeTournament:
+    """Decided by FEXERJ on 2026-08-11, answering "o descarte deve valer
+    quando o jogador enfrentou só um ou dois adversários com rating?" with
+    "zerar um torneio inteiro". The discard now looks at the player's score
+    in the whole tournament, not at the subset of games against rated
+    opponents — a newcomer who wins against unrated opponents did not zero
+    anything, even if the one game that counts was a loss."""
+
+    def test_points_against_unrated_opponents_prevent_the_discard(self):
+        # One rated opponent, lost; three unrated opponents, all beaten. The
+        # tournament was not zeroed, so the loss enters the accumulator.
+        games = [_game(1, 2, "0"), _game(1, 90, "1"), _game(1, 91, "1"), _game(1, 92, "1")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=games,
+            opponent_ratings={2: 1600},   # 90, 91, 92 are unrated
+            period_month=_MONTH,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 1
+        assert result.accumulator.points == Decimal("0")
+        assert result.accumulator.sum_opponents == 1600
+
+    def test_half_a_point_against_an_unrated_opponent_is_enough(self):
+        games = [_game(1, 2, "0"), _game(1, 90, "0.5")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=games,
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 1
+
+    def test_losing_everything_still_discards(self):
+        games = [_game(1, 2, "0"), _game(1, 90, "0")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=games,
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.accumulator.games == 0
+
+    def test_the_games_still_count_toward_the_lifetime_total(self):
+        """Only the rated games count as games played, discarded or not."""
+        games = [_game(1, 2, "0"), _game(1, 90, "0")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=games,
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert result.games_counted == 1
+
+
+class TestOnlyTheVeryFirstTournamentIsDiscardable:
+    """Decided by FEXERJ on 2026-08-11: "Sim. Só o primeiro. Se zerar a
+    partir do 2, conta." The opportunity is spent by the first tournament
+    the player plays, even when that tournament was itself discarded and
+    therefore left the accumulator empty."""
+
+    def test_a_player_who_has_played_before_gets_no_discard(self):
+        """Lifetime count above zero with an empty accumulator is exactly
+        the state left behind by a discarded first tournament."""
+        state = ModalityState(games=2, accumulator=Accumulator())
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=[_game(1, 5, "0")],
+            opponent_ratings={5: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 1        # counted, not discarded
+        assert result.accumulator.points == Decimal("0")
+
+    def test_two_periods_in_a_row_discard_only_once(self):
+        """Period 1 zeroes and is discarded; period 2 zeroes again and
+        counts. Runs the two periods back to back so the state carried
+        between them is the engine's own."""
+        first = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=[_game(1, 2, "0")],
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert first.path == "FIRST_EVENT_ZEROED"
+
+        carried = ModalityState(
+            games=first.games_counted, accumulator=first.accumulator,
+        )
+        second = compute_unrated_period(
+            player_id=1, modality="RPD", state=carried,
+            games=[_game(2, 3, "0")],
+            opponent_ratings={3: 1600},
+            period_month=_LATER_MONTH,
+        )
+        assert second.path == "ACCUMULATING"
+        assert second.accumulator.games == 1
+
+
 class TestAccumulationWindow:
     """§6.2 / FIDE 7.1.4: results pool across periods only within a 26-month
     window measured from the period the accumulation began."""
@@ -256,11 +358,13 @@ class TestAccumulationWindow:
         assert result.accumulator.points == Decimal("0.5")
         assert result.accumulator.since == "2026-04"     # restarted from this period
 
-    def test_a_zeroed_first_tournament_is_eligible_again_after_a_reset(self):
-        """A window reset wipes the accumulator down to zero games, which is
-        exactly the signal `compute_unrated_period` uses to decide whether a
-        zeroed tournament is still the discardable "first" one — so the
-        discard rule applies again right after a reset."""
+    def test_a_window_reset_does_not_hand_back_the_discard(self):
+        """A window reset wipes the accumulator, but it does not turn the
+        player back into a newcomer: they have played before, and "só o
+        primeiro" (FEXERJ, 2026-08-11) spends the discard on the first
+        tournament ever, not on the first after a reset. The lifetime count
+        is what remembers it — the accumulator cannot, since a reset is
+        indistinguishable from never having played once it is zeroed."""
         state = ModalityState(games=3, accumulator=Accumulator(
             games=3, sum_opponents=4800, points=Decimal("1.5"), since="2024-01",
         ))
@@ -270,9 +374,11 @@ class TestAccumulationWindow:
             opponent_ratings={2: 1600},
             period_month="2026-04",  # past the window
         )
-        assert result.path == "FIRST_EVENT_ZEROED"
-        assert result.accumulator.games == 0
-        assert result.accumulator.since == ""
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 1               # counted, not discarded
+        assert result.accumulator.points == Decimal("0")
+        assert result.accumulator.sum_opponents == 1600
+        assert result.accumulator.since == "2026-04"       # restarted from this period
 
 
 class TestFloorExpelledPlayerAccumulator:

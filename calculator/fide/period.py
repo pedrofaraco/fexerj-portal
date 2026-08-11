@@ -218,7 +218,14 @@ def compute_unrated_period(
     for game in games:
         games_by_tournament.setdefault(game.tournament_ord, []).append(game)
 
-    first_tournament_pending = accumulator.games == 0
+    # "Só o primeiro" (FEXERJ, 2026-08-11): the opportunity is spent by the
+    # first tournament the player plays, not by the first that survives the
+    # discard. The lifetime count is what carries that across periods —
+    # a discarded tournament still adds its games to it, so a player who
+    # zeroed and was discarded already has `games > 0` and gets no second
+    # chance. (If decision B ever stops counting unrated games toward the
+    # lifetime total, this marker has to become a field of its own.)
+    first_tournament_pending = state.games == 0
     games_counted = 0
     total_games = accumulator.games
     total_points = accumulator.points
@@ -226,7 +233,8 @@ def compute_unrated_period(
     discarded_first_tournament = False
 
     for ord_ in sorted(games_by_tournament):
-        counted = [g for g in games_by_tournament[ord_] if g.opponent_id in opponent_ratings]
+        tournament_games = games_by_tournament[ord_]
+        counted = [g for g in tournament_games if g.opponent_id in opponent_ratings]
         if not counted:
             continue
         tournament_points = sum((g.score for g in counted), Decimal("0"))
@@ -234,7 +242,13 @@ def compute_unrated_period(
 
         if first_tournament_pending:
             first_tournament_pending = False
-            if tournament_points == 0:
+            # "Zerar um torneio inteiro" (FEXERJ, 2026-08-11): the whole
+            # tournament is what has to be scoreless, not just the games
+            # against rated opponents. A newcomer in a field of unrated
+            # players may face a single rated opponent and lose to them
+            # while winning everything else — that is not a zeroed
+            # tournament, and the loss counts.
+            if sum((g.score for g in tournament_games), Decimal("0")) == 0:
                 # §6.1 / 8.2.1: discarded from the accumulator, but its games
                 # were already added to games_counted above.
                 discarded_first_tournament = True
