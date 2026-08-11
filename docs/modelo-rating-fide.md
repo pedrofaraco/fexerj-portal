@@ -1,128 +1,104 @@
 # Modelo de rating FEXERJ — regras completas
 
+**Versão 1.2 — 11/08/2026.** Incorpora as respostas da diretoria à versão 1.1 e os
+resultados da simulação sobre um ciclo real (seção 14).
+
 Especificação do modelo **por partida**, alinhado ao Handbook FIDE B02 com as
-adaptações do Art. 68 do regulamento da FEXERJ.
+adaptações da FEXERJ.
 
 Substitui o modelo por torneio descrito em [`CALCULATOR.md`](../CALCULATOR.md).
 
 - **Base normativa:** [FIDE Rating Regulations](https://handbook.fide.com/chapter/B022024)
   (vigente desde 01/03/2024, com emenda de 01/10/2025 em 8.3.1) e
   [FIDE Rapid and Blitz Rating Regulations](https://handbook.fide.com/chapter/B02RBRegulations2024).
-- **Adaptações:** Art. 68 do regulamento FEXERJ.
-- **Validação:** o cálculo descrito na seção 3 foi conferido contra uma consulta
-  oficial da FIDE — 13 partidas, todas conferem, e a soma do período reproduz o valor
-  publicado. Ver seção 10.
+- **Adaptações:** regulamento da FEXERJ. *Os números de artigo foram retirados desta
+  versão a pedido da diretoria, porque o regulamento está sendo reescrito e a
+  numeração ainda vai mudar.*
+- **Validação:** o cálculo da seção 3 foi conferido contra uma consulta oficial da
+  FIDE (seção 10) e o modelo inteiro foi rodado sobre um ciclo real da federação
+  (seção 14).
 
-> Este documento tem **seis pontos em aberto** — ver "Decisões pendentes" logo
-> abaixo. As regras já decididas estão marcadas *Confirmado pela FEXERJ* ou
-> *Decidido pela FEXERJ* onde aparecem; o registro completo está na seção 13.
+> **As seis pendências da versão 1.1 (A a F) estão respondidas** e viraram regra ao
+> longo do texto; o registro está na seção 13. Restaram **seis pontos novos**, listados
+> logo abaixo — cinco vindos das próprias respostas e um proposto pela diretoria.
 
 ---
 
 ## Decisões pendentes
 
-Seis perguntas fechadas, para a diretoria responder de uma vez. Esta seção é
+Seis pontos, todos surgidos das respostas à versão 1.1. Esta seção é
 **auto-contida** — basta lê-la para responder tudo. O resto do documento é
 referência, para quem quiser conferir o raciocínio por trás de cada regra.
 
-### A. O teto de 700 (partidas × K por período) muda com o bimestre?
+### 1. As partidas jogadas antes do primeiro rating contam para o fator K?
 
-Hoje o teto é 700 — o valor que a própria FIDE usa (seção 5.1). Com a lista
-bimestral (decisão já tomada, seção 4.1), ele passa a agir a partir de 18 partidas
-de um jogador com K=40 no bimestre; em lista mensal, quase nunca agia.
+A resposta à antiga pendência B pode ser lida de duas formas, e a distância entre
+elas é grande. A opção marcada — (2) — tira da contagem **as partidas do torneio
+descartado**. A frase que a acompanha — *"só contam as partidas depois que ele começa
+a ter rating"* — tira **todas as partidas jogadas enquanto o jogador era não-rated**.
 
-**Opções:** (1) manter 700; (2) adotar um valor pensado para o bimestre.
+Exemplo: um jogador acumula 20 partidas até conquistar o primeiro rating. Pela
+primeira leitura ele entra rated com 20 partidas no contador, e o fator K acompanha
+(seção 5). Pela segunda entra com zero, e fica com K=40 por mais 30 partidas — o
+rating dele oscila bem mais no primeiro ano.
 
-**Recomendação:** manter 700 — não acrescenta ao modelo um número que não vem de
-fonte externa nenhuma.
+**Opções:** (1) só o torneio descartado sai da contagem; (2) nenhuma partida jogada
+antes do primeiro rating conta para o K.
 
-**Se decidirem diferente:** o time técnico calcula o novo valor a partir da
-distribuição real de partidas por jogador num ano de dados passados, para que o
-número tenha origem verificável, e não seja uma estimativa.
+**Recomendação:** opção 1. A contagem de partidas é o currículo do jogador, e a opção
+2 obriga o arquivo a carregar dois contadores diferentes — um "para registro" e outro
+para o K —, que é o tipo de duplicidade que produz erro silencioso.
 
-### B. O descarte do primeiro torneio zerado tira partidas da contagem que alimenta o K?
+**Enquanto não houver resposta:** o programa segue a opção 1, que é o comportamento
+atual.
 
-A federação pediu que o descarte não altere "o número de partidas" do jogador. A
-leitura adotada (seção 6.1): o torneio zerado sai do **cálculo do primeiro rating**,
-mas as partidas continuam contando no total de partidas disputadas, que é o que
-alimenta o fator K (seção 5). O jogador não perde as partidas do currículo — perde o
-resultado na hora de calcular o primeiro rating.
+### 2. O que é o "status" do jogador?
 
-**Opções:** (1) confirmar essa leitura; (2) as partidas do torneio descartado também
-saem da contagem que alimenta o K.
+A diretoria esclareceu que o status é **cadastral, como o clube**, e não derivado do
+cálculo. Para incluí-lo no arquivo (seção 11.1) falta saber: quais são os valores
+possíveis, quem os preenche, e se algum deles muda o comportamento do programa — por
+exemplo, se um jogador de determinado status sai da lista publicada ou deixa de ser
+calculado.
 
-**Recomendação:** confirmar (opção 1) — é a leitura mais literal de "sem alterar o
-número de partidas".
+### 3. A anotação "regra dos 26 meses" na conversão
 
-**Se decidirem diferente:** um jogador que zerou o primeiro torneio entraria no
-cálculo do fator K com menos partidas do que de fato disputou.
+Apareceu ao lado do caso de jogador com rating e menos de 5 partidas (antiga pendência
+C), mas não ficou claro o que decide. A janela de 26 meses (seção 6.2) hoje se aplica
+ao acúmulo rumo ao primeiro rating. Falta dizer o que muda.
 
-### C. Na conversão da lista atual, jogador com rating e menos de 5 partidas mantém o rating?
+### 4. Rating inicial vindo da FIDE
 
-Hoje a conversão mantém o rating publicado pelo valor de face. O modelo novo nunca
-produziria um rating com menos de 5 partidas (seção 6.1) — a lista convertida
-nasceria com números que o próprio modelo, rodando do zero, recusaria.
+*Proposta da diretoria:* jogador que já tem rating FIDE entra com ele, em vez de passar
+pelo cálculo de rating inicial da seção 6 — principalmente quem vem de fora. A
+recomendação técnica é aceitar, e fazer **por modalidade**: rating FIDE de Clássico
+para o Clássico, de Rápido para o Rápido, de Blitz para o Blitz. Um rating FIDE
+existente é uma medida melhor do que a estimativa de 5 partidas, e é o que a própria
+FIDE faz ao integrar jogadores de outra federação.
 
-**Opções:** (1) manter o rating desses jogadores na conversão; (2) zerar e tratá-los
-como não-rated, sujeitos à regra do rating inicial (seção 6).
+Como é regra nova, quatro pontos precisam ser decididos junto:
 
-**Recomendação:** manter (opção 1). Esses jogadores entram com K=40 e o rating
-converge para o valor real do jogo em um ou dois períodos.
+- **De onde o programa lê esse rating?** Coluna nova no arquivo de jogadores, ou
+  consulta pelo identificador da CBX?
+- **O teto de 2000 do rating inicial (seção 6.3) se aplica?** A recomendação é que
+  não: o teto existe para conter uma estimativa feita com poucas partidas, e um rating
+  FIDE não é estimativa.
+- **Qual o fator K desse jogador?** A contagem de partidas dele na FEXERJ é zero, o
+  que pela seção 5 daria K=40 — provavelmente severo demais para quem chega com 2300
+  da FIDE.
+- **Um rating FIDE de 2200 ou mais liga o indicador permanente de K=10** (seção 5)?
 
-**Se decidirem diferente:** vale levantar antes quantos jogadores estão nessa
-situação — o impacto depende do volume.
+### 5. Piso na conversão: exatamente 5 partidas
 
-### D. Na conversão, jogador com rating abaixo de 1200 e 5 partidas ou mais sobe para o piso?
+A resposta à antiga pendência D dizia "supondo > 5 partidas", enquanto a pergunta
+falava em "5 partidas ou mais". **O programa adotou "5 ou mais"** (seção 7), porque a
+regra da antiga pendência C já cobre quem tem menos de 5: com "> 5", um jogador com
+exatamente 5 partidas e rating abaixo de 1200 ficaria rated abaixo do piso, estado que
+o modelo não admite. Falta confirmar.
 
-A federação propôs subir esses jogadores para 1200 na conversão.
+### 6. Data da virada
 
-**Opções:** (1) subir para 1200, entrando rated; (2) não subir — o jogador entra
-como não-rated no modelo novo.
-
-**Recomendação:** opção 1. Não é gentileza: se ele virar não-rated na conversão, na
-prática sai da lista de forma definitiva, porque o cálculo do rating inicial
-raramente devolve alguém acima de 1200. Subindo para o piso, ele entra rated e, se de
-fato jogar abaixo disso, cai no período seguinte pela regra normal (seção 7), com
-linha de auditoria explicando a queda.
-
-**Se decidirem diferente:** o destino prático é o mesmo — o jogador some da lista —
-mas sem auditoria: a migração o remove em silêncio, em vez de a regra do modelo
-mostrar o motivo.
-
-### E. Arquivo de rating: um só, ou um de trabalho e uma lista publicada separada?
-
-A federação pediu o fator K e o status do jogador nos arquivos. Os dois são
-**derivados** — vêm do rating, da contagem de partidas e da data de nascimento, não
-são dados independentes. O arquivo de rating hoje é entrada e saída do mesmo
-programa: o que sai de um ciclo é o que entra no seguinte. Se o K estiver nesse
-arquivo único, duas coisas ruins podem acontecer: o programa o ignora e recalcula
-sempre — e o valor salvo é decoração que alguém vai editar achando que muda algo —
-ou o programa confia nele, e um K editado à mão produz rating errado sem aviso.
-
-**Opções:** (1) arquivo único, com K e status incluídos; (2) dois arquivos — um
-**arquivo de trabalho** (o programa lê e escreve; guarda só o estado: rating,
-contagem, data de nascimento, indicador de 2200) e uma **lista publicada**, para os
-filiados, com rating, título, clube, partidas no período, fator K e status — o
-conteúdo que a cláusula 7.1.2 da FIDE descreve para lista publicada (a própria FIDE
-publica o valor corrente de K).
-
-**Recomendação:** opção 2 — dois arquivos.
-
-**Se decidirem diferente:** decidir antes qual dos dois problemas acima o programa
-vai carregar.
-
-### F. Quando o modelo atual se aposenta?
-
-Os dois modelos coexistem, com o atual como padrão. A virada é decisão de calendário
-da federação, não uma questão de engenharia.
-
-**Opções:** escolher uma data de virada; ou manter o atual como padrão até nova
-decisão.
-
-**Recomendação:** nenhuma — é decisão de calendário da federação, não técnica.
-
-**Se não decidirem agora:** o programa continua publicando pelo modelo atual por
-padrão, sem prazo definido.
+A resposta foi "previsão 01/01". Entendemos **01/01/2027**, com o bimestre
+janeiro-fevereiro de 2027 já calculado no modelo novo. Falta confirmar o ano.
 
 ---
 
@@ -139,10 +115,10 @@ A FEXERJ passa a manter **três ratings independentes** por jogador:
 Cada modalidade tem rating, contagem de partidas e histórico próprios. As regras
 abaixo se aplicam **igualmente às três**, salvo onde indicado.
 
-As adaptações numéricas do Art. 68 (seção 2) valem **igualmente para as três
+As adaptações numéricas da FEXERJ (seção 2) valem **igualmente para as três
 modalidades**. A única divergência em relação ao texto da FIDE é o teto de
 2400/2650, que a FEXERJ ignora — substituído por 2200 (seção 2) e pelo teto de 400
-sempre aplicado (§3º). *Confirmado pela FEXERJ.*
+sempre aplicado. *Confirmado pela FEXERJ.*
 
 ### 1.1 Transpasse entre modalidades
 
@@ -155,6 +131,9 @@ pelo cálculo de rating inicial da seção 6.
 O fator K do jogador transposto sai da contagem de partidas **da modalidade nova**,
 que é zero — portanto **K=40**. Fatores K e contagens de partidas são independentes
 por modalidade; só o rating inicial vem do STD. *Confirmado pela FEXERJ.*
+
+> **Proposta em aberto:** aproveitar o rating FIDE de quem já tem, por modalidade, em
+> vez de calcular um rating inicial. É a pendência 4, no início do documento.
 
 ---
 
@@ -170,18 +149,13 @@ por modalidade; só o rating inicial vem do STD. *Confirmado pela FEXERJ.*
 | Teto da diferença de rating | 8.3.1 | 400 | **400, sempre** |
 | Partidas mínimas para primeiro rating | 7.1.4 | 5 | **5** |
 
-**Art. 68 §2º** — revogado pela FEXERJ. Prescrevia reduzir o K pela metade em
-**torneio interno** (aquele que não é IRT nem organizado pela federação — as duas
-flags do arquivo de torneios, `IsIrt` e `IsFexerj`, desligadas). *Decidido pela
-FEXERJ:* com o K único dentro do período (seção 5), as partidas entre jogador rated
-e não-rated já fora do cálculo (seção 3) e o teto de 700 pontos mantido (seção 5.1),
-a metade não protegia mais nada que esses três mecanismos já não protegessem. O
-cálculo passa a ser uniforme, sem exceção por tipo de torneio. As duas flags
+**Redução do K pela metade em torneio interno: revogada.** *Decidido pela FEXERJ.* O
+cálculo é uniforme, sem exceção por tipo de torneio. As flags `IsIrt` e `IsFexerj`
 continuam existindo no arquivo de torneios — são elas que resolvem os identificadores
 da CBX em torneio IRT — só o uso delas para reduzir o K desaparece.
 
-**Art. 68 §3º** — o teto de 400 pontos **sempre** se aplica. A exceção da FIDE para
-jogadores com 2650 ou mais **não vale** na FEXERJ.
+**Teto da diferença de rating: 400 pontos, sempre.** A exceção da FIDE para jogadores
+com 2650 ou mais **não vale** na FEXERJ.
 
 ---
 
@@ -275,6 +249,14 @@ O K de 10 é **permanente**: uma vez que o rating publicado atinge 2200, o jogad
 mantém K=10 mesmo que caia depois. Isso exige **persistir um indicador por
 modalidade** de que o jogador já atingiu 2200 — não basta olhar o rating atual.
 
+> *Perguntado pela diretoria: "não basta converter uma vez e só testar o K?"* Não
+> basta, e o motivo é a própria permanência. Testando só o rating atual, um jogador
+> que chegou a 2210 e caiu para 2150 voltaria a K=20, contrariando a regra. E converter
+> uma única vez também não resolve, porque o indicador precisa ser ligado **toda vez**
+> que alguém cruzar 2200 daqui para frente, não só na migração. Na prática é um campo
+> por modalidade que o programa liga sozinho e nunca desliga — ninguém precisa
+> preenchê-lo à mão.
+
 Esse indicador **vence todas as outras condições** da tabela acima: nem a regra de
 sub-18 nem a de jogador novo levantam o K de volta depois que ele chega a 10. O K é
 um freio que só aperta, nunca afrouxa.
@@ -298,7 +280,11 @@ Um K, um n, o período inteiro: `n` é o número de partidas do jogador **no per
 `K` é o fator único da seção 5. Se `n × K > 700`, `K` passa a ser o **maior inteiro**
 tal que `K × n ≤ 700`.
 
-**O teto é por período, não por torneio.** *Decidido pela FEXERJ.* Aplicar o teto
+**Mantido em 700, e por período, não por torneio.** *Decidido pela FEXERJ.* Sobre o
+valor: rodado o ciclo real de 2026 (seção 14), **o teto não chegou a agir uma vez** —
+a mediana foi de 4 a 5 partidas por jogador por bimestre e o máximo foi 26, contra as
+18 partidas necessárias para o teto começar a morder sob K=40. Manter 700 é o valor da
+própria FIDE e, no calendário real da federação, indiferente na prática. Aplicar o teto
 torneio a torneio deixava o período total passar do limite por um múltiplo dele: um
 jogador com 40 partidas sob K=40, em dois torneios de 20, chegaria a K=35 em cada
 torneio (700 ÷ 20) — 1.400 no período, o dobro do teto. Com o teto sobre as 40
@@ -330,10 +316,24 @@ Só quando o jogador acumular **pelo menos 5 partidas contra adversários rated*
 (7.1.4). Até lá, os resultados ficam acumulados e nenhum rating é publicado.
 
 Se o jogador **zerar seu primeiro torneio**, esse resultado é **descartado** do
-cálculo do primeiro rating (8.2.1) — mesmo que ele tenha pontuado em outro torneio do
-mesmo período. Aqui, "evento" é o **torneio**, não o período: o descarte olha o
-primeiro torneio isoladamente. *Decidido pela FEXERJ.* Se essas partidas continuam
-ou não contando para o fator K é a pendência B, no início deste documento.
+cálculo do primeiro rating (8.2.1). Aqui, "evento" é o **torneio**, não o período: o
+descarte olha o primeiro torneio isoladamente, mesmo que o jogador tenha pontuado em
+outro torneio do mesmo período. *Decidido pela FEXERJ.*
+
+Duas precisões, decididas em 11/08/2026 depois de a regra ser medida sobre o ciclo
+real (seção 14), onde disparava 72 vezes — e em 30 delas o jogador tinha enfrentado um
+único adversário com rating:
+
+- **"Zerar" é zerar o torneio inteiro**, não só as partidas contra adversários com
+  rating. Um estreante num torneio cheio de não-rated pode enfrentar um único jogador
+  com rating e perder, ganhando todo o resto: o torneio não foi zerado, e a derrota
+  conta. Com essa precisão, a regra passou a disparar 23 vezes no mesmo ciclo.
+- **Só o primeiro torneio da vida do jogador** é descartável. Se o primeiro foi
+  descartado e ele zerar o segundo, o segundo conta. A oportunidade é gasta pelo
+  primeiro torneio disputado, não pelo primeiro que sobrevive ao descarte.
+
+Se as partidas do torneio descartado continuam contando para o fator K é a pendência
+1, no início deste documento.
 
 ### 6.2 Janela de 26 meses (7.1.4)
 
@@ -350,6 +350,11 @@ entre o período corrente e o período em que o acúmulo começou. Se essa dist�
 ultrapassar 26 meses, o acúmulo não pode mais ser agrupado — os resultados
 anteriores saem do cálculo e o acúmulo do jogador recomeça do zero, a partir do
 período corrente.
+
+O que se perde é o **acúmulo** rumo ao primeiro rating. A **contagem de partidas
+disputadas é preservada**, como em toda parte deste modelo: ela é o currículo do
+jogador e alimenta o fator K (seção 5). E o reinício do acúmulo não devolve ao jogador
+o descarte do primeiro torneio zerado (seção 6.1) — esse vale uma vez na vida.
 
 ### 6.3 Fórmula
 
@@ -404,13 +409,27 @@ pela FEXERJ.*
 A conversão da lista atual para o formato do modelo novo levanta dois casos que a
 regra acima — pensada para o cálculo corrente — não cobre, porque tratam de
 registros que **já existem** na lista de hoje, não de um rating que caiu durante um
-período:
+período. *Ambos decididos pela FEXERJ em 11/08/2026:*
 
-- jogador com rating publicado e **menos de 5 partidas** — pendência C;
-- jogador com rating **abaixo de 1200** e **5 partidas ou mais** — pendência D.
+- **Jogador com rating publicado e menos de 5 partidas: o rating é zerado**, e ele
+  entra não-rated. A contagem de partidas é preservada "para registro", e as partidas
+  já disputadas valem como acúmulo rumo às 5 que ele passa a precisar. Motivo: o
+  modelo novo nunca produziria um rating com menos de 5 partidas (seção 6.1) — a lista
+  convertida nasceria com números que o próprio modelo recusa. **256 jogadores** na
+  lista atual.
+- **Jogador com rating abaixo de 1200 e 5 partidas ou mais: sobe para o piso** e entra
+  rated. Motivo: entrar não-rated o removeria da lista em silêncio, porque o cálculo do
+  rating inicial raramente devolve alguém acima de 1200; entrando no piso, a saída — se
+  vier — acontece pela regra desta seção, com linha de auditoria. **60 jogadores**.
 
-As duas estão na seção "Decisões pendentes", no início deste documento, e ainda não
-têm resposta.
+Três fronteiras que as respostas não explicitavam, resolvidas assim:
+
+- `Rtg_Nat = 0` **não é "abaixo de 1200"**: significa que a lista de origem não traz
+  rating nenhum. Esses jogadores entram não-rated, e não sobem ao piso — subir daria
+  rating aos 768 não-rated da lista de uma só vez.
+- **"5 ou mais", não "mais de 5"** — ver a pendência 5, no início do documento.
+- Quando os dois casos se aplicam ao mesmo jogador (abaixo do piso **e** com menos de
+  5 partidas), vale o primeiro: ele entra não-rated.
 
 ---
 
@@ -434,7 +453,7 @@ têm resposta.
 | 77‑83 | .61 | .39 | 180‑188 | .74 | .26 | 316‑328 | .87 | .13 | > 735 | 1.0 | .00 |
 | 84‑91 | .62 | .38 | 189‑197 | .75 | .25 | 329‑344 | .88 | .12 |  |  |  |
 
-Com o teto de 400 sempre aplicado (§3º), **as faixas acima de 411 são inalcançáveis
+Com o teto de 400 sempre aplicado, **as faixas acima de 411 são inalcançáveis
 na FEXERJ** — ficam registradas por fidelidade ao original.
 
 ---
@@ -514,13 +533,30 @@ temporário, passam a servir apenas ao acúmulo de jogadores não-rated até as 
 partidas (seção 6.1). Ganha-se também a **data de início do acúmulo**, necessária
 para a janela de 26 meses (seção 6.2).
 
-Falta decidir se isso continua num arquivo só, ou se passa a ser um arquivo de
-trabalho mais uma lista publicada separada — pendência E, no início deste documento.
+**Continua sendo um arquivo só.** *Decidido pela FEXERJ.* A recomendação técnica era
+separar arquivo de trabalho e lista publicada; a diretoria optou pelo arquivo único,
+com o **fator K** e o **status** do jogador incluídos.
+
+Consequência a registrar, porque o arquivo é lido e escrito pelo mesmo programa: o
+fator K é **derivado** (vem do rating, da contagem de partidas e da data de
+nascimento, seção 5) e será **recalculado a cada ciclo**. A coluna existe para quem lê
+a lista, não para alimentar o cálculo — um K editado à mão não muda resultado nenhum.
+O cabeçalho do arquivo e o README dizem isso com todas as letras, para que ninguém
+edite a coluna esperando efeito.
+
+O **status** é cadastral, como o clube, e é transportado pelo programa sem
+interpretação — o que ele pode conter é a pendência 2, no início deste documento.
 
 ### 11.2 Lista de torneios
 
 Ganha uma coluna de **modalidade** (STD/RPD/BLZ). A coluna `Type` existente é
 **formato de disputa** (`SS`, `RR`, `ST`) e não ritmo de jogo — são coisas distintas.
+
+A coluna `EndDate`, hoje opcional e nunca lida pelo cálculo, passa a ser **obrigatória
+e precisa ser uma data legível**: é dela que saem o ano do período (regra de sub-18,
+seção 5) e o mês (janela de 26 meses, seção 6.2). São aceitos os formatos
+`AAAA-MM-DD`, `DD/MM/AAAA` e `DD.MM.AAAA` — o último é o que os arquivos da federação
+usam hoje.
 
 ### 11.3 Arquivo de auditoria
 
@@ -552,9 +588,9 @@ lista o que **ainda falta** responder; esta lista o que **já foi** respondido.
 
 | Decisão | Regra | Seção |
 |---|---|---|
-| Art. 68 vale para as três modalidades? | Sim. Só diverge da FIDE no teto 2400/2650, ignorado | 1 |
+| As adaptações valem para as três modalidades? | Sim. Só diverge da FIDE no teto 2400/2650, ignorado | 1 |
 | K do jogador transposto entre modalidades | Da modalidade nova — zero partidas, portanto K=40 | 1.1 |
-| Metade do K em torneio interno (Art. 68 §2º) | Abolida — os outros três mecanismos do período já protegiam o mesmo risco | 2 |
+| Metade do K em torneio interno | Abolida — os outros três mecanismos do período já protegiam o mesmo risco | 2 |
 | Teto de 700 (8.3.3) | Por período, não por torneio | 5.1 |
 | K=10 | Permanente — nunca volta a subir, nem com sub-18, nem com modalidade nova (indicador é por modalidade) | 5 |
 | Data de nascimento ausente | Passa a ser dado obrigatório | 5.2 |
@@ -563,15 +599,96 @@ lista o que **ainda falta** responder; esta lista o que **já foi** respondido.
 | Janela de acúmulo do rating inicial | 26 meses corridos a partir do início do acúmulo (7.1.4) | 6.2 |
 | Cair abaixo de 1200 durante o cálculo | Zera o rating, preserva a contagem de partidas | 7 |
 
+*Respondidas em 11/08/2026, sobre a versão 1.1:*
+
+| Decisão | Regra | Seção |
+|---|---|---|
+| Valor do teto de 700 (antiga pendência A) | Mantido em 700 — a simulação mostrou que não chega a agir | 5.1 e 14 |
+| Rating com menos de 5 partidas, na conversão (antiga C) | Zerado; a contagem de partidas é preservada | 7 |
+| Rating abaixo de 1200 com 5+ partidas, na conversão (antiga D) | Sobe para o piso, entrando rated | 7 |
+| Arquivo de rating (antiga E) | Um só, com fator K e status incluídos | 11.1 |
+| Aposentadoria do modelo atual (antiga F) | Previsão de virada em 01/01 | — |
+| O que é "zerar" o primeiro torneio | Zerar o torneio inteiro, não só as partidas contra rated | 6.1 |
+| Quantas vezes o descarte pode acontecer | Só no primeiro torneio; a partir do segundo, conta | 6.1 |
+
 Seis pontos continuam em aberto — ver "Decisões pendentes" no início do documento.
+
+---
+
+## 14. Simulação sobre um ciclo real
+
+O modelo foi rodado sobre o último ciclo completo da federação: **35 torneios entre
+25/01 e 07/06/2026**, todos de Clássico, com os 2.385 jogadores da lista e 480 deles
+disputando partidas. Serve para sair da discussão teórica e ver o efeito das regras
+sobre gente real.
+
+**Conferência de base.** O mesmo ciclo foi reprocessado pelo modelo atual e as **35
+listas de rating saíram idênticas** às publicadas pela federação. Toda diferença
+apontada abaixo vem do modelo novo, não de uma leitura diferente dos arquivos.
+
+### 14.1 Prontidão do cadastro
+
+| Achado | Quantidade |
+|---|---:|
+| Data de nascimento ausente | 296 |
+| Dessas, quantas mudam algum cálculo | **1** |
+| Data de nascimento ilegível (número de série do Excel) | 2 |
+| `Ord` de torneio duplicado | 0 |
+
+A data de nascimento só muda o fator K de quem já tem 30 partidas ou mais, rating
+abaixo de 2100 e nunca atingiu 2200 (seção 5). Nesse recorte cai **um** jogador — que
+é, justamente, um dos dois registros com data corrompida. **Duas células precisam ser
+corrigidas antes do primeiro ciclo oficial**; o resto do cadastro pode ser completado
+sem pressa.
+
+### 14.2 O teto de 700 nunca agiu
+
+| Bimestre | Torneios | Partidas por jogador (mediana) | Máximo | Com 18+ partidas |
+|---|---:|---:|---:|---:|
+| jan-fev | 4 | 5 | 10 | 0 |
+| mar-abr | 16 | 5 | 16 | 0 |
+| mai-jun | 15 | 4 | 26 | 3 |
+
+O teto começa a agir em 18 partidas sob K=40 e em 36 sob K=20. Os três jogadores que
+passaram de 18 partidas já estavam em K=20. **Nenhum K foi reduzido pelo teto.**
+
+### 14.3 Quanto o rating muda
+
+348 jogadores terminam o semestre com rating nos dois modelos e podem ser comparados:
+
+| Diferença | Jogadores | % |
+|---|---:|---:|
+| até 10 pontos | 163 | 47% |
+| 11 a 25 | 85 | 24% |
+| 26 a 50 | 53 | 15% |
+| 51 a 100 | 25 | 7% |
+| acima de 100 | 22 | 6% |
+
+Mediana de **11,5 pontos**. **Não há viés de direção**: 173 sobem, 162 descem, 13
+ficam iguais. As maiores mudanças concentram-se em rating baixo e recém-chegados,
+onde ficam as regras aposentadas (seção 12).
+
+### 14.4 O que o modelo novo faz e o atual não fazia
+
+Somando os três bimestres: **50 jogadores** conquistaram o primeiro rating pela regra
+da seção 6, **111** seguem acumulando rumo às 5 partidas, e o descarte do primeiro
+torneio zerado (seção 6.1) foi acionado **23 vezes**. Na conversão, **1.361** jogadores
+entram com rating, dos quais **60 no piso de 1200**.
+
+### 14.5 Por que o bimestre roda de uma vez
+
+Rodar os seis meses como **um período único**, em vez de três bimestres, muda o rating
+final de **182 jogadores**, com diferença de até **75 pontos**. Nenhum dos dois está
+errado — são períodos diferentes. É a razão de o recorte precisar ser fixo e combinado
+de antemão (seção 4.1).
 
 ---
 
 ## Aprovação
 
 Ao assinar abaixo, a diretoria da FEXERJ declara que as regras descritas neste
-documento foram aprovadas e as pendências da seção "Decisões pendentes" (A a F)
-foram respondidas.
+documento foram aprovadas e os seis pontos da seção "Decisões pendentes" foram
+respondidos.
 
 | Campo | |
 |---|---|
