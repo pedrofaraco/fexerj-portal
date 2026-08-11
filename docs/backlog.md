@@ -16,6 +16,7 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 
 - **Dependabot queue drained** (2026-08-08): all 21 PRs resolved. `mypy` 2.3.0, `ruff` 0.16.1, `eslint` 10.8.0, `vitest` 4.1.10, `tailwindcss` 4.3.3, `fastapi` 0.141.1, `uvicorn` 0.52.1, `react`/`react-dom` 19.2.8. Note Dependabot opens coupled packages as separate PRs; `react`/`react-dom` had to be bumped together by hand (#198) because a mismatch is a runtime crash.
 - **Frontend**: `build.target` pinned to **`chrome109`**. Vite's default is a moving target that had drifted to chrome111, above the supported floor.
+- **Chrome 109 colour rule now enforced by test** (2026-08-10): `frontend/src/chrome109Colors.test.js` scans the shipped `src/**/*.jsx?` (tests excluded) for Tailwind colour utilities, which emit `oklch()`/`color-mix()` that Chrome 109 ignores. `build.target: chrome109` lowers syntax only, and no one on the team has a Chrome 109 machine — the rule had been review-only until now. The test also pins that it scans real components and that its pattern still matches a known violation, so it cannot pass by scanning nothing.
 
 ## Next — production hygiene (recommended order)
 
@@ -26,7 +27,6 @@ Prioritized work; update when items ship so sessions and PRs stay aligned.
 ## P3 — UX and accessibility (lower urgency)
 
 - **a11y**: keyboard-focused pass on collapsible help — **`aria-*`** already present; revisit only if keyboard-only flows are broken.
-- **P2 — guard the Chrome 109 colour rule automatically**: `CLAUDE.md` forbids Tailwind colour utilities in JSX (Tailwind v4 emits `oklch()`/`color-mix()`, which Chrome 109 ignores, so the text renders invisible or unstyled), but nothing enforces it — `build.target: chrome109` in `vite.config.js` lowers syntax, not colour functions, and no lint rule or test looks at the JSX. The failure is invisible to everyone on the team: the only Chrome 109 machine belongs to a FEXERJ operator, so a regression ships and is found by the one user who cannot work around it. A grep over `frontend/src/**/*.jsx` for `class(Name)?="…(text|bg|border|ring|divide|fill|stroke|placeholder|shadow)-(gray|slate|red|blue|…|white|black)"` as a vitest case or a CI step catches it in seconds; the named classes in `index.css` stay the only colour source. ~30 min.
 - **The file inputs still read "No file selected" after "Nova execução"**: coming back from the results page remounts `RunPage`, and an `<input type="file">` cannot be repopulated by JavaScript, so the native widget reads *"No file selected"* while `SelectedFilesLine` right below it reads *"Arquivo selecionado: players.csv"*. The app is right — the `File` objects are still in `form` and the run works — but two opposite statements sit one line apart, and the operator's instinct is to re-pick files that were never lost. Options: hide the native widget behind a styled button whose label is the app's own state, or say explicitly that the previous selection is still in effect. Pre-existing; noticed while checking the mode selector on 2026-08-10. ~1h.
 
 ## P4 — Scale and observability (when needed)
