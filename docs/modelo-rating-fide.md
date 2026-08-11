@@ -24,6 +24,27 @@ Substitui o modelo por torneio descrito em [`CALCULATOR.md`](../CALCULATOR.md).
 
 ---
 
+## Sumário
+
+- **Decisões pendentes** — os seis pontos que ainda precisam de resposta
+- **1. Modalidades** — Clássico, Rápido e Blitz; transpasse entre elas
+- **2. Parâmetros** — os números da FIDE e as adaptações da FEXERJ
+- **3. Cálculo para jogador já rated** — a conta, passo a passo
+- **4. Período de cálculo** — o que é um período e como é delimitado
+- **5. Fator K** — a tabela, o teto de 700 e a dependência da data de nascimento
+- **6. Rating inicial de jogador não-rated** — as 5 partidas, o descarte, a janela de 26 meses
+- **7. Piso de rating** — durante o cálculo e na conversão da lista atual
+- **8. Tabela 8.1.2** — diferença de rating para probabilidade
+- **9. Tabela 8.1.1** — percentual de pontos para diferença de rating
+- **10. Validação contra dado oficial da FIDE**
+- **11. O que muda nos arquivos** — jogadores, torneios e auditoria
+- **12. O que deixa de existir** — as regras aposentadas
+- **13. Decisões já tomadas** — o registro do que a federação respondeu
+- **14. Simulação sobre um ciclo real** — o modelo rodado sobre os 35 torneios de 2026
+- **Aprovação**
+
+---
+
 ## Decisões pendentes
 
 Seis pontos, todos surgidos das respostas à versão 1.1. Esta seção é
