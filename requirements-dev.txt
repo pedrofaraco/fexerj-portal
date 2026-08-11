@@ -4,3 +4,5 @@ pytest-cov==7.1.0
 httpx==0.28.1
 mypy==2.3.0
 ruff==0.16.1
+# scripts/build-docx.py — generates the federation's .docx from docs/*.md
+markdown==3.10.3
