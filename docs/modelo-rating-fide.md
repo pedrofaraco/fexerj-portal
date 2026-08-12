@@ -214,12 +214,10 @@ O período é **fixo: bimestral, com lista publicada em meses ímpares**. Isso s
 regra do modelo atual, em que o período era simplesmente o conjunto de torneios que o
 operador escolhesse rodar numa execução.
 
-**Consequência, com todas as letras: todos os torneios do bimestre entram numa
-execução só.** Rodar torneio a torneio dentro do mesmo bimestre dá um resultado
-diferente de rodar o bimestre inteiro de uma vez, porque o fator K (seção 5), o teto
-de 700 (seção 5.1) e o arredondamento (seção 3, passo 5) são todos definidos **por
-período** — fatiar a execução fatia os três junto. Não é preferência operacional: é
-o que faz "por período" significar alguma coisa.
+**Todos os torneios do bimestre são processados numa execução única.** O fator K
+(seção 5), o teto de 700 (seção 5.1) e o arredondamento (seção 3, passo 5) são
+definidos por período; processar torneio a torneio dentro do mesmo bimestre fraciona
+os três e produz resultado diferente do bimestre processado de uma vez.
 
 ---
 
@@ -236,23 +234,17 @@ O K de 10 é **permanente**: uma vez que o rating publicado atinge 2200, o jogad
 mantém K=10 mesmo que caia depois. Isso exige **persistir um indicador por
 modalidade** de que o jogador já atingiu 2200 — não basta olhar o rating atual.
 
-> *Perguntado pela diretoria: "não basta converter uma vez e só testar o K?"* Não
-> basta, e o motivo é a própria permanência. Testando só o rating atual, um jogador
-> que chegou a 2210 e caiu para 2150 voltaria a K=20, contrariando a regra. E converter
-> uma única vez também não resolve, porque o indicador precisa ser ligado **toda vez**
-> que alguém cruzar 2200 daqui para frente, não só na migração. Na prática é um campo
-> por modalidade que o programa liga sozinho e nunca desliga — ninguém precisa
-> preenchê-lo à mão.
+A condição de "já atingiu 2200" é registrada, e não deduzida do rating corrente: um
+jogador que chegou a 2210 e caiu para 2150 mantém K=10, e o rating atual não distingue
+esse caso de quem nunca passou de 2150. O registro é por modalidade e é atualizado pelo
+programa sempre que o rating publicado cruzar 2200.
 
-Esse indicador **vence todas as outras condições** da tabela acima: nem a regra de
-sub-18 nem a de jogador novo levantam o K de volta depois que ele chega a 10. O K é
-um freio que só aperta, nunca afrouxa.
+Essa condição **prevalece sobre as demais** da tabela acima: nem a regra de sub-18 nem
+a de jogador novo elevam o K depois que ele chega a 10.
 
-A única situação que parece contradizer isso não é exceção: um jogador que estreia
-numa modalidade nova (seção 1.1) entra com K=40 mesmo já tendo K=10 na modalidade de
-origem, porque o indicador de 2200 é guardado **por modalidade** — e naquela
-modalidade ele não atingiu 2200 nenhuma vez. O freio existe por modalidade; a
-modalidade nova começa sem ele.
+O registro é **por modalidade**. Um jogador que estreia numa modalidade nova (seção 1.1)
+entra nela com K=40 ainda que tenha K=10 na modalidade de origem, porque naquela
+modalidade não atingiu 2200.
 
 O K é determinado **uma vez por período** e vale para todas as partidas dele, sem
 exceção.
@@ -267,15 +259,15 @@ Um K, um n, o período inteiro: `n` é o número de partidas do jogador **no per
 `K` é o fator único da seção 5. Se `n × K > 700`, `K` passa a ser o **maior inteiro**
 tal que `K × n ≤ 700`.
 
-**O teto é de 700, aplicado por período e não por torneio.** Sobre o
-valor: rodado o ciclo real de 2026 (seção 13), **o teto não chegou a agir uma vez** —
-a mediana foi de 4 a 5 partidas por jogador por bimestre e o máximo foi 26, contra as
-18 partidas necessárias para o teto começar a morder sob K=40. Manter 700 é o valor da
-própria FIDE e, no calendário real da federação, indiferente na prática. Aplicar o teto
-torneio a torneio deixava o período total passar do limite por um múltiplo dele: um
-jogador com 40 partidas sob K=40, em dois torneios de 20, chegaria a K=35 em cada
-torneio (700 ÷ 20) — 1.400 no período, o dobro do teto. Com o teto sobre as 40
-partidas do período inteiro, K vira 17 (40 × 17 = 680).
+**O teto é de 700, aplicado por período e não por torneio.** Sobre o valor: no ciclo
+real de 2026 (seção 13) o teto não chegou a atuar — a mediana foi de 4 a 5 partidas por
+jogador por bimestre, com máximo de 26, contra as 18 partidas necessárias para o teto
+atuar sob K=40. O valor de 700 é o da própria FIDE.
+
+Sobre o recorte: aplicado torneio a torneio, o total do período ultrapassaria o limite
+por um múltiplo dele. Um jogador com 40 partidas sob K=40, em dois torneios de 20,
+chegaria a K=35 em cada torneio (700 ÷ 20) — 1.400 no período, o dobro do teto. Com o
+teto sobre as 40 partidas do período, K resulta em 17 (40 × 17 = 680).
 
 ### 5.2 Dependência de data de nascimento
 
@@ -426,9 +418,9 @@ período. As duas regras:
 - **Jogador com rating publicado e menos de 5 partidas: o rating é zerado**, e ele
   entra não-rated. A contagem de partidas é preservada "para registro", e as partidas
   já disputadas valem como acúmulo rumo às 5 que ele passa a precisar. Motivo: o
-  modelo novo nunca produziria um rating com menos de 5 partidas (seção 6.1) — a lista
-  convertida nasceria com números que o próprio modelo recusa. **256 jogadores** na
-  lista atual.
+  modelo novo não produz rating com menos de 5 partidas (seção 6.1), e a lista
+  convertida conteria números que o próprio modelo recusa. **256 jogadores** na lista
+  atual.
 - **Jogador com rating abaixo de 1200 e 5 partidas ou mais: sobe para o piso** e entra
   rated. Motivo: entrar não-rated o removeria da lista em silêncio, porque o cálculo do
   rating inicial raramente devolve alguém acima de 1200; entrando no piso, a saída — se
@@ -562,15 +554,12 @@ com o **fator K** e o **status** do jogador incluídos.
 
 **A coluna de fator K é saída.** O programa a reescreve a cada ciclo, calculando o K de
 cada jogador a partir do rating, da contagem de partidas e da data de nascimento
-(seção 5). Não é preciso avisar ninguém para não editá-la: uma edição manual não altera
-o cálculo daquele ciclo e desaparece na primeira execução seguinte, sobrescrita pelo
-valor calculado.
+(seção 5). Uma alteração manual não afeta o cálculo daquele ciclo e é sobrescrita na
+execução seguinte.
 
-**Para que serve, então, uma coluna que o programa não lê:** para conferir. Ela mostra
-com que fator cada jogador foi calculado naquele ciclo, que é o número que explica o
-tamanho da variação dele. Sem ela, descobrir isso exige refazer a regra da seção 5 à mão,
-jogador a jogador. É o mesmo papel do rating publicado — é resultado, e é por ser
-resultado que serve de conferência.
+A coluna serve à **conferência**: registra com que fator cada jogador foi calculado no
+ciclo, valor que explica a magnitude da variação obtida. Sem ela, essa verificação exige
+reaplicar a regra da seção 5 jogador a jogador. É a mesma função do rating publicado.
 
 Há um único dado que o cálculo **precisa** conhecer e não consegue deduzir do arquivo: a
 permanência do K=10, isto é, que o jogador já atingiu 2.200 alguma vez, mesmo estando
