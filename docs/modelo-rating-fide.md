@@ -1,6 +1,6 @@
 # Modelo de rating FEXERJ — regras completas
 
-**Versão 1.3 — 11/08/2026.**
+**Versão 1.4 — 11/08/2026.**
 
 Especificação do modelo de rating **por partida** da FEXERJ, aplicável às modalidades
 Clássico, Rápido e Blitz. Alinhado ao Handbook FIDE B02, com as adaptações numéricas da
@@ -41,56 +41,56 @@ federação. Substitui o modelo por torneio descrito em
 
 ## Pontos em aberto
 
-Quatro pontos. Enquanto não houver decisão, o programa segue o que está descrito em
-cada um.
+Três pontos. Enquanto não houver decisão, o programa segue o que está descrito em cada
+um.
 
-### 1. Como o indicador de K=10 é guardado
+### 1. Como a permanência do K=10 é guardada
 
-O K de 10 é permanente (seção 5), e isso exige o programa saber que o jogador já
-atingiu 2.200 mesmo depois de o rating cair. Há duas formas de guardar isso no arquivo:
+O K de 10 é permanente (seção 5): uma vez atingidos 2.200, o fator não volta a subir,
+mesmo que o rating caia. Para isso o programa precisa saber que a marca foi atingida, o
+que o rating atual sozinho não diz.
 
-- **Campo próprio por modalidade**, que o programa liga ao cruzar 2.200 e nunca desliga.
-  O fator K continua sendo recalculado a cada ciclo e publicado no arquivo como
-  informação.
-- **Usar o próprio K gravado no arquivo**, tratando `K = 10` como o indicador. Dispensa
-  o campo, mas transforma o K de valor calculado em valor de entrada: um 10 digitado por
-  engano, ou uma edição manual, congela o fator daquele jogador para sempre, e o
-  programa não tem como distinguir isso de um K legítimo.
+**A proposta da federação** foi dispensar um campo e usar o próprio K gravado no
+arquivo, testando `K = 10`. Funciona, mas muda a natureza da coluna: o K deixa de ser
+resultado e passa a ser entrada. Um `10` digitado por engano numa linha congela o fator
+daquele jogador para sempre, e o programa não tem como distinguir isso de um K legítimo.
 
-**Recomendação: campo próprio.** O K continua visível no arquivo, que é o que se
-pretendia, sem que um valor derivado passe a mandar no cálculo.
+**Recomendação: um campo próprio por modalidade**, que o programa liga ao cruzar 2.200 e
+nunca desliga, com o fator K continuando a ser recalculado a cada ciclo.
 
-### 2. Quando o rating FIDE entra, no transpasse
+Sobre a dúvida anotada na versão 1.3 — *para que serve, então, uma coluna de K que não
+alimenta o cálculo?* Para conferir. Ela mostra com que fator cada jogador foi calculado
+naquele ciclo, que é o número que explica o tamanho da variação dele; sem a coluna,
+descobrir isso exige refazer a regra da seção 5 à mão, jogador a jogador. É o mesmo papel
+do rating publicado: é resultado, e é por ser resultado que serve de conferência. O que o
+cálculo **precisa** guardar e não consegue deduzir é outra coisa — a permanência do K=10
+—, e é ela que pede campo próprio.
 
-O rating FIDE de quem já tem é inserido pelo operador (seção 6.5). Falta definir o
-momento: ele é registrado no cadastro assim que o jogador se filia, ou verificado e
-inserido na primeira vez que ele disputa um torneio de cada modalidade?
+**Este é o ponto que trava a implementação:** ele define as colunas do arquivo de
+jogadores, e esse arquivo muda uma vez só (seção 11.1).
 
-A segunda opção evita distorção — o rating usado é o vigente na FIDE quando o jogador
-efetivamente entra naquela modalidade, e não um número guardado meses antes.
+### 2. Se o rating FIDE é reconferido depois da entrada
 
-### 3. A regra dos 26 meses na conversão da lista atual
+O momento de captura está definido (§6.4, alínea d). Ficou em aberto o que acontece
+**depois**: o rating FEXERJ de quem entrou pela FIDE deve ser reaproximado do rating FIDE
+quando os dois divergirem além de alguma margem?
 
-Na versão 1.1 apareceu a anotação "regra dos 26 meses" ao lado do caso do jogador com
-rating publicado e menos de 5 partidas. A janela de 26 meses (seção 6.2) hoje governa
-por quanto tempo os resultados de um jogador sem rating podem ser agrupados para formar
-o primeiro rating.
+**Recomendação: não reaproximar.** Feita a entrada, aquele rating é da federação e evolui
+pelas partidas disputadas aqui. As duas listas medem populações de adversários
+diferentes, e divergir é o esperado, não um defeito. Reaproximar substituiria por um
+número de fora o resultado de partidas já calculadas e publicadas, sem linha de auditoria
+que explicasse a mudança.
 
-A dúvida, em termos concretos: **na conversão da lista atual**, o jogador que perde o
-rating por ter menos de 5 partidas (seção 7) começa a acumular a partir do primeiro
-torneio que disputar depois da virada, ou as partidas que ele já tem no cadastro contam
-como acúmulo — e, nesse caso, contra que data se mede a janela de 26 meses, se o
-arquivo atual não registra quando elas foram jogadas?
+Se ainda assim a federação quiser um gatilho, ele precisa ser regra escrita — margem,
+periodicidade e o que acontece com a contagem de partidas —, e não correção manual caso a
+caso, que é indistinguível de erro de digitação.
 
-O programa hoje faz o mais conservador: o acúmulo antigo, sem data verificável, é
-descartado, e a contagem recomeça no primeiro período do modelo novo. A contagem de
-partidas do jogador é preservada.
+### 3. Como este documento se encaixa nos regimentos
 
-### 4. O campo "Id Anterior"
-
-A definição do status (seção 11.1) menciona um "Id Anterior" que faz o jogador continuar
-sendo calculado sem ser publicado. Esse campo não existe no arquivo de jogadores atual —
-falta descrever o que ele guarda e quando é preenchido.
+O modelo atual está no Art. 68 do regimento. Falta definir a forma da substituição: o
+artigo é reescrito para remeter a este documento, é revogado, ou este documento passa a
+valer como regulamentação dele? Não muda cálculo nenhum, mas define como o documento é
+citado e por quem é aprovado.
 
 ---
 
@@ -380,6 +380,10 @@ de partidas na FEXERJ é tratada pelo programa e começa em zero.
   novo.
 - **Rating de 2.200 ou mais liga o indicador permanente de K=10** naquela modalidade,
   como se o jogador tivesse atingido a marca numa lista da federação.
+- **Quando o rating é registrado.** O rating FIDE é informado no cadastro **no momento
+  da filiação** e **reconferido antes do primeiro uso**: na montagem da lista inicial e,
+  depois dela, sempre que o jogador for entrar numa modalidade em que ainda tenha **zero
+  partidas** na federação. Vale o valor da reconferência, não o guardado na filiação.
 
 ### 6.5 Jogador que recebe rating entre torneios (8.2.4)
 
@@ -439,6 +443,16 @@ Três fronteiras que as respostas não explicitavam, resolvidas assim:
   (seção 6.1), então quem tem exatamente cinco fica do lado de quem pode ter rating.
 - Quando os dois casos se aplicam ao mesmo jogador (abaixo do piso **e** com menos de
   5 partidas), vale o primeiro: ele entra não-rated.
+
+**A conferência do operador na data de corte.** A lista de hoje não registra *quando*
+cada rating foi obtido, e é isso que a janela de 26 meses (seção 6.2) precisaria saber.
+A conferência é, por isso, do operador, e acontece uma única vez, na virada:
+
+- Para cada jogador com **menos de 5 partidas**, verificar quando o rating foi obtido; se
+  for anterior à janela, o rating é descartado e o jogador entra não-rated.
+- Jogador **sem registro efetivo válido** — o que o cadastro chama de *grampo* — é
+  descartado, seja por prazo vencido, seja por estar marcado com o **status 2**
+  (seção 11.1).
 
 ---
 
@@ -553,6 +567,13 @@ a lista, não para alimentar o cálculo — um K editado à mão não muda resul
 O cabeçalho do arquivo e o README dizem isso com todas as letras, para que ninguém
 edite a coluna esperando efeito.
 
+**Para que serve uma coluna que não alimenta o cálculo:** para conferir. Ela mostra com
+que fator cada jogador foi calculado naquele ciclo — o número que explica o tamanho da
+variação dele. Sem ela, descobrir isso exige refazer a regra da seção 5 à mão, jogador a
+jogador. É o mesmo papel do rating publicado: é resultado, e é por ser resultado que
+serve de conferência. O dado que o cálculo **precisa** guardar e não consegue deduzir é
+outro — a permanência do K=10 —, e é ele que pede campo próprio (ponto em aberto 1).
+
 O **status** é cadastral, como o clube: o operador preenche, e ele não entra em cálculo
 nenhum. Valores:
 
@@ -560,6 +581,7 @@ nenhum. Valores:
 |---|---|
 | `1` | Ativo |
 | `0` | Inativo |
+| `2` | Grampo — registro sem lastro válido |
 | `3` | Inativo, em outro estado ou no exterior |
 | `4` | Falecido |
 
@@ -567,6 +589,17 @@ O status governa **publicação, não cálculo**. Um jogador falecido continua s
 calculado e continua movimentando a contagem de partidas — apenas não aparece na lista
 publicada. Por isso o programa não recusa um arquivo em que um jogador nessa condição
 tenha partidas: a morte pode ocorrer no meio do ciclo, com torneios em andamento.
+
+A única exceção é o status `2`, e ela vale uma vez só: na conversão da lista atual, o
+registro marcado como grampo é descartado (seção 7). Passada a virada, um registro nessa
+condição não deveria mais existir, e o status volta a ser apenas cadastral.
+
+**"Id Anterior".** É um id de jogador **que já existe na lista** — a existência é
+condição necessária —, apontando o registro que aquela pessoa tinha antes. Serve para
+manter o histórico ligado sem publicar as duas linhas: o registro que traz um Id Anterior
+tem status diferente de `1` e não é publicado. Hoje isso é controlado à mão pelo campo do
+clube. É informação cadastral, preenchida pelo operador, e não um valor que o programa
+calcule.
 
 ### 11.2 Lista de torneios
 
