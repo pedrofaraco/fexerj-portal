@@ -560,19 +560,22 @@ para a janela de 26 meses (seção 6.2).
 separar arquivo de trabalho e lista publicada; a diretoria optou pelo arquivo único,
 com o **fator K** e o **status** do jogador incluídos.
 
-Consequência a registrar, porque o arquivo é lido e escrito pelo mesmo programa: o
-fator K é **derivado** (vem do rating, da contagem de partidas e da data de
-nascimento, seção 5) e será **recalculado a cada ciclo**. A coluna existe para quem lê
-a lista, não para alimentar o cálculo — um K editado à mão não muda resultado nenhum.
-O cabeçalho do arquivo e o README dizem isso com todas as letras, para que ninguém
-edite a coluna esperando efeito.
+**A coluna de fator K é saída.** O programa a reescreve a cada ciclo, calculando o K de
+cada jogador a partir do rating, da contagem de partidas e da data de nascimento
+(seção 5). Não é preciso avisar ninguém para não editá-la: uma edição manual não altera
+o cálculo daquele ciclo e desaparece na primeira execução seguinte, sobrescrita pelo
+valor calculado.
 
-**Para que serve uma coluna que não alimenta o cálculo:** para conferir. Ela mostra com
-que fator cada jogador foi calculado naquele ciclo — o número que explica o tamanho da
-variação dele. Sem ela, descobrir isso exige refazer a regra da seção 5 à mão, jogador a
-jogador. É o mesmo papel do rating publicado: é resultado, e é por ser resultado que
-serve de conferência. O dado que o cálculo **precisa** guardar e não consegue deduzir é
-outro — a permanência do K=10 —, e é ele que pede campo próprio (ponto em aberto 1).
+**Para que serve, então, uma coluna que o programa não lê:** para conferir. Ela mostra
+com que fator cada jogador foi calculado naquele ciclo, que é o número que explica o
+tamanho da variação dele. Sem ela, descobrir isso exige refazer a regra da seção 5 à mão,
+jogador a jogador. É o mesmo papel do rating publicado — é resultado, e é por ser
+resultado que serve de conferência.
+
+Há um único dado que o cálculo **precisa** conhecer e não consegue deduzir do arquivo: a
+permanência do K=10, isto é, que o jogador já atingiu 2.200 alguma vez, mesmo estando
+abaixo disso agora. Como esse dado é guardado — em campo próprio, ou lido do próprio K —
+é o ponto em aberto 1.
 
 O **status** é cadastral, como o clube: o operador preenche, e ele não entra em cálculo
 nenhum. Valores:
