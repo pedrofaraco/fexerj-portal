@@ -337,9 +337,6 @@ class TestConversionOfTheCadastralColumns:
         the conversion (§11.1)."""
         assert read_rating_list(_LEGACY_CSV)[1].status == "1"
 
-    def test_prev_id_starts_empty(self):
-        assert read_rating_list(_LEGACY_CSV)[1].prev_id == ""
-
     def test_no_fide_rating_is_invented(self):
         assert _std(read_rating_list(_LEGACY_CSV)[1]).fide_rating is None
 

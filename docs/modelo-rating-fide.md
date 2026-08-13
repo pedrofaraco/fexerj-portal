@@ -547,7 +547,7 @@ diferença** para um jogador em um mês.
 
 Identidade única por jogador e, **por modalidade**, rating, contagem de partidas, fator K,
 marcador do primeiro torneio, data da última atividade, rating FIDE e o acúmulo da seção
-6.1. O cabeçalho atual, de 12 colunas, passa a **43**.
+6.1. O cabeçalho atual, de 12 colunas, passa a **42**.
 
 **Continua sendo um arquivo só.** A recomendação técnica era separar arquivo de trabalho e
 lista publicada; a diretoria optou pelo arquivo único, com o fator K e o status do jogador
@@ -558,14 +558,12 @@ ciclo, e o programa o reescreve inteiro a cada execução. O que aconteceu num c
 substituição de rating, por exemplo — é evento, e fica no arquivo de auditoria daquele
 ciclo (seção 11.3), que é datado e não é reescrito.
 
-#### As dez colunas de identidade
+#### As nove colunas de identidade
 
-`Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status`
+`Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Status`
 
-`PrevId` e `Status` são **cadastrais**, como o clube: o operador preenche, o programa
-preserva, e nenhum cálculo os lê.
-
-**`Status`.** Governa **publicação, não cálculo**:
+A única nova é o `Status`, e ela é **cadastral**, como o clube: o operador preenche, o
+programa preserva, e nenhum cálculo a lê. Governa **publicação, não cálculo**:
 
 | Status | Significado |
 |---|---|
@@ -575,20 +573,15 @@ preserva, e nenhum cálculo os lê.
 | `3` | Inativo, em outro estado ou no exterior |
 | `4` | Falecido |
 
-Um jogador falecido continua sendo calculado e continua movimentando a contagem de
-partidas — apenas não aparece na lista publicada. Por isso o programa **não recusa** um
-arquivo em que um jogador nessa condição tenha partidas: a morte pode ocorrer no meio do
-ciclo, com torneios em andamento.
+**Nenhum status interrompe cálculo.** Um jogador inativo, em outro estado ou falecido
+continua sendo calculado e continua movimentando a contagem de partidas — apenas não
+aparece na lista publicada. Por isso o programa **não recusa** um arquivo em que um
+jogador nessa condição tenha partidas: a morte pode ocorrer no meio do ciclo, com torneios
+em andamento.
 
 A única exceção é o status `2`, e vale uma vez só: na conversão da lista atual, o registro
 marcado como grampo é descartado (seção 7). Passada a virada, um registro nessa condição
 não deveria mais existir, e o status volta a ser apenas cadastral.
-
-**`PrevId`.** É um id de jogador **que já existe na lista** — a existência é condição
-necessária, e o programa recusa o arquivo que aponte para um id inexistente —, indicando o
-registro que aquela pessoa tinha antes. Serve para manter o histórico ligado sem publicar
-as duas linhas: o registro que traz um `PrevId` tem status diferente de `1` e não é
-publicado. Hoje isso é controlado à mão pelo campo do clube.
 
 #### As onze colunas de cada modalidade
 
@@ -634,8 +627,7 @@ Três colunas novas não têm origem na lista atual e recebem valor de partida:
 - `FirstTrn_` fica ligada para quem já tem partidas disputadas. É o mesmo critério que o
   programa usava antes de a coluna existir; ligada de outro modo, todo jogador convertido
   ganharia um descarte novo.
-- `Status` entra como `1`, e `PrevId` vazia: a lista atual não traz nenhum dos dois, e são
-  do operador.
+- `Status` entra como `1`: a lista atual não traz a coluna, e ela é do operador.
 - `LastPlayed_`, `RtgFide_`, `FideDate_` e `AccSince_` entram vazias — a lista atual não
   registra quando cada jogador jogou pela última vez, nem quando um acúmulo começou.
 

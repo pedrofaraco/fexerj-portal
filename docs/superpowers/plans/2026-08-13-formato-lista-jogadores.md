@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement
 > this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Change `players.csv` from 29 to 43 columns, once and for all, and make
+**Goal:** Change `players.csv` from 29 to 42 columns, once and for all, and make
 `compute_unrated_period` stop counting the discarded first tournament's games.
 
 **Architecture:** The 29-column format is replaced wholesale — it has never been used in
@@ -41,17 +41,16 @@ federation keeps this file between cycles and it must not change twice.
 
 ## The format
 
-43 columns. Identity block, then one 11-column group per modality (`Std`, `Rpd`, `Blz`).
+42 columns. Identity block, then one 11-column group per modality (`Std`, `Rpd`, `Blz`).
 
 ```
-Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status;
+Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Status;
 Rtg_Std;Games_Std;K_Std;FirstTrn_Std;LastPlayed_Std;RtgFide_Std;FideDate_Std;
 AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;   (× Rpd, × Blz)
 ```
 
 | Column | Written by | Meaning |
 |---|---|---|
-| `PrevId` | operator | Id of the record this person had before. Must exist as an `Id_No` in the file (§11.1). Not read by the calculation. |
 | `Status` | operator | `1` active, `0` inactive, `2` grampo, `3` other state, `4` deceased. Governs publication, never calculation. |
 | `K_<mod>` | program | §5 K factor **before** the 700 cap, computed from the state at the *end* of the period. `K == 10` is the permanent "reached 2200" indicator. |
 | `FirstTrn_<mod>` | program | `1` once the player has played a first tournament with at least one rated opponent. Spends the §6.1 discard. |
@@ -90,12 +89,12 @@ AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;   (× Rpd, × Blz)
 | File | Change |
 |---|---|
 | `calculator/fide/model.py` | `PlayerState.prev_id`, `.status`; `ModalityState.first_tournament_played`, `.last_played`, `.fide_rating`, `.fide_date` |
-| `calculator/fide/ratinglist.py` | 43-column header, read/write, K ⇄ `reached_2200`, legacy conversion |
+| `calculator/fide/ratinglist.py` | 42-column header, read/write, K ⇄ `reached_2200`, legacy conversion |
 | `calculator/fide/rules.py` | `base_k(..., from_fide_rating=False)` |
 | `calculator/fide/period.py` | discard marker, discarded games leave the count, `fide_entry_state` |
 | `calculator/fide/cycle.py` | entry-state dispatch, `_apply_results` persistence |
 | `calculator/compare.py` | `write_rating_list` call site |
-| `backend/validator.py` | rules for the 43-column format |
+| `backend/validator.py` | rules for the 42-column format |
 | `frontend/src/csvUploadValidation.js` | header constant and column count |
 | `tests/…` | fixtures and behaviour |
 | `README.md`, `docs/modelo-rating-fide.md` | the format and the rules |
@@ -110,14 +109,14 @@ AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;   (× Rpd, × Blz)
 - Test: `tests/fide/test_ratinglist.py`, `tests/fide/test_ratinglist_legacy.py`
 
 **Interfaces produced:**
-- `FIDE_HEADER: str` — 43 columns, `FIDE_COLUMN_COUNT = 43`
+- `FIDE_HEADER: str` — 42 columns, `FIDE_COLUMN_COUNT = 42`
 - `write_rating_list(players: dict[int, PlayerState], period_year: int) -> str`
 - `ModalityState(rating, games, reached_2200, first_tournament_played, last_played,
   fide_rating, fide_date, accumulator)`
 - `PlayerState(..., prev_id: str = "", status: int = 1)`
 
 - [ ] **Step 1: Write the failing tests** in `tests/fide/test_ratinglist.py`, over a
-      43-column fixture whose per-field values are pairwise distinct so a column swap
+      42-column fixture whose per-field values are pairwise distinct so a column swap
       changes an assertion:
       - `test_k_10_reads_as_reached_2200` / `test_k_20_does_not`
       - `test_reads_first_tournament_marker`, `test_reads_last_played`
@@ -131,7 +130,7 @@ AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;   (× Rpd, × Blz)
 - [ ] **Step 2: Run and watch them fail.** `.venv/bin/pytest tests/fide/test_ratinglist.py -v`
 - [ ] **Step 3: Implement.** `FIDE_HEADER` from the per-modality prefix tuple
       `("Rtg", "Games", "K", "FirstTrn", "LastPlayed", "RtgFide", "FideDate", "AccGames",
-      "AccSumOpp", "AccPts", "AccSince")`, `_IDENTITY_COLUMNS` gaining `PrevId` and `Status`,
+      "AccSumOpp", "AccPts", "AccSince")`, `_IDENTITY_COLUMNS` gaining `Status`,
       `_IDENTITY_FIELD_COUNT = 10`, `_FIELDS_PER_MODALITY = 11`. Read `reached_2200` as
       `row[base + 2].strip() == "10"` — string comparison, so a blank or a corrupt cell reads
       as "not reached" instead of raising. Write `rules.base_k(rating=state.rating,
@@ -266,11 +265,9 @@ discard. The marker has to be in place in the same commit.
       - `test_fide_rating_below_the_floor_is_rejected`
       - `test_fide_rating_without_a_date_is_rejected` and the mirror
         `test_fide_date_without_a_rating_is_rejected`
-      - `test_prev_id_must_point_at_a_player_in_the_file`
 - [ ] **Step 2: Run and watch them fail.** `.venv/bin/pytest tests/test_validator_fide.py -v`
 - [ ] **Step 3: Implement** in `_validate_fide_players_csv`, keeping the existing message
-      style (`players.csv linha {row_num}: …`). `PrevId` needs a second pass: collect the
-      referenced ids while looping and check them against `id_no_seen` at the end.
+      style (`players.csv linha {row_num}: …`).
 - [ ] **Step 4: Run and watch them pass.** Confirm no check anywhere correlates `Status`
       with games, ratings or accumulators — the status is cadastral, full stop.
 - [ ] **Step 5: Commit** `backend/validator.py tests/test_validator_fide.py
@@ -288,8 +285,8 @@ headers from drifting.
 
 - [ ] **Step 1: Run the contract test and watch it fail.**
       `.venv/bin/pytest tests/test_contract.py -v`
-- [ ] **Step 2:** Update `FIDE_PLAYERS_HEADER` and `FIDE_PLAYERS_COLUMN_COUNT = 43`, and the
-      43-column fixtures in `csvUploadValidation.test.js`.
+- [ ] **Step 2:** Update `FIDE_PLAYERS_HEADER` and `FIDE_PLAYERS_COLUMN_COUNT = 42`, and the
+      42-column fixtures in `csvUploadValidation.test.js`.
 - [ ] **Step 3: Run both suites.** `.venv/bin/pytest tests/test_contract.py -v` and
       `cd frontend && npm test`
 - [ ] **Step 4: Commit** `frontend/src/csvUploadValidation.js
@@ -300,7 +297,7 @@ headers from drifting.
 **Files:**
 - Modify: `README.md:103-137`, `docs/modelo-rating-fide.md`
 
-- [ ] **Step 1: README** — the 43-column block, the per-modality group, one line per new
+- [ ] **Step 1: README** — the 42-column block, the per-modality group, one line per new
       column, and a sentence on which columns the operator fills and which the program
       overwrites every cycle.
 - [ ] **Step 2: `docs/modelo-rating-fide.md` → version 1.5, 13/08/2026.**
@@ -318,7 +315,7 @@ headers from drifting.
       - §6.4: the K-band rule persists while a FIDE rating is recorded; the entry only fires
         on zero FEXERJ games in the modality; `RtgFide_` sits at or above the floor;
         `FideDate_` is the conference date of item (d).
-      - §11.1: the full 43-column table, replacing the prose about the 29-column layout.
+      - §11.1: the full 42-column table, replacing the prose about the 29-column layout.
 - [ ] **Step 3: Build the `.docx`.** `.venv/bin/python scripts/build-docx.py`
 - [ ] **Step 4: Ask Pedro to check it in Word** — not LibreOffice, which lays tables out
       differently and has already cost two rounds of corrections.
@@ -335,3 +332,23 @@ headers from drifting.
 - [ ] Run the real cycle from `~/Downloads/2601.zip` through the new format end to end:
       convert the 12-column list, run the three bimesters, and confirm the file the third
       one writes still reads back. This is the only check that exercises 2.385 real rows.
+
+---
+
+## Correction, 2026-08-13: `PrevId` never existed
+
+The column came out of a paragraph in §11.1 built on a misreading of the
+federation's own answer. Their text — "Se ele tem um Id Anterior, ele não deixa
+de ser calculado, e nem movimentar o número de partidas, apenas não é
+publicado" — was mangled: they meant an **inactive status**, not a separate
+field. Read that way the sentence says exactly what the rest of that paragraph
+says, and what §11.1 already says about the deceased: no status stops a player
+being calculated, it only keeps them off the published list.
+
+The empirical check corroborates it. In the federation's real 2385-row list
+there are no repeated names and no `ClubName` carrying digits or a control word
+— no trace of the practice §11.1 described, because there was no practice.
+
+`PrevId` is gone from the format, the validator, the browser pass, the README
+and §11.1. The file is 42 columns. Whether `Id_FIDE` joins them is a separate,
+live question from the federation.

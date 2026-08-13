@@ -15,8 +15,8 @@ _STD_FIELDS = (
 )
 
 
-def _player_row(id_no, name, birthday="01/01/1980", status="1", prev_id="", **std) -> str:
-    """One row of the 43-column format.
+def _player_row(id_no, name, birthday="01/01/1980", status="1", **std) -> str:
+    """One row of the 42-column format.
 
     Keyword arguments override the Classical group, field by field; a `rpd`
     dict does the same for Rapid. Blitz always stays empty. The K passed in
@@ -26,7 +26,7 @@ def _player_row(id_no, name, birthday="01/01/1980", status="1", prev_id="", **st
     """
     rpd = std.pop("rpd", None) or {}
     empty = dict(zip(_STD_FIELDS, _EMPTY_MODALITY, strict=True))
-    cells = [str(id_no), "", prev_id, "", name, "CLUB", birthday, "M", "BRA", status]
+    cells = [str(id_no), "", "", name, "CLUB", birthday, "M", "BRA", status]
     for group in (empty | std, empty | rpd):
         cells += [str(group[field]) for field in _STD_FIELDS]
     cells += _EMPTY_MODALITY
@@ -276,12 +276,12 @@ class TestPeak2200IndicatorIsPermanent:
 
 
 class TestCadastralColumnsSurviveTheCycle:
-    """§11.1: status, "Id Anterior" and the two FIDE columns are the
-    operator's. The program reads them and writes them back untouched."""
+    """§11.1: the status and the two FIDE columns are the operator's. The
+    program reads them and writes them back untouched."""
 
-    def _run(self, status="4", prev_id="643"):
+    def _run(self, status="4"):
         players_csv = _players_csv(
-            _player_row("3741", "Carlos Mendes", status=status, prev_id=prev_id,
+            _player_row("3741", "Carlos Mendes", status=status,
                         rtg=1800, games=50, k=20, first="1",
                         fide=1750, fide_date="10/07/2026"),
             _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
@@ -305,9 +305,6 @@ class TestCadastralColumnsSurviveTheCycle:
         row = self._run(status="4")
         assert row["Status"] == "4"
         assert row["Games_Std"] == "55"          # 50 on file plus the five played
-
-    def test_prev_id_is_written_back(self):
-        assert self._run(prev_id="643")["PrevId"] == "643"
 
     def test_the_fide_columns_are_written_back(self):
         row = self._run()

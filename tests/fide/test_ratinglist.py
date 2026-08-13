@@ -1,4 +1,4 @@
-"""Reading and writing the 43-column format — spec §11.1."""
+"""Reading and writing the 42-column format — spec §11.1."""
 from decimal import Decimal
 
 import pytest
@@ -14,11 +14,11 @@ _PERIOD_YEAR = 2026
 # exactly the guard wanted: the K column is written, never copied.
 _FIDE_CSV = (
     FIDE_HEADER + "\n"
-    "1;;;;Player One;CLUB A;01/01/1990;M;BRA;1;"
+    "1;;;Player One;CLUB A;01/01/1990;M;BRA;1;"
     "2201;51;10;1;2026-05;;;6;11;0.5;;"
     "1702;32;20;1;2026-03;;;7;12;1.5;;"
     "1603;13;40;0;;;;8;13;2.5;\n"
-    "2;36633;1;;Player Two;CLUB B;15/06/1985;M;BRA;4;"
+    "2;36633;;Player Two;CLUB B;15/06/1985;M;BRA;4;"
     "1904;44;20;1;2026-05;;;9;21;3.5;;"
     "2205;25;10;1;2026-01;;;10;22;4.5;;"
     ";6;20;1;2025-11;1550;10/07/2026;11;23;5.5;2025-11\n"
@@ -36,11 +36,6 @@ class TestReadFideFormat:
         players = read_rating_list(_FIDE_CSV)
         assert players[1].status == "1"
         assert players[2].status == "4"
-
-    def test_reads_prev_id(self):
-        players = read_rating_list(_FIDE_CSV)
-        assert players[1].prev_id == ""
-        assert players[2].prev_id == "1"
 
     def test_reads_std_modality(self):
         players = read_rating_list(_FIDE_CSV)
@@ -151,7 +146,7 @@ class TestReadFideFormat:
         assert players[1].modalities["STD"].accumulator.since == ""
 
     def test_skips_all_blank_rows(self):
-        players = read_rating_list(_FIDE_CSV + ";" * 42 + "\n")
+        players = read_rating_list(_FIDE_CSV + ";" * 41 + "\n")
         assert len(players) == 2
 
     def test_rejects_unknown_header(self):
@@ -172,7 +167,7 @@ def _one_player(state: ModalityState, birthday: str = "01/01/1990") -> dict[int,
 
 def _written_k(state: ModalityState, birthday: str = "01/01/1990") -> str:
     row = write_rating_list(_one_player(state, birthday), _PERIOD_YEAR).splitlines()[1]
-    return row.split(";")[12]  # K_Std: ten identity columns, then Rtg, Games, K
+    return row.split(";")[11]  # K_Std: nine identity columns, then Rtg, Games, K
 
 
 class TestWriteFideFormat:
@@ -180,7 +175,7 @@ class TestWriteFideFormat:
         players = read_rating_list(_FIDE_CSV)
         assert write_rating_list(players, _PERIOD_YEAR) == _FIDE_CSV
 
-    def test_header_is_the_43_column_one(self):
+    def test_header_is_the_42_column_one(self):
         players = read_rating_list(_FIDE_CSV)
         assert write_rating_list(players, _PERIOD_YEAR).splitlines()[0] == FIDE_HEADER
 
@@ -223,5 +218,5 @@ class TestWriteFideFormat:
             ModalityState(rating=1900, games=6, fide_rating=1900, fide_date="10/07/2026")
         )
         row = write_rating_list(players, _PERIOD_YEAR).splitlines()[1].split(";")
-        assert row[15] == "1900"  # RtgFide_Std
-        assert row[16] == "10/07/2026"  # FideDate_Std
+        assert row[14] == "1900"  # RtgFide_Std
+        assert row[15] == "10/07/2026"  # FideDate_Std

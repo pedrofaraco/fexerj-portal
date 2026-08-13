@@ -8,7 +8,7 @@ from calculator.fide.rules import RATING_FLOOR
 from calculator.fide.tournaments import TOURNAMENTS_HEADER
 from calculator.tunx_parser import BIO_MARKER, PAIRING_MARKER
 
-# The 43-column row, built field by field: hand-written semicolon strings are
+# The 42-column row, built field by field: hand-written semicolon strings are
 # unreadable at this width and shift silently when a column is added.
 _MODALITY_DEFAULTS = {
     "rtg": "", "games": "0", "k": "40", "first": "0", "last": "",
@@ -18,12 +18,12 @@ _MODALITY_DEFAULTS = {
 _MODALITY_FIELDS = tuple(_MODALITY_DEFAULTS)
 
 
-def _row(id_no="1", id_cbx="", prev_id="", title="", name="Player One",
+def _row(id_no="1", id_cbx="", title="", name="Player One",
          club="CLUB A", birthday="01/01/1990", sex="M", fed="BRA", status="1",
          rpd=None, **std) -> str:
-    """One row of the 43-column format. Keyword arguments override the
+    """One row of the 42-column format. Keyword arguments override the
     Classical group; `rpd` does the same for Rapid, as a dict."""
-    cells = [id_no, id_cbx, prev_id, title, name, club, birthday, sex, fed, status]
+    cells = [id_no, id_cbx, title, name, club, birthday, sex, fed, status]
     for group in (_MODALITY_DEFAULTS | std, _MODALITY_DEFAULTS | (rpd or {}), _MODALITY_DEFAULTS):
         cells += [str(group[field]) for field in _MODALITY_FIELDS]
     return ";".join(cells)
@@ -172,7 +172,7 @@ def test_empty_rating_with_the_permanent_k10_is_accepted():
 
 
 class TestRatingFloor:
-    """A rating column in the 43-column format must be empty or >= RATING_FLOOR (§7).
+    """A rating column in the 42-column format must be empty or >= RATING_FLOOR (§7).
 
     Empty means "unrated" in this format. Nothing used to stop a literal
     "0" from being accepted as a rating, so the player was read as rated at
@@ -320,7 +320,7 @@ def _legacy_players_list(ids: list[int]) -> str:
 
 
 def test_fide_format_players_list_matching_binary_returns_no_errors():
-    """The bug case: a valid 43-column list with every binary player present."""
+    """The bug case: a valid 42-column list with every binary player present."""
     players = _fide_players_list(_BINARY_PLAYER_IDS)
     errors = _errors(players, "fide", binaries={"1-99999.TURX": _TURX_DATA})
     assert errors == []
@@ -352,7 +352,7 @@ def test_legacy_format_players_list_missing_one_binary_player_still_reported():
 def test_irt_fide_format_translates_binary_id_via_id_cbx():
     """IRT tournaments key the binary's id off Id_CBX, not Id_No.
 
-    The 43-column format must build that CBX→FEXERJ mapping from the same
+    The 42-column format must build that CBX→FEXERJ mapping from the same
     second column the legacy format uses.
     """
     tournaments = TOURNAMENTS_HEADER + "\n1;12345;IRT Memorial;2026-03-15;SS;1;1;STD\n"
@@ -488,32 +488,3 @@ class TestFideRatingColumns:
         errors = _errors(_players(_row(rpd={"fide": "2300"})), "fide")
         assert any("FideDate_Rpd é obrigatório" in e for e in errors)
         assert not any("FideDate_Std" in e for e in errors)
-
-
-class TestPrevIdColumn:
-    """§11.1: "É um id de jogador que já existe na lista — a existência é
-    condição necessária.\""""
-
-    def test_an_id_present_in_the_list_is_accepted(self):
-        two = _players(_row(**_RATED), _row(id_no="2", prev_id="1", name="Player Two"))
-        errors = _errors(two, "fide")
-        assert not any("PrevId" in e for e in errors)
-
-    def test_an_id_absent_from_the_list_is_rejected(self):
-        errors = _errors(_players(_row(prev_id="999", **_RATED)), "fide")
-        assert any("PrevId 999 não corresponde a nenhum Id_No da lista" in e for e in errors)
-
-    def test_a_forward_reference_is_accepted(self):
-        """The referenced row may come later in the file: the check runs
-        once every id is known."""
-        two = _players(_row(prev_id="2", **_RATED), _row(id_no="2", name="Player Two"))
-        errors = _errors(two, "fide")
-        assert not any("PrevId" in e for e in errors)
-
-    def test_empty_is_accepted(self):
-        errors = _errors(_players(_row(**_RATED)), "fide")
-        assert not any("PrevId" in e for e in errors)
-
-    def test_a_non_numeric_id_is_rejected(self):
-        errors = _errors(_players(_row(prev_id="abc", **_RATED)), "fide")
-        assert any("PrevId deve ser vazio ou um número inteiro" in e for e in errors)

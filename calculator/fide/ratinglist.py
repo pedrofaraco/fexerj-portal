@@ -1,6 +1,6 @@
 """Reading and writing the rating list.
 
-Reads and writes the 43-column format (spec §11.1) and the legacy 12-column
+Reads and writes the 42-column format (spec §11.1) and the legacy 12-column
 format (spec §2.2).
 """
 import csv
@@ -24,9 +24,9 @@ LEGACY_HEADER = (
     "TotalNumGames;SumOpponRating;TotalPoints"
 )
 
-# `PrevId` and `Status` are cadastral (§11.1): the operator fills them and no
-# calculation reads either.
-_IDENTITY_COLUMNS = "Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status"
+# `Status` is cadastral (§11.1): the operator fills it and no calculation
+# reads it.
+_IDENTITY_COLUMNS = "Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Status"
 # Per modality, in three blocks:
 #   Rtg, Games, K, FirstTrn, LastPlayed — what the player *is* in that
 #     modality. None of them zero out together, and the program writes all
@@ -50,7 +50,7 @@ FIDE_HEADER = _DELIMITER.join(
 
 # Public because the validator walks the same row layout, and hardcoding
 # the two numbers there is how the two drift apart.
-FIDE_IDENTITY_FIELD_COUNT = 10
+FIDE_IDENTITY_FIELD_COUNT = 9
 FIDE_FIELDS_PER_MODALITY = len(_MODALITY_COLUMN_PREFIXES)
 FIDE_COLUMN_COUNT = FIDE_IDENTITY_FIELD_COUNT + FIDE_FIELDS_PER_MODALITY * len(MODALITIES)
 LEGACY_COLUMN_COUNT = 12
@@ -83,7 +83,7 @@ def _optional_int(value: str) -> int | None:
 
 
 def read_rating_list(csv_text: str) -> dict[int, PlayerState]:
-    """Read the rating list, in either the 43-column or the legacy 12-column format."""
+    """Read the rating list, in either the 42-column or the legacy 12-column format."""
     rows = _rows(csv_text)
     if not rows:
         return {}
@@ -104,14 +104,13 @@ def _read_fide_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
         player = PlayerState(
             id_fexerj=int(row[0]),
             id_cbx=row[1].strip(),
-            prev_id=row[2].strip(),
-            title=row[3],
-            name=row[4],
-            club=row[5],
-            birthday=row[6],
-            sex=row[7],
-            federation=row[8],
-            status=row[9].strip(),
+            title=row[2],
+            name=row[3],
+            club=row[4],
+            birthday=row[5],
+            sex=row[6],
+            federation=row[7],
+            status=row[8].strip(),
             modalities={},
         )
         for index, modality in enumerate(MODALITIES):
@@ -248,10 +247,10 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 accumulator=Accumulator(sum_opponents=sum_opponents, points=points),
             )
 
-        # `status` takes its default of "1" (active) and `prev_id` stays
-        # empty: the legacy list carries neither, and both are the operator's
-        # to fill in after the conversion (§11.1). `last_played` has no source
-        # either — the legacy format never recorded when a player last played.
+        # `status` takes its default of "1" (active): the legacy list has no
+        # such column, and it is the operator's to fill in after the
+        # conversion (§11.1). `last_played` has no source either — the legacy
+        # format never recorded when a player last played.
         player = PlayerState(
             id_fexerj=int(row[0]),
             id_cbx=row[1].strip(),
@@ -268,7 +267,7 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
 
 
 def write_rating_list(players: dict[int, PlayerState], period_year: int) -> str:
-    """Write the list in the 43-column format (§11.1).
+    """Write the list in the 42-column format (§11.1).
 
     `period_year` dates the under-18 branch of §5, which is why the K factor
     cannot be written without it.
@@ -287,7 +286,6 @@ def write_rating_list(players: dict[int, PlayerState], period_year: int) -> str:
         cells = [
             str(player.id_fexerj),
             player.id_cbx,
-            player.prev_id,
             player.title,
             player.name,
             player.club,

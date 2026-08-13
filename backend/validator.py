@@ -236,7 +236,7 @@ def _validate_legacy_format_birthdays(content: str) -> list[str]:
     LEGACY_HEADER) — it is the compatibility path exercised on every run, so
     a fide/compare cycle fed this format must not silently drop the under-18
     K=40 the way the legacy engine itself does. Mirrors the check
-    _validate_fide_players_csv performs on the 43-column format's own
+    _validate_fide_players_csv performs on the 42-column format's own
     Birthday column. Relies on the caller having already confirmed the
     header and only adds to what _validate_players_csv already reports, so
     it re-checks the header itself and skips any row that function has
@@ -266,7 +266,7 @@ def _validate_legacy_format_birthdays(content: str) -> list[str]:
 
 
 def _validate_fide_players_csv(content: str) -> list[str]:
-    """Rules for the 43-column format (spec §11.1).
+    """Rules for the 42-column format (spec §11.1).
 
     Two things this deliberately does **not** check, both §11.1:
 
@@ -283,7 +283,6 @@ def _validate_fide_players_csv(content: str) -> list[str]:
 
     id_no_seen: dict[str, int] = {}
     id_cbx_seen: dict[str, int] = {}
-    prev_ids_seen: list[tuple[str, int]] = []
 
     for row_num, row in enumerate(reader, start=2):
         if not any(cell.strip() for cell in row):
@@ -297,27 +296,18 @@ def _validate_fide_players_csv(content: str) -> list[str]:
 
         id_no = row[0].strip()
         id_cbx = row[1].strip()
-        prev_id = row[2].strip()
 
         if not id_no:
             errors.append(f"players.csv linha {row_num}: Id_No é obrigatório")
-        if not row[4].strip():
+        if not row[3].strip():
             errors.append(f"players.csv linha {row_num}: Name é obrigatório")
-        if prev_id:
-            # §11.1: "É um id de jogador que já existe na lista — a existência
-            # é condição necessária." Checked after the loop, once every Id_No
-            # in the file is known.
-            if not _is_int(prev_id):
-                errors.append(f"players.csv linha {row_num}: PrevId deve ser vazio ou um número inteiro")
-            else:
-                prev_ids_seen.append((prev_id, row_num))
-        status = row[9].strip()
+        status = row[8].strip()
         if status not in _PLAYER_STATUSES:
             errors.append(
                 f"players.csv linha {row_num}: Status deve ser "
                 f"{', '.join(sorted(_PLAYER_STATUSES))} — ver §11.1"
             )
-        birthday = row[6].strip()
+        birthday = row[5].strip()
         if not birthday:
             # §5.3: birthday becomes a required field — the under-18 K depends on it.
             errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
@@ -410,13 +400,6 @@ def _validate_fide_players_csv(content: str) -> list[str]:
             else:
                 id_cbx_seen[id_cbx] = row_num
 
-    for prev_id, row_num in prev_ids_seen:
-        if prev_id not in id_no_seen:
-            errors.append(
-                f"players.csv linha {row_num}: PrevId {prev_id} não corresponde a nenhum "
-                "Id_No da lista"
-            )
-
     return errors
 
 
@@ -484,7 +467,7 @@ def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
 
     Dispatches on the header, like the rest of the validator: Id_No and
     Id_CBX sit in the same first two columns in both the legacy 12-column
-    format and the FIDE 43-column format, so only the expected row width
+    format and the FIDE 42-column format, so only the expected row width
     differs between them.
     """
     lines = content.splitlines()

@@ -100,20 +100,17 @@ Required fields: `Id_No`, `Name`, `Rtg_Nat`, `TotalNumGames`, `SumOpponRating`, 
 > not a CBX or FIDE rating — `Id_CBX` is an identifier only, and no external rating
 > enters the system. The name is kept for compatibility with existing files.
 
-**`players.csv` — new per-game model (43 columns)** — semicolon-delimited, UTF-8 (BOM
+**`players.csv` — new per-game model (42 columns)** — semicolon-delimited, UTF-8 (BOM
 accepted). Accepted in `fide` mode, alongside the 12-column format above. (`compare` mode
 requires the 12-column format only — see restrictions below.)
 
 ```
-Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status;Rtg_Std;Games_Std;K_Std;FirstTrn_Std;LastPlayed_Std;RtgFide_Std;FideDate_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;K_Rpd;FirstTrn_Rpd;LastPlayed_Rpd;RtgFide_Rpd;FideDate_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;K_Blz;FirstTrn_Blz;LastPlayed_Blz;RtgFide_Blz;FideDate_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz
+Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Status;Rtg_Std;Games_Std;K_Std;FirstTrn_Std;LastPlayed_Std;RtgFide_Std;FideDate_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;K_Rpd;FirstTrn_Rpd;LastPlayed_Rpd;RtgFide_Rpd;FideDate_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;K_Blz;FirstTrn_Blz;LastPlayed_Blz;RtgFide_Blz;FideDate_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz
 ```
 
-The first ten columns are identity, shared across modalities:
-`Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status`.
+The first nine columns are identity, shared across modalities:
+`Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Status`.
 
-- `PrevId` — the id of the record this person had before, blank when there is none. Must
-  match an `Id_No` present in the same file. Cadastral: the operator fills it and no
-  calculation reads it.
 - `Status` — `1` active, `0` inactive, `2` *grampo* (a record with no valid backing), `3`
   inactive elsewhere, `4` deceased. Governs **publication, not calculation**: a player who
   died mid-cycle keeps being calculated and keeps moving the game count, so a status of `4`

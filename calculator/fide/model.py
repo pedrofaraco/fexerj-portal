@@ -79,15 +79,14 @@ class ModalityState:
 class PlayerState:
     """A player's unique identity, with one `ModalityState` per modality.
 
-    `status` and `prev_id` are cadastral (§11.1): the operator fills them,
-    and no calculation reads either. `status` governs publication only — a
-    player who died mid-cycle keeps being calculated, which is why nothing
-    here or in the validator correlates it with games.
+    `status` is cadastral (§11.1): the operator fills it, and no calculation
+    reads it. It governs publication only — a player who died mid-cycle keeps
+    being calculated and keeps moving the game count, which is why nothing
+    here or in the validator correlates it with anything.
     """
 
     id_fexerj: int
     id_cbx: str = ""
-    prev_id: str = ""
     title: str = ""
     name: str = ""
     club: str = ""
