@@ -479,9 +479,10 @@ A conferência é, por isso, do operador, e acontece uma única vez, na virada:
 
 - Para cada jogador com **menos de 5 partidas**, verificar quando o rating foi obtido; se
   for anterior à janela, o rating é descartado e o jogador entra não-rated.
-- Jogador **sem registro efetivo válido** — o que o cadastro chama de *grampo* — é
-  descartado, seja por prazo vencido, seja por estar marcado com o **status 2**
-  (seção 11.1).
+- Registro de **grampo remanescente** — id temporário de não-federado, marcado com o
+  **status 2** (seção 11.1) — é descartado quando o prazo dele já venceu sem que o
+  jogador se federasse. O que se descarta é o registro vencido, não a figura do grampo,
+  que segue em uso a cada ciclo.
 
 ---
 
@@ -596,7 +597,7 @@ programa preserva, e nenhum cálculo a lê. Governa **publicação, não cálcul
 |---|---|
 | `1` | Ativo |
 | `0` | Inativo |
-| `2` | Grampo — registro sem lastro válido |
+| `2` | Grampo — id temporário de não-federado |
 | `3` | Inativo, em outro estado ou no exterior |
 | `4` | Falecido |
 
@@ -606,9 +607,16 @@ aparece na lista publicada. Por isso o programa **não recusa** um arquivo em qu
 jogador nessa condição tenha partidas: a morte pode ocorrer no meio do ciclo, com torneios
 em andamento.
 
-A única exceção é o status `2`, e vale uma vez só: na conversão da lista atual, o registro
-marcado como grampo é descartado (seção 7). Passada a virada, um registro nessa condição
-não deveria mais existir, e o status volta a ser apenas cadastral.
+**O grampo é instrumento corrente, não sobra de cadastro.** É o id temporário que a
+federação atribui a um jogador **não federado** para que ele possa disputar e ter rating
+em evolução antes de se filiar; em geral vale por um ciclo de execução, e só a federação o
+conhece. Para o cálculo ele é um jogador como qualquer outro — entra, joga, seu rating
+evolui. O status `2` apenas o mantém fora da lista publicada, como todos os status
+diferentes de `1`.
+
+Grampos continuam a ser criados a cada ciclo. O que a conversão descarta (seção 7) são os
+registros de grampo **remanescentes na lista atual**, cujos ids temporários venceram sem
+que o jogador se federasse — não a figura do grampo.
 
 #### As onze colunas de cada modalidade
 

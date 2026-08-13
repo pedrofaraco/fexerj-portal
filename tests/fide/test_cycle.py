@@ -1,9 +1,11 @@
 """The per-game model's complete cycle."""
 import pathlib
+from decimal import Decimal
 
 from calculator.fide import FideRatingCycle
 from calculator.fide.ratinglist import FIDE_HEADER, LEGACY_HEADER
 from calculator.fide.tournaments import TOURNAMENTS_HEADER
+from calculator.tunx_parser import parse_bio_section
 
 BINARY_DIR = pathlib.Path(__file__).parent.parent / 'binary'
 
@@ -531,3 +533,89 @@ class TestRatingSubstitutionThroughTheCycle:
         ]
         assert facing
         assert {r["OpponentRating"] for r in facing} == {"2100"}
+
+
+def _players_from_binary(filename: str, rating: int = 1600) -> tuple[str, dict[str, bytes]]:
+    """A rated player list covering every id in a binary's BIO section.
+
+    Names are generated, never read from the file: the binaries carry real
+    names and test code does not.
+    """
+    data = (BINARY_DIR / filename).read_bytes()
+    ids = sorted(
+        int(entry["fexerj_id"])
+        for entry in parse_bio_section(data).values()
+        if str(entry.get("fexerj_id", "")).strip().isdigit()
+    )
+    rows = [_rated(str(i), f"Player {i}", "01/01/1990", rating, 20) for i in ids]
+    return _players_csv(*rows), data
+
+
+class TestTeamTournament:
+    """The Interclubes is the federation's largest event — hundreds of
+    players — and the one they named as the hardest test of the calculation.
+    It is a team tournament (`ST`, read from a `.TUMX` binary), a format the
+    per-game engine had no test over at all: the golden test covers it only
+    for the current engine.
+
+    The 93-player binary in `tests/binary/` is the largest team file
+    available here, so what these tests can lock is the shape of the result
+    over a whole field at once, not the real event's size.
+    """
+
+    TOURNAMENT = TOURNAMENTS_HEADER + "\n1;99999;Interclubes;2026-03-15;ST;0;1;STD\n"
+
+    def _run(self):
+        players_csv, data = _players_from_binary("swiss_team_93players.TUMX")
+        output = FideRatingCycle(
+            tournaments_csv=self.TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TUMX": data},
+        ).run_cycle()
+        return output, _audit_rows(output["Audit_Period.csv"]), _audit_rows(output["Audit_Games.csv"])
+
+    def test_a_team_tournament_runs_a_whole_cycle(self):
+        output, period, games = self._run()
+        assert set(output) == {"RatingList.csv", "Audit_Games.csv", "Audit_Period.csv"}
+        assert period, "no player was calculated from the team binary"
+        assert games
+
+    def test_every_player_in_the_list_survives(self):
+        output, _, _ = self._run()
+        rows = [r for r in output["RatingList.csv"].splitlines()[1:] if r]
+        assert len(rows) == 93
+
+    def test_only_players_who_played_are_calculated(self):
+        """A team event carries reserves who never sit down."""
+        _, period, _ = self._run()
+        assert 0 < len(period) < 93
+
+    def test_each_game_is_recorded_once_for_each_side(self):
+        """The check that catches a pairing read gone wrong over a large
+        field: every game has to appear twice, once from each side. A parser
+        dropping or duplicating one side leaves an unmatched row here while
+        every other assertion still passes."""
+        _, _, games = self._run()
+        pairs = {(g["Tournament"], g["PlayerId"], g["OpponentId"]) for g in games}
+        assert len(pairs) == len(games), "the same game side appears twice"
+        unmatched = [(t, p, o) for t, p, o in pairs if (t, o, p) not in pairs]
+        assert unmatched == []
+
+    def test_the_two_sides_of_a_game_expect_complementary_scores(self):
+        """§3: the table's L column is 1 − H, and the 400 cap is symmetric,
+        so the two sides' expectations sum to exactly 1. Off-by-one in the
+        table lookup or a diff sign error breaks this and nothing else."""
+        _, _, games = self._run()
+        by_side = {(g["Tournament"], g["PlayerId"], g["OpponentId"]): Decimal(g["PD"]) for g in games}
+        for (tournament, player, opponent), pd in by_side.items():
+            assert pd + by_side[(tournament, opponent, player)] == 1
+
+    def test_the_game_count_grows_by_the_games_played(self):
+        output, period, _ = self._run()
+        header = output["RatingList.csv"].splitlines()[0].split(";")
+        rows = {
+            row.split(";")[0]: dict(zip(header, row.split(";"), strict=True))
+            for row in output["RatingList.csv"].splitlines()[1:]
+        }
+        for line in period:
+            # 50 games on the way in, from the fixture, plus this period's.
+            assert int(rows[line["PlayerId"]]["Games_Std"]) == 50 + int(line["Games"])
