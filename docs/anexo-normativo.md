@@ -192,8 +192,9 @@ as três são regra:
   conquistada.
 - **Um `10` digitado por engano congela o fator daquele jogador.** É a contrapartida de
   dispensar o campo separado: nesta coluna, e só nela, uma edição manual muda resultado.
-  O arquivo de auditoria assinala o caso — um K de 10 em jogador que nunca atingiu 2.200
-  — para conferência do operador.
+  O arquivo de auditoria assinala o caso — um K de 10 em jogador abaixo de 2.200 — para
+  conferência do operador, sem recusar o arquivo: o mesmo estado aparece, legitimamente,
+  em quem atingiu a marca e caiu depois.
 
 Essa condição **prevalece sobre as demais** da tabela acima: nem a regra de sub-18 nem
 a de jogador novo elevam o K depois que ele chega a 10.

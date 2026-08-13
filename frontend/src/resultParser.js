@@ -11,6 +11,7 @@ const AUDIT_FILENAME_RE = /^Audit_of_Tournament_(\d+)\.csv$/i
 
 /** Must match calculator `calculator/fide/audit.py` `PERIOD_AUDIT_PREAMBLE` */
 export const FIDE_PERIOD_PREAMBLE = '# fide_period_v1'
+export const FIDE_CHECKS_PREAMBLE = '# fide_checks_v1'
 
 /** Must match calculator `calculator/fide/audit.py` `GAMES_AUDIT_PREAMBLE` */
 export const FIDE_GAMES_PREAMBLE = '# fide_games_v1'
@@ -286,6 +287,28 @@ function isBlankRow(row) {
 }
 
 /**
+ * Rows the operator should look at, from Audit_Checks.csv. Not errors: the
+ * cycle ran. Each is a case the model cannot decide on its own.
+ *
+ * @param {string} text Audit_Checks.csv contents
+ */
+export function parseFideChecks(text) {
+  const { headers, rows } = splitPreambleAndBody(text, FIDE_CHECKS_PREAMBLE)
+  return rows
+    .filter(row => !isBlankRow(row))
+    .map(row => {
+      const c = cellsByHeader(headers, row)
+      return {
+        playerId: (c.PlayerId ?? '').trim(),
+        playerName: (c.PlayerName ?? '').trim(),
+        timeControl: (c.TimeControl ?? '').trim(),
+        check: (c.Check ?? '').trim(),
+        detail: (c.Detail ?? '').trim(),
+      }
+    })
+}
+
+/**
  * @param {string} text Audit_Period.csv contents
  */
 export function parseFidePeriodAudit(text) {
@@ -401,6 +424,11 @@ export async function parseRunResult(zipBlob, tournamentsCsvText, playersCsvText
   return parseLegacyResult(zip, zipBlob, tournamentsCsvText, playersCsvText)
 }
 
+async function readChecks(zip) {
+  const entry = zip.file('Audit_Checks.csv')
+  return entry ? parseFideChecks(await entry.async('string')) : []
+}
+
 async function parseFideResult(zip, zipBlob) {
   const periodRows = parseFidePeriodAudit(await zip.file('Audit_Period.csv').async('string'))
   return {
@@ -408,6 +436,7 @@ async function parseFideResult(zip, zipBlob) {
     zipBlob,
     zipFilename: ZIP_NAME_BY_KIND.fide,
     modalities: groupByModality(periodRows),
+    checks: await readChecks(zip),
     tournaments: [],
   }
 }
@@ -425,6 +454,7 @@ async function parseComparisonResult(zip, zipBlob) {
       summary: summarizeDeltas(comparisonRows.map(r => r.difference)),
     },
     modalities: groupByModality(periodRows),
+    checks: await readChecks(zip),
     tournaments: [],
   }
 }

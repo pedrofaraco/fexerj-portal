@@ -15,7 +15,11 @@ from backend.validator import _FIDE_TOURNAMENTS_HEADER, _PLAYERS_HEADER, _TOURNA
 from calculator.classes import _AUDIT_FILE_HEADER, _AUDIT_FILE_PREAMBLE
 from calculator.compare import COMPARISON_HEADER, COMPARISON_PREAMBLE
 from calculator.fide.audit import (
+    CALCULATED_WHILE_DECEASED,
+    CHECKS_AUDIT_HEADER,
+    CHECKS_AUDIT_PREAMBLE,
     GAMES_AUDIT_PREAMBLE,
+    K10_BELOW_2200,
     PERIOD_AUDIT_HEADER,
     PERIOD_AUDIT_PREAMBLE,
 )
@@ -161,3 +165,36 @@ class TestRatingSubstitutionAudit:
     def test_they_sit_at_the_end_so_the_columns_before_them_do_not_shift(self):
         emitted = PERIOD_AUDIT_HEADER.split(";")
         assert emitted[-3:] == ["PreviousRating", "RatingSource", "RatingCheckedOn"]
+
+
+class TestChecksAuditContract:
+    """`Audit_Checks.csv` is read by the portal to show the operator what a
+    cycle raised. Preamble and column names are the contract."""
+
+    def test_preamble_matches_frontend(self):
+        assert CHECKS_AUDIT_PREAMBLE in _read("resultParser.js"), (
+            "CHECKS_AUDIT_PREAMBLE in calculator/fide/audit.py has drifted from "
+            "frontend/src/resultParser.js — update FIDE_CHECKS_PREAMBLE to match."
+        )
+
+    def test_the_frontend_reads_the_checks_by_column_name(self):
+        content = _read("resultParser.js")
+        emitted = set(CHECKS_AUDIT_HEADER.split(";"))
+        for column in ("PlayerId", "PlayerName", "TimeControl", "Check", "Detail"):
+            assert re.search(rf"c\.{column}\b", content), (
+                f"resultParser.js no longer reads {column}"
+            )
+            assert column in emitted, (
+                f"resultParser.js reads {column} from Audit_Checks.csv, which "
+                "calculator/fide/audit.py no longer writes."
+            )
+
+    def test_the_check_codes_the_panel_labels_are_the_ones_emitted(self):
+        """The panel shows an unknown code rather than hiding the row, so a
+        drift here is not silent — but it does leave the operator reading
+        K10_BELOW_2200 instead of a sentence."""
+        panel = _read("components/OperatorChecks.jsx")
+        for code in (K10_BELOW_2200, CALCULATED_WHILE_DECEASED):
+            assert f"{code}:" in panel, (
+                f"frontend/src/components/OperatorChecks.jsx has no label for {code}"
+            )

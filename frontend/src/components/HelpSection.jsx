@@ -43,6 +43,13 @@ export default function HelpSection() {
               </li>
             </ul>
             <p className="mt-2">
+              No modelo por partida, o ZIP traz ainda <code>Audit_Checks.csv</code>: os casos que
+              merecem conferência do operador, como um fator K de 10 em jogador abaixo de 2.200 ou
+              partidas calculadas para jogador com status de falecido. Não são erros — o ciclo
+              rodou —, e aparecem também no alto da tela de resultado. Arquivo vazio quer dizer
+              que não houve nenhum.
+            </p>
+            <p className="mt-2">
               No modelo atual, o intervalo processa um torneio de cada vez, em cadeia. Nos demais, o
               intervalo selecionado é o <strong>período de cálculo</strong>: todas as partidas usam
               o rating do início do período e o arredondamento acontece uma única vez, no fim. Rodar

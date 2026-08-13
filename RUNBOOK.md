@@ -50,6 +50,25 @@ The script SSHs into the NAS, fast-forwards the checked-out branch, rebuilds the
 
 First-time run per environment: prompts for `PORTAL_USER` / `PORTAL_PASSWORD` and writes them to `<deploy_dir>/.env` (chmod 600).
 
+#### Putting the per-game model on UAT
+
+The per-game rating model lives on `feature/rating-fide-engine` and is **not merged into `develop`**. To let the federation try it on UAT, point UAT at that branch instead of merging:
+
+1. In `scripts/deploy-synology.conf`, set `UAT_BRANCH="feature/rating-fide-engine"`.
+2. `bash scripts/deploy-synology.sh uat`.
+
+The deploy fetches, checks out and `reset --hard`s whatever branch is named, so any pushed branch works. To go back, set `UAT_BRANCH="develop"` and deploy again.
+
+**What this costs while it is pointed there:** UAT stops being a mirror of production, so a `master` hotfix cannot be validated on it until UAT is pointed back. That is the whole reason the branch is not merged instead — see `.superpowers/sdd/progress.md`.
+
+**What the operator needs to know for that round:**
+
+- The mode selector on the run form defaults to the current model. The per-game model is `Modelo FIDE (por partida)`.
+- `tournaments.csv` needs the extra `TimeControl` column (`STD`, `RPD` or `BLZ`) and a readable `EndDate` on every row.
+- `players.csv` may be either the federation's 12-column file — converted on read — or the 42-column one the model writes. **`Birthday` is required in both**: 298 rows of the current list have none, and 2 carry an Excel serial number; the validator rejects the file until those are filled.
+- The interval selected is the **period**, not a chain of tournaments: every game is calculated against the rating at the start of it.
+- The ZIP comes back with `RatingList.csv`, `Audit_Games.csv`, `Audit_Period.csv` and `Audit_Checks.csv`. The last one lists the cases that want a human look; empty means none.
+
 #### Synology “container stopped unexpectedly” after deploy
 
 Every `docker compose up -d --build` **stops the old backend container** and starts a new one with the rebuilt image. Synology Container Manager treats any main-process exit (Docker `die` event) as *unexpected*, **even when the stop is intentional and exit code is 0**. You may get an email such as:

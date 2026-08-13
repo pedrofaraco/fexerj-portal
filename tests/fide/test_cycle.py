@@ -80,9 +80,11 @@ _ONE_TOURNAMENT = (
 
 
 class TestOutputShape:
-    def test_produces_one_list_and_two_audits(self):
+    def test_produces_one_list_and_three_audits(self):
         output = _cycle(_ONE_TOURNAMENT).run_cycle()
-        assert set(output) == {"RatingList.csv", "Audit_Games.csv", "Audit_Period.csv"}
+        assert set(output) == {
+            "RatingList.csv", "Audit_Games.csv", "Audit_Period.csv", "Audit_Checks.csv",
+        }
 
     def test_no_per_tournament_rating_list(self):
         """§4: an intermediate per-tournament list is not a valid output."""
@@ -591,7 +593,9 @@ class TestTeamTournament:
 
     def test_a_team_tournament_runs_a_whole_cycle(self):
         output, period, games = self._run()
-        assert set(output) == {"RatingList.csv", "Audit_Games.csv", "Audit_Period.csv"}
+        assert set(output) == {
+            "RatingList.csv", "Audit_Games.csv", "Audit_Period.csv", "Audit_Checks.csv",
+        }
         assert period, "no player was calculated from the team binary"
         assert games
 
@@ -635,3 +639,100 @@ class TestTeamTournament:
         for line in period:
             # 50 games on the way in, from the fixture, plus this period's.
             assert int(rows[line["PlayerId"]]["Games_Std"]) == 50 + int(line["Games"])
+
+
+class TestChecksAudit:
+    """§5 and §11.1: the file that points at the rows a human should look at,
+    rather than describing a calculation. Both checks were asked for by
+    FEXERJ — the K=10 one as the price of the K column carrying the permanent
+    indicator, the deceased one because the validator deliberately accepts
+    that file."""
+
+    def _run(self, **std):
+        players_csv = _players_csv(
+            _player_row("3741", "Carlos Mendes", **{
+                "rtg": 1800, "games": 50, "k": 20, "first": "1", **std}),
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        return _audit_rows(output["Audit_Checks.csv"])
+
+    def test_an_ordinary_cycle_raises_nothing(self):
+        """The file is still written: empty is the answer "nothing to look
+        at", which a missing file would not be."""
+        assert self._run() == []
+
+    def test_k10_on_a_player_below_2200_is_raised(self):
+        rows = self._run(k=10, rtg=1500)
+        raised = [r for r in rows if r["Check"] == "K10_BELOW_2200"]
+        assert len(raised) == 1
+        assert raised[0]["PlayerId"] == "3741"
+        assert raised[0]["TimeControl"] == "STD"
+
+    def test_k10_at_or_above_2200_is_not_raised(self):
+        assert self._run(k=10, rtg=2250) == []
+
+    def test_k10_on_a_player_the_floor_dropped_is_raised(self):
+        """No rating at all, and the permanence still on: the case §7 leaves
+        behind, and the one a stray 10 is least distinguishable from.
+
+        This player never sits down, which also shows the check reads the
+        whole file and not only the players of the period — a stray 10 on
+        someone who did not play is exactly as permanent."""
+        players_csv = _players_csv(
+            _player_row("9999", "Carlos Mendes", rtg="", games=60, k=10),
+            _rated("3741", "Roberto Faria", "01/01/1975", 1800, 20),
+            _rated("643", "Andre Nunes", "01/01/1975", 1900, 20),
+            _rated("1979", "Felipe Borges", "01/01/1982", 1850, 20),
+            _rated("2831", "Lucas Carvalho", "01/01/1978", 1950, 20),
+            _rated("3541", "Bruno Teixeira", "01/01/1985", 1800, 20),
+            _rated("5400", "Diego Alves", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        raised = _audit_rows(output["Audit_Checks.csv"])
+        assert len(raised) == 1
+        assert raised[0]["Check"] == "K10_BELOW_2200"
+        assert raised[0]["PlayerId"] == "9999"
+        assert raised[0]["Detail"] == ""
+
+    def test_games_calculated_for_a_deceased_player_are_raised(self):
+        rows = self._run(status="4")
+        raised = [r for r in rows if r["Check"] == "CALCULATED_WHILE_DECEASED"]
+        assert len(raised) == 1
+        assert raised[0]["PlayerId"] == "3741"
+        assert raised[0]["Detail"] == "5"      # the five games of the round robin
+
+    def test_no_other_status_is_raised(self):
+        for status in ("0", "1", "2", "3"):
+            assert self._run(status=status) == [], status
+
+    def test_a_deceased_player_who_did_not_play_is_not_raised(self):
+        """The check is about games being calculated, not about the status
+        sitting in the file."""
+        players_csv = _players_csv(
+            _player_row("9999", "Carlos Mendes", status="4", rtg=1800, games=50, k=20, first="1"),
+            _rated("3741", "Roberto Faria", "01/01/1975", 1800, 20),
+            _rated("643", "Andre Nunes", "01/01/1975", 1900, 20),
+            _rated("1979", "Felipe Borges", "01/01/1982", 1850, 20),
+            _rated("2831", "Lucas Carvalho", "01/01/1978", 1950, 20),
+            _rated("3541", "Bruno Teixeira", "01/01/1985", 1800, 20),
+            _rated("5400", "Diego Alves", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        assert _audit_rows(output["Audit_Checks.csv"]) == []

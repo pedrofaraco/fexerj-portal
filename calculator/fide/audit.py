@@ -2,13 +2,18 @@
 
 `Audit_Games.csv` exists so a player can redo their own math, game by game,
 against table 8.1.2 of the spec. `Audit_Period.csv` shows that the sum
-closes.
+closes. `Audit_Checks.csv` is the odd one out: it describes nothing, it
+points — at the handful of rows in a cycle that deserve a human look.
 """
 import io
 
+from .model import MODALITIES
 from .period import PeriodOutcome
+from .rules import K10_THRESHOLD
 
 _DELIMITER = ";"
+
+DECEASED_STATUS = "4"
 
 GAMES_AUDIT_PREAMBLE = "# fide_games_v1"
 GAMES_AUDIT_HEADER = (
@@ -86,5 +91,57 @@ def write_period_audit(outcome: PeriodOutcome) -> str:
             "" if result.substitution is None else str(result.substitution.previous_rating),
             "" if result.substitution is None else result.substitution.source,
             "" if result.substitution is None else result.substitution.checked_on,
+        ]), file=buf)
+    return buf.getvalue()
+
+
+CHECKS_AUDIT_PREAMBLE = "# fide_checks_v1"
+CHECKS_AUDIT_HEADER = "PlayerId;PlayerName;TimeControl;Check;Detail"
+
+# The two the federation asked for, by name.
+#
+# K10_BELOW_2200 is the price of the K column being the record of the
+# permanent K=10 (§5): a `10` typed by mistake freezes that player's factor
+# for good, and nothing in the file tells it apart from a legitimate one left
+# by a player who reached 2200 and came back down. So it is reported rather
+# than refused, for the operator to recognise. Over the real 2026 cycle it
+# fires zero times — all 42 players carrying K=10 are at 2200 or above — so a
+# line here is a genuine event, not noise to be scrolled past.
+#
+# CALCULATED_WHILE_DECEASED is the counterpart of the validator deliberately
+# accepting that file (§11.1): the death happens mid-cycle, with tournaments
+# already under way, so the games are real and are calculated. Whether the
+# rating should be published afterwards is the federation's call, and this is
+# how they get told there is a call to make.
+K10_BELOW_2200 = "K10_BELOW_2200"
+CALCULATED_WHILE_DECEASED = "CALCULATED_WHILE_DECEASED"
+
+
+def write_checks_audit(outcome: PeriodOutcome) -> str:
+    """Rows that deserve the operator's eye. Empty but for its header when
+    the cycle raised nothing — an empty file is the answer "nothing to look
+    at", which a missing file would not be."""
+    rows: list[tuple[int, str, str, str]] = []
+
+    for player_id, player in outcome.players.items():
+        for modality in MODALITIES:
+            state = player.modalities[modality]
+            if state.reached_2200 and (state.rating is None or state.rating < K10_THRESHOLD):
+                detail = "" if state.rating is None else str(state.rating)
+                rows.append((player_id, modality, K10_BELOW_2200, detail))
+
+    for result in outcome.results:
+        if outcome.players[result.player_id].status == DECEASED_STATUS:
+            rows.append((
+                result.player_id, result.modality, CALCULATED_WHILE_DECEASED,
+                str(result.games_counted),
+            ))
+
+    buf = io.StringIO()
+    print(CHECKS_AUDIT_PREAMBLE, file=buf)
+    print(CHECKS_AUDIT_HEADER, file=buf)
+    for player_id, modality, check, detail in sorted(rows):
+        print(_DELIMITER.join([
+            str(player_id), outcome.players[player_id].name, modality, check, detail,
         ]), file=buf)
     return buf.getvalue()

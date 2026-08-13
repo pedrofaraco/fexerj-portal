@@ -6,6 +6,7 @@ import {
   FIDE_GAMES_PREAMBLE,
   FIDE_PERIOD_PREAMBLE,
   parseComparisonCsv,
+  parseFideChecks,
   parseFidePeriodAudit,
   parseRunResult,
   summarizeDeltas,
@@ -161,5 +162,31 @@ describe('parseRunResult dispatches on the shape of the output', () => {
     expect(result.kind).toBe('legacy')
     expect(result.zipFilename).toBe('rating_cycle_output.zip')
     expect(result.tournaments).toHaveLength(1)
+  })
+})
+
+describe('parseFideChecks', () => {
+  const CSV =
+    '# fide_checks_v1\n' +
+    'PlayerId;PlayerName;TimeControl;Check;Detail\n' +
+    '3741;Jogador Um;STD;K10_BELOW_2200;1500\n' +
+    '643;Jogador Dois;RPD;CALCULATED_WHILE_DECEASED;5\n'
+
+  it('reads every column by name', () => {
+    const rows = parseFideChecks(CSV)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toEqual({
+      playerId: '3741',
+      playerName: 'Jogador Um',
+      timeControl: 'STD',
+      check: 'K10_BELOW_2200',
+      detail: '1500',
+    })
+    expect(rows[1].check).toBe('CALCULATED_WHILE_DECEASED')
+  })
+
+  it('reads a file that raised nothing as an empty list', () => {
+    expect(parseFideChecks('# fide_checks_v1\nPlayerId;PlayerName;TimeControl;Check;Detail\n'))
+      .toEqual([])
   })
 })

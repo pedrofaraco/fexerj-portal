@@ -211,6 +211,17 @@ A auditoria do período traz ainda **três colunas para a substituição de rati
 acontece **antes** do cálculo: sem elas, a linha mostraria o rating novo como se sempre
 tivesse sido aquele.
 
+São três arquivos de auditoria por execução. `Audit_Games.csv` traz uma linha por
+partida, de cada lado, para que qualquer jogador refaça a própria conta contra a tabela
+8.1.2. `Audit_Period.csv` traz uma linha por jogador e modalidade, e mostra que a soma
+fecha. `Audit_Checks.csv` não descreve cálculo nenhum: **aponta** as linhas do ciclo que
+merecem olho humano, e sai vazio — só com o cabeçalho — quando não houve nenhuma.
+
+| Aviso | Quando aparece | Por que não é erro |
+|---|---|---|
+| `K10_BELOW_2200` | Jogador com fator K de 10 e rating abaixo de 2.200, ou sem rating | É o estado de quem atingiu 2.200 e caiu depois. É também como apareceria um `10` digitado por engano, que congelaria o fator daquele jogador — e o programa não distingue os dois. |
+| `CALCULATED_WHILE_DECEASED` | Partidas calculadas para jogador com status `4` | A morte pode ocorrer no meio do ciclo, com torneios em andamento: as partidas foram disputadas e são calculadas. O que depende de decisão é a publicação. |
+
 O arquivo de auditoria é **saída, regerada a cada execução**, e é onde ficam os
 **eventos** de um ciclo. A lista de jogadores é **estado**: diz como cada jogador está no
 fim do último ciclo, e é reescrita inteira a cada execução. É por isso que o registro de

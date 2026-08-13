@@ -51,7 +51,9 @@ def test_fide_mode_returns_the_new_output_shape(client, auth):
     response = _post(client, "/run", _FIDE_TOURNAMENTS, mode="fide", auth=auth)
     assert response.status_code == 200
     names = set(zipfile.ZipFile(io.BytesIO(response.content)).namelist())
-    assert names == {"RatingList.csv", "Audit_Games.csv", "Audit_Period.csv"}
+    assert names == {
+        "RatingList.csv", "Audit_Games.csv", "Audit_Period.csv", "Audit_Checks.csv",
+    }
 
 
 def test_compare_mode_returns_both_models(client, auth):
@@ -64,6 +66,7 @@ def test_compare_mode_returns_both_models(client, auth):
         "RatingList.csv",
         "Audit_Games.csv",
         "Audit_Period.csv",
+        "Audit_Checks.csv",
         "Comparison.csv",
     }
 

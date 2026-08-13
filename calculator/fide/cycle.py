@@ -116,6 +116,7 @@ class FideRatingCycle:
             "RatingList.csv": write_rating_list(outcome.players, period_year(outcome.tournaments)),
             "Audit_Games.csv": audit.write_games_audit(outcome),
             "Audit_Period.csv": audit.write_period_audit(outcome),
+            "Audit_Checks.csv": audit.write_checks_audit(outcome),
         }
 
 

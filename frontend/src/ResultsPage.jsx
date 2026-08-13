@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 
 import BuildStamp from './BuildStamp'
 import ComparisonSummary from './components/ComparisonSummary'
+import OperatorChecks from './components/OperatorChecks'
 import PeriodSummary from './components/PeriodSummary'
 import RequestIdLine from './components/RequestIdLine'
 import { buildPlayerIndex } from './resultParser'
@@ -379,6 +380,7 @@ export default function ResultsPage({ runResult, onNewRun, onLogout }) {
 
         {!parseError && isPerGameModel && (
           <div className="flex flex-col gap-6">
+            <OperatorChecks checks={runResult.checks ?? []} />
             {runResult.kind === 'compare' && (
               <ComparisonSummary comparison={runResult.comparison} />
             )}

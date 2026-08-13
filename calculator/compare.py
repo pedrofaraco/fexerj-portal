@@ -61,6 +61,7 @@ def run_comparison(
     output["RatingList.csv"] = write_rating_list(outcome.players, period_year(outcome.tournaments))
     output["Audit_Games.csv"] = audit.write_games_audit(outcome)
     output["Audit_Period.csv"] = audit.write_period_audit(outcome)
+    output["Audit_Checks.csv"] = audit.write_checks_audit(outcome)
     output["Comparison.csv"] = _write_comparison(_legacy_final_ratings(legacy_output), outcome.players)
     return output
 
