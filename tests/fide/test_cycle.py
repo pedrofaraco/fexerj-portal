@@ -308,6 +308,22 @@ class TestCadastralColumnsSurviveTheCycle:
         assert row["Status"] == "4"
         assert row["Games_Std"] == "55"          # 50 on file plus the five played
 
+    def test_every_status_is_calculated_and_written_back(self):
+        """No status is a reason to skip a player, and none is a reason to
+        leave them out of the file the cycle writes. Taking the unpublished
+        ones out happens at publication, by the federation, outside the run.
+
+        Status 2 is the one worth naming: a grampo is the temporary id of a
+        player who has not federated yet, and reading "não-federado" as "do
+        not calculate" is the mistake this test exists to stop — it was in
+        the spec itself until 2026-08-13.
+        """
+        for status in ("0", "1", "2", "3", "4"):
+            row = self._run(status=status)
+            assert row["Status"] == status, status
+            assert row["Games_Std"] == "55", status
+            assert row["Rtg_Std"] != "", status
+
     def test_the_fide_columns_are_written_back(self):
         row = self._run()
         assert row["RtgFide_Std"] == "1750"

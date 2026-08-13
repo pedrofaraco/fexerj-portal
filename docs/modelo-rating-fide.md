@@ -607,6 +607,12 @@ aparece na lista publicada. Por isso o programa **não recusa** um arquivo em qu
 jogador nessa condição tenha partidas: a morte pode ocorrer no meio do ciclo, com torneios
 em andamento.
 
+**O status não filtra a saída do programa.** A lista que o ciclo escreve traz **todos** os
+jogadores da lista de entrada, qualquer que seja o status, com o rating de cada um
+atualizado. Retirar os que não são publicáveis é passo da **publicação**, feito pela
+federação depois da execução — a lista de saída é o estado guardado até o ciclo seguinte,
+não a lista publicada.
+
 **O grampo é instrumento corrente, não sobra de cadastro.** É o id temporário que a
 federação atribui a um jogador **não federado** para que ele possa disputar e ter rating
 em evolução antes de se filiar; em geral vale por um ciclo de execução, e só a federação o
