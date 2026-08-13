@@ -100,30 +100,57 @@ Required fields: `Id_No`, `Name`, `Rtg_Nat`, `TotalNumGames`, `SumOpponRating`, 
 > not a CBX or FIDE rating — `Id_CBX` is an identifier only, and no external rating
 > enters the system. The name is kept for compatibility with existing files.
 
-**`players.csv` — new per-game model (29 columns)** — semicolon-delimited, UTF-8 (BOM
+**`players.csv` — new per-game model (43 columns)** — semicolon-delimited, UTF-8 (BOM
 accepted). Accepted in `fide` mode, alongside the 12-column format above. (`compare` mode
 requires the 12-column format only — see restrictions below.)
 
 ```
-Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Rtg_Std;Games_Std;Peak2200_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;Peak2200_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;Peak2200_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz
+Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status;Rtg_Std;Games_Std;K_Std;FirstTrn_Std;LastPlayed_Std;RtgFide_Std;FideDate_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;K_Rpd;FirstTrn_Rpd;LastPlayed_Rpd;RtgFide_Rpd;FideDate_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;K_Blz;FirstTrn_Blz;LastPlayed_Blz;RtgFide_Blz;FideDate_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz
 ```
 
-The first eight columns are identity, shared across modalities: `Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed`.
+The first ten columns are identity, shared across modalities:
+`Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status`.
 
-The remaining twenty-one columns are three groups of seven — one group per modality, Classical
-(`Std`), Rapid (`Rpd`), Blitz (`Blz`) — each shaped
-`Rtg_<mod>;Games_<mod>;Peak2200_<mod>;AccGames_<mod>;AccSumOpp_<mod>;AccPts_<mod>;AccSince_<mod>`.
-The first three fields are what the player *is* in that modality and never reset together; the
-last four share the `Acc` prefix, sit adjacent, and are the §6.1 accumulator toward the player's
-first rating in that modality — they reset together the moment the player gains a rating, and
-reset together again if the floor later drops them back out, since the accumulation toward the
-next rating starts over from zero rather than resuming from the lifetime count:
+- `PrevId` — the id of the record this person had before, blank when there is none. Must
+  match an `Id_No` present in the same file. Cadastral: the operator fills it and no
+  calculation reads it.
+- `Status` — `1` active, `0` inactive, `2` *grampo* (a record with no valid backing), `3`
+  inactive elsewhere, `4` deceased. Governs **publication, not calculation**: a player who
+  died mid-cycle keeps being calculated and keeps moving the game count, so a status of `4`
+  alongside games played is a valid file, never an error.
+
+The remaining thirty-three columns are three groups of eleven — one group per modality,
+Classical (`Std`), Rapid (`Rpd`), Blitz (`Blz`) — each shaped `Rtg_<mod>;Games_<mod>;
+K_<mod>;FirstTrn_<mod>;LastPlayed_<mod>;RtgFide_<mod>;FideDate_<mod>;AccGames_<mod>;
+AccSumOpp_<mod>;AccPts_<mod>;AccSince_<mod>`.
+
+**The program rewrites the first five of each group on every run**, from the state the
+period ends on. Editing them by hand does not change that run's result and is overwritten by
+the next one — with one exception, `K_<mod>`, called out below.
 
 - `Rtg_<mod>` — the player's current rating in that modality. **Empty means the player is
   unrated** in that modality.
 - `Games_<mod>` — lifetime games played in that modality. Feeds the K factor and is preserved
-  when the 1200 floor drops the player out of rated status.
-- `Peak2200_<mod>` — `1` if the player has ever reached 2200 in that modality, else `0`.
+  when the 1200 floor drops the player out of rated status. Games from a discarded first
+  tournament (§6.1) never enter it: they were used in no calculation.
+- `K_<mod>` — the §5 K factor, one of `10`, `20`, `40`, written **before** the 700 cap of
+  §5.1; the effective factor each game was calculated with is in `Audit_Games.csv`. **This
+  column is also the record that the player has reached 2200**: `K_<mod> == 10` is what makes
+  the permanent K=10 survive between cycles. A `10` typed in by hand freezes that player's
+  factor for good, which is the one way an edit here changes a result.
+- `FirstTrn_<mod>` — `1` once the player has played a first tournament with at least one
+  rated opponent, spending the §6.1 discard of a zeroed first tournament. Never returns to
+  `0`: neither the 26-month window (§6.2) nor the floor (§7) hands the discard back.
+- `LastPlayed_<mod>` — the period (`AAAA-MM`) in which the player last had any game in that
+  modality, empty when they never have.
+- `RtgFide_<mod>` — the player's FIDE rating in that modality, blank when there is none.
+  **The operator fills this one**, and the program only reads it: a player with no rating and
+  no games in the modality enters on it at face value (§6.4), and while it is filled their K
+  comes from the rating band rather than from the new-player rule. Must be empty or at least
+  1200, the same floor `Rtg_<mod>` answers to.
+- `FideDate_<mod>` — the date `RtgFide_<mod>` was last checked (`AAAA-MM-DD`, `DD/MM/AAAA` or
+  `DD.MM.AAAA`). Filled by the operator, required whenever `RtgFide_<mod>` is filled and only
+  then.
 - `AccGames_<mod>` — how many games have gone into `AccSumOpp_<mod>`/`AccPts_<mod>` so far.
   Distinct from `Games_<mod>`.
 - `AccSumOpp_<mod>` — sum of opponents' ratings accumulated toward the player's first rating.
@@ -132,6 +159,10 @@ next rating starts over from zero rather than resuming from the lifetime count:
   is none. FIDE 7.1.4 only pools results from consecutive rating periods spanning at most 26
   months: once the current period is more than 26 months past `AccSince_<mod>`, the accumulator
   is dropped and restarts from that period's games alone.
+
+The four `Acc` columns share a prefix and sit adjacent because they reset together — the
+moment the player gains a rating, and again if the floor later drops them back out, since the
+accumulation toward the next rating starts from zero rather than from the lifetime count.
 
 `Birthday` is required in this format (it is optional in the legacy 12-column format) — the
 per-game model's under-18 K-factor rule depends on it.

@@ -1,6 +1,6 @@
 # Modelo de rating FEXERJ — regras completas
 
-**Versão 1.4 — 11/08/2026.**
+**Versão 1.5 — 13/08/2026.**
 
 Especificação do modelo de rating **por partida** da FEXERJ, aplicável às modalidades
 Clássico, Rápido e Blitz. Alinhado ao Handbook FIDE B02, com as adaptações numéricas da
@@ -12,6 +12,8 @@ federação. Substitui o modelo por torneio descrito em
   [FIDE Rapid and Blitz Rating Regulations](https://handbook.fide.com/chapter/B02RBRegulations2024).
 - **Vigência prevista:** a partir da temporada de 2027 — 01/03/2027. Até lá, o modelo
   atual continua gerando a lista oficial.
+- **Forma:** este documento não integra o regimento. Será desdobrado em três anexos —
+  normativo, de transição e de testes.
 - **Validação:** o cálculo da seção 3 foi conferido contra uma consulta oficial da FIDE
   (seção 10) e o modelo completo foi rodado sobre um ciclo real da federação (seção 13).
 
@@ -41,35 +43,9 @@ federação. Substitui o modelo por torneio descrito em
 
 ## Pontos em aberto
 
-Três pontos. Enquanto não houver decisão, o programa segue o que está descrito em cada
-um.
+Um ponto. Enquanto não houver decisão, o programa segue o que está descrito nele.
 
-### 1. Como a permanência do K=10 é guardada
-
-O K de 10 é permanente (seção 5): uma vez atingidos 2.200, o fator não volta a subir,
-mesmo que o rating caia. Para isso o programa precisa saber que a marca foi atingida, o
-que o rating atual sozinho não diz.
-
-**A proposta da federação** foi dispensar um campo e usar o próprio K gravado no
-arquivo, testando `K = 10`. Funciona, mas muda a natureza da coluna: o K deixa de ser
-resultado e passa a ser entrada. Um `10` digitado por engano numa linha congela o fator
-daquele jogador para sempre, e o programa não tem como distinguir isso de um K legítimo.
-
-**Recomendação: um campo próprio por modalidade**, que o programa liga ao cruzar 2.200 e
-nunca desliga, com o fator K continuando a ser recalculado a cada ciclo.
-
-Sobre a dúvida anotada na versão 1.3 — *para que serve, então, uma coluna de K que não
-alimenta o cálculo?* Para conferir. Ela mostra com que fator cada jogador foi calculado
-naquele ciclo, que é o número que explica o tamanho da variação dele; sem a coluna,
-descobrir isso exige refazer a regra da seção 5 à mão, jogador a jogador. É o mesmo papel
-do rating publicado: é resultado, e é por ser resultado que serve de conferência. O que o
-cálculo **precisa** guardar e não consegue deduzir é outra coisa — a permanência do K=10
-—, e é ela que pede campo próprio.
-
-**Este é o ponto que trava a implementação:** ele define as colunas do arquivo de
-jogadores, e esse arquivo muda uma vez só (seção 11.1).
-
-### 2. Se o rating FIDE é reconferido depois da entrada
+### Se o rating FIDE é reconferido depois da entrada
 
 O momento de captura está definido (§6.4, alínea d). Ficou em aberto o que acontece
 **depois**: o rating FEXERJ de quem entrou pela FIDE deve ser reaproximado do rating FIDE
@@ -83,14 +59,10 @@ que explicasse a mudança.
 
 Se ainda assim a federação quiser um gatilho, ele precisa ser regra escrita — margem,
 periodicidade e o que acontece com a contagem de partidas —, e não correção manual caso a
-caso, que é indistinguível de erro de digitação.
-
-### 3. Como este documento se encaixa nos regimentos
-
-O modelo atual está no Art. 68 do regimento. Falta definir a forma da substituição: o
-artigo é reescrito para remeter a este documento, é revogado, ou este documento passa a
-valer como regulamentação dele? Não muda cálculo nenhum, mas define como o documento é
-citado e por quem é aprovado.
+caso, que é indistinguível de erro de digitação. A diferença não é de forma: uma regra
+escrita o programa aplica e registra na auditoria do ciclo, com o rating anterior à vista;
+uma correção feita à mão no arquivo chega ao programa como um rating qualquer, e o valor
+substituído já não existe quando a execução começa.
 
 ---
 
@@ -125,7 +97,7 @@ que é zero — portanto **K=40**. Fatores K e contagens de partidas são indepe
 por modalidade; só o rating inicial vem do STD.
 
 Jogador que já tem rating FIDE naquela modalidade entra com ele, sem passar pelo
-transpasse nem pelo cálculo de rating inicial — ver a seção 6.5.
+transpasse nem pelo cálculo de rating inicial — ver a seção 6.4.
 
 ---
 
@@ -239,6 +211,23 @@ jogador que chegou a 2210 e caiu para 2150 mantém K=10, e o rating atual não d
 esse caso de quem nunca passou de 2150. O registro é por modalidade e é atualizado pelo
 programa sempre que o rating publicado cruzar 2200.
 
+**O indicador é a própria coluna de fator K** da modalidade, `K_` (seção 11.1): `K = 10`
+é o registro de que a marca foi atingida. Não há campo separado. Três consequências, e
+as três são regra:
+
+- **O K gravado é o da seção 5, antes do teto de 700** (seção 5.1). O teto pode reduzir
+  um K de 20 a 10 num período de muitas partidas, e um K assim reduzido, gravado no
+  arquivo, marcaria como "atingiu 2200" quem nunca chegou perto. O fator com que cada
+  partida foi efetivamente calculada fica no arquivo de auditoria.
+- **O K gravado é o do estado em que o período termina**, não aquele com que o período
+  foi calculado. Quem entra com 2.150 e termina com 2.210 precisa sair do ciclo com 10
+  no arquivo; gravar o K de entrada perderia a permanência no mesmo ciclo em que ela foi
+  conquistada.
+- **Um `10` digitado por engano congela o fator daquele jogador.** É a contrapartida de
+  dispensar o campo separado: nesta coluna, e só nela, uma edição manual muda resultado.
+  O arquivo de auditoria assinala o caso — um K de 10 em jogador que nunca atingiu 2.200
+  — para conferência do operador.
+
 Essa condição **prevalece sobre as demais** da tabela acima: nem a regra de sub-18 nem
 a de jogador novo elevam o K depois que ele chega a 10.
 
@@ -316,6 +305,14 @@ contagem registra as partidas válidas para cálculo de rating, e as desse torne
 foram usadas em cálculo nenhum. Isso é diferente do que acontece no piso (seção 7), onde
 o rating é zerado mas a contagem é inteiramente preservada.
 
+Disso decorre um registro próprio. Como o torneio descartado não movimenta a contagem, um
+jogador descartado termina o período com a contagem em zero, indistinguível de quem nunca
+jogou — e ganharia o descarte de novo no torneio seguinte, contra o "só o primeiro" acima.
+A coluna `FirstTrn_` da modalidade (seção 11.1) guarda que o primeiro torneio já foi
+disputado. Ela é ligada pelo primeiro torneio em que o jogador enfrenta ao menos um
+adversário com rating, tenha esse torneio sido descartado ou não, e **nunca é desligada**:
+nem pela janela de 26 meses (seção 6.2), nem pelo piso (seção 7).
+
 ### 6.2 Janela de 26 meses (7.1.4)
 
 Passa a ser guardada a **data em que o acúmulo do jogador sem rating começou** — a
@@ -370,6 +367,19 @@ de partidas na FEXERJ é tratada pelo programa e começa em zero.
 - **O fator K vem da faixa do rating** (seção 5), não da contagem de partidas na
   federação: quem entra com 2.300 recebe o K de quem tem 2.300, não o K=40 de jogador
   novo.
+- **Essa regra de K vale enquanto houver rating FIDE registrado** na modalidade, e não
+  apenas no período de entrada. No período seguinte o jogador ainda tem menos de 30
+  partidas na federação, e a regra de jogador novo devolveria a ele exatamente o K=40 que
+  a alínea anterior afasta. A regra de sub-18 continua valendo: ela depende da idade e do
+  rating, não da contagem de partidas.
+- **A entrada pelo rating FIDE ocorre uma vez, com zero partidas na modalidade.** Tendo o
+  jogador qualquer partida disputada ali, o rating da federação é o dele e o rating FIDE
+  registrado deixa de ser porta de entrada. Sem esse limite, um jogador que perdeu o
+  rating pelo piso (seção 7) seria reinserido pelo rating FIDE a cada período, e o piso
+  nunca produziria efeito sobre ele.
+- **O rating FIDE registrado é de 1.200 ou mais**, o mesmo piso exigido do rating da
+  federação (seção 7). Um valor abaixo do piso faria o jogador entrar rated abaixo dele,
+  estado que o modelo não admite.
 - **Rating de 2.200 ou mais liga o indicador permanente de K=10** naquela modalidade,
   como se o jogador tivesse atingido a marca numa lista da federação.
 - **Quando o rating é registrado.** O rating FIDE é informado no cadastro **no momento
@@ -535,39 +545,27 @@ diferença** para um jogador em um mês.
 
 ### 11.1 Lista de jogadores
 
-Identidade única por jogador, com rating, contagem de partidas e indicador de
-"já atingiu 2200" **por modalidade**. O cabeçalho atual de 12 colunas cresce.
+Identidade única por jogador e, **por modalidade**, rating, contagem de partidas, fator K,
+marcador do primeiro torneio, data da última atividade, rating FIDE e o acúmulo da seção
+6.1. O cabeçalho atual, de 12 colunas, passa a **43**.
 
-A conversão a partir do formato atual é direta: a coluna `Rtg_Nat` de hoje — que
-apesar do nome guarda o **rating FEXERJ** — vira o rating **STD**; Rápido e Blitz
-começam vazios, o que dispara o transpasse (seção 1.1) no primeiro torneio de cada
-modalidade.
+**Continua sendo um arquivo só.** A recomendação técnica era separar arquivo de trabalho e
+lista publicada; a diretoria optou pelo arquivo único, com o fator K e o status do jogador
+incluídos.
 
-As colunas `SumOpponRating` e `TotalPoints`, que hoje sustentam a regra de rating
-temporário, passam a servir apenas ao acúmulo de jogadores não-rated até as 5
-partidas (seção 6.1). Ganha-se também a **data de início do acúmulo**, necessária
-para a janela de 26 meses (seção 6.2).
+O arquivo é **estado, não histórico**: ele diz como cada jogador está no fim do último
+ciclo, e o programa o reescreve inteiro a cada execução. O que aconteceu num ciclo — uma
+substituição de rating, por exemplo — é evento, e fica no arquivo de auditoria daquele
+ciclo (seção 11.3), que é datado e não é reescrito.
 
-**Continua sendo um arquivo só.** A recomendação técnica era
-separar arquivo de trabalho e lista publicada; a diretoria optou pelo arquivo único,
-com o **fator K** e o **status** do jogador incluídos.
+#### As dez colunas de identidade
 
-**A coluna de fator K é saída.** O programa a reescreve a cada ciclo, calculando o K de
-cada jogador a partir do rating, da contagem de partidas e da data de nascimento
-(seção 5). Uma alteração manual não afeta o cálculo daquele ciclo e é sobrescrita na
-execução seguinte.
+`Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status`
 
-A coluna serve à **conferência**: registra com que fator cada jogador foi calculado no
-ciclo, valor que explica a magnitude da variação obtida. Sem ela, essa verificação exige
-reaplicar a regra da seção 5 jogador a jogador. É a mesma função do rating publicado.
+`PrevId` e `Status` são **cadastrais**, como o clube: o operador preenche, o programa
+preserva, e nenhum cálculo os lê.
 
-Há um único dado que o cálculo **precisa** conhecer e não consegue deduzir do arquivo: a
-permanência do K=10, isto é, que o jogador já atingiu 2.200 alguma vez, mesmo estando
-abaixo disso agora. Como esse dado é guardado — em campo próprio, ou lido do próprio K —
-é o ponto em aberto 1.
-
-O **status** é cadastral, como o clube: o operador preenche, e ele não entra em cálculo
-nenhum. Valores:
+**`Status`.** Governa **publicação, não cálculo**:
 
 | Status | Significado |
 |---|---|
@@ -577,21 +575,69 @@ nenhum. Valores:
 | `3` | Inativo, em outro estado ou no exterior |
 | `4` | Falecido |
 
-O status governa **publicação, não cálculo**. Um jogador falecido continua sendo
-calculado e continua movimentando a contagem de partidas — apenas não aparece na lista
-publicada. Por isso o programa não recusa um arquivo em que um jogador nessa condição
-tenha partidas: a morte pode ocorrer no meio do ciclo, com torneios em andamento.
+Um jogador falecido continua sendo calculado e continua movimentando a contagem de
+partidas — apenas não aparece na lista publicada. Por isso o programa **não recusa** um
+arquivo em que um jogador nessa condição tenha partidas: a morte pode ocorrer no meio do
+ciclo, com torneios em andamento.
 
-A única exceção é o status `2`, e ela vale uma vez só: na conversão da lista atual, o
-registro marcado como grampo é descartado (seção 7). Passada a virada, um registro nessa
-condição não deveria mais existir, e o status volta a ser apenas cadastral.
+A única exceção é o status `2`, e vale uma vez só: na conversão da lista atual, o registro
+marcado como grampo é descartado (seção 7). Passada a virada, um registro nessa condição
+não deveria mais existir, e o status volta a ser apenas cadastral.
 
-**"Id Anterior".** É um id de jogador **que já existe na lista** — a existência é
-condição necessária —, apontando o registro que aquela pessoa tinha antes. Serve para
-manter o histórico ligado sem publicar as duas linhas: o registro que traz um Id Anterior
-tem status diferente de `1` e não é publicado. Hoje isso é controlado à mão pelo campo do
-clube. É informação cadastral, preenchida pelo operador, e não um valor que o programa
-calcule.
+**`PrevId`.** É um id de jogador **que já existe na lista** — a existência é condição
+necessária, e o programa recusa o arquivo que aponte para um id inexistente —, indicando o
+registro que aquela pessoa tinha antes. Serve para manter o histórico ligado sem publicar
+as duas linhas: o registro que traz um `PrevId` tem status diferente de `1` e não é
+publicado. Hoje isso é controlado à mão pelo campo do clube.
+
+#### As onze colunas de cada modalidade
+
+Três blocos iguais, com os sufixos `_Std`, `_Rpd` e `_Blz`:
+
+`Rtg_;Games_;K_;FirstTrn_;LastPlayed_;RtgFide_;FideDate_;AccGames_;AccSumOpp_;AccPts_;AccSince_`
+
+| Coluna | Preenche | O que é |
+|---|---|---|
+| `Rtg_` | programa | Rating na modalidade. **Vazio significa sem rating.** |
+| `Games_` | programa | Partidas disputadas na vida, na modalidade. Alimenta o fator K (seção 5) e é preservada quando o piso age (seção 7). Não inclui as partidas do torneio descartado (seção 6.1). |
+| `K_` | programa | Fator K da seção 5 — `10`, `20` ou `40` —, **e o registro de que o jogador já atingiu 2.200**. Ver a seção 5. |
+| `FirstTrn_` | programa | `1` depois do primeiro torneio com ao menos um adversário com rating. Marca o descarte da seção 6.1 como gasto, e nunca volta a `0`. |
+| `LastPlayed_` | programa | Período (`AAAA-MM`) em que o jogador teve partidas na modalidade pela última vez. Vazio se nunca teve. |
+| `RtgFide_` | **operador** | Rating FIDE do jogador na modalidade (seção 6.4). Vazio quando não há. De 1.200 ou mais. |
+| `FideDate_` | **operador** | Data em que o `RtgFide_` foi conferido (seção 6.4, alínea d). Obrigatória quando há rating FIDE, e só então. |
+| `AccGames_` | programa | Partidas já somadas ao acúmulo da seção 6.1. Distinta de `Games_`. |
+| `AccSumOpp_` | programa | Soma dos ratings dos adversários acumulada rumo ao primeiro rating. |
+| `AccPts_` | programa | Pontos acumulados rumo ao primeiro rating. |
+| `AccSince_` | programa | Período (`AAAA-MM`) em que o acúmulo corrente começou, para a janela de 26 meses (seção 6.2). |
+
+As colunas do programa são **reescritas a cada execução**, a partir do estado em que o
+período termina: editá-las à mão não muda o resultado daquele ciclo e é sobrescrito no
+seguinte. A exceção é `K_`, pelo motivo exposto na seção 5 — é a única coluna em que uma
+edição manual muda cálculo.
+
+As quatro colunas `Acc` compartilham o prefixo e ficam lado a lado porque zeram juntas: no
+instante em que o jogador ganha rating, e de novo se o piso o derrubar depois, já que o
+acúmulo rumo ao próximo rating recomeça do zero e não da contagem vitalícia.
+
+#### A conversão a partir do formato atual
+
+É direta: a coluna `Rtg_Nat` de hoje — que apesar do nome guarda o **rating FEXERJ** —
+vira o rating **STD**; Rápido e Blitz começam vazios, o que dispara o transpasse (seção
+1.1) no primeiro torneio de cada modalidade.
+
+As colunas `SumOpponRating` e `TotalPoints`, que hoje sustentam a regra de rating
+temporário, passam a servir apenas ao acúmulo de jogadores não-rated até as 5 partidas
+(seção 6.1).
+
+Três colunas novas não têm origem na lista atual e recebem valor de partida:
+
+- `FirstTrn_` fica ligada para quem já tem partidas disputadas. É o mesmo critério que o
+  programa usava antes de a coluna existir; ligada de outro modo, todo jogador convertido
+  ganharia um descarte novo.
+- `Status` entra como `1`, e `PrevId` vazia: a lista atual não traz nenhum dos dois, e são
+  do operador.
+- `LastPlayed_`, `RtgFide_`, `FideDate_` e `AccSince_` entram vazias — a lista atual não
+  registra quando cada jogador jogou pela última vez, nem quando um acúmulo começou.
 
 ### 11.2 Lista de torneios
 
