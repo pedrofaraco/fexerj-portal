@@ -444,3 +444,90 @@ class TestEntryOnAFideRating:
         )
         assert period["Path"] == "FIDE_ENTRY"
         assert period["InitialRating"] == "2300"   # not the 1800 §1.1 would carry over
+
+
+class TestRatingSubstitutionThroughTheCycle:
+    """§6.4: the substitution happens before the period is calculated, so the
+    audit is the only place the previous rating survives."""
+
+    def _run(self, **std):
+        stale = {"rtg": 1400, "games": 60, "k": 20, "first": "1", "last": "2023-01",
+                 "fide": 2100, "fide_date": "10/07/2026"}
+        players_csv = _players_csv(
+            _player_row("3741", "Carlos Mendes", **stale | std),
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        header = output["RatingList.csv"].splitlines()[0].split(";")
+        row = next(
+            r for r in output["RatingList.csv"].splitlines()[1:] if r.startswith("3741;")
+        ).split(";")
+        rows = _audit_rows(output["Audit_Period.csv"])
+        return dict(zip(header, row, strict=True)), rows
+
+    def test_the_period_opens_on_the_fide_rating(self):
+        _, rows = self._run()
+        line = next(r for r in rows if r["PlayerId"] == "3741")
+        assert line["Path"] == "FIDE_SUBSTITUTION"
+        assert line["InitialRating"] == "2100"
+
+    def test_the_audit_carries_the_three_substitution_fields(self):
+        """Without them the list shows a 700-point jump and the file says
+        nothing about where it came from."""
+        _, rows = self._run()
+        line = next(r for r in rows if r["PlayerId"] == "3741")
+        assert line["PreviousRating"] == "1400"
+        assert line["RatingSource"] == "FIDE"
+        assert line["RatingCheckedOn"] == "10/07/2026"
+
+    def test_every_other_player_leaves_the_three_fields_empty(self):
+        _, rows = self._run()
+        others = [r for r in rows if r["PlayerId"] != "3741"]
+        assert others
+        assert all(
+            r["PreviousRating"] == "" and r["RatingSource"] == "" and r["RatingCheckedOn"] == ""
+            for r in others
+        )
+
+    def test_an_active_player_is_not_substituted(self):
+        _, rows = self._run(last="2026-01")
+        line = next(r for r in rows if r["PlayerId"] == "3741")
+        assert line["Path"] == "RATED"
+        assert line["InitialRating"] == "1400"
+        assert line["PreviousRating"] == ""
+
+    def test_the_game_count_grows_by_the_games_played_and_nothing_else(self):
+        row, _ = self._run()
+        assert row["Games_Std"] == "65"  # 60 on file plus the five played
+
+    def test_the_substituted_rating_is_what_the_opponents_face(self):
+        """The substitution is part of the period's opening state, so the
+        five opponents are calculated against 2100, not against 1400."""
+        players_csv = _players_csv(
+            _player_row("3741", "Carlos Mendes", rtg=1400, games=60, k=20, first="1",
+                        last="2023-01", fide=2100, fide_date="10/07/2026"),
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        facing = [
+            r for r in _audit_rows(output["Audit_Games.csv"])
+            if r["OpponentId"] == "3741"
+        ]
+        assert facing
+        assert {r["OpponentRating"] for r in facing} == {"2100"}

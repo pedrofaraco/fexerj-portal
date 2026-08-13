@@ -10,9 +10,11 @@ from .model import Accumulator, Game, ModalityState, PlayerState
 from .period import (
     PeriodOutcome,
     PeriodResult,
+    RatingSubstitution,
     compute_rated_period,
     compute_unrated_period,
     fide_entry_state,
+    fide_substitution_state,
     transposed_state,
 )
 from .ratinglist import read_rating_list, write_rating_list
@@ -57,7 +59,7 @@ class FideRatingCycle:
         games = collect_games(tournaments, self.binary_files, initial_players)
 
         # §4: the state at the start of the period is frozen; nothing here changes it.
-        entry_states = _entry_states(initial_players, games)
+        entry_states, substitutions = _entry_states(initial_players, games, month)
         opponent_ratings = _opponent_ratings_by_modality(entry_states)
 
         results: list[PeriodResult] = []
@@ -77,7 +79,13 @@ class FideRatingCycle:
                     opponent_ratings=ratings,
                     period_year=year,
                     birth_year=parse_birth_year(initial_players[player_id].birthday),
-                    path=_path_for(initial_players[player_id], modality, state),
+                    path=_path_for(
+                        initial_players[player_id],
+                        modality,
+                        state,
+                        (player_id, modality) in substitutions,
+                    ),
+                    substitution=substitutions.get((player_id, modality)),
                 ))
             else:
                 results.append(compute_unrated_period(
@@ -112,15 +120,19 @@ class FideRatingCycle:
 
 
 def _entry_states(
-    players: dict[int, PlayerState], games: list[Game]
-) -> dict[tuple[int, str], ModalityState]:
-    """Entry state of every (player, modality) pair that played in the period.
+    players: dict[int, PlayerState], games: list[Game], period_month: str
+) -> tuple[dict[tuple[int, str], ModalityState], dict[tuple[int, str], RatingSubstitution]]:
+    """Entry state of every (player, modality) pair that played in the period,
+    plus the rating substitutions (§6.4) that produced some of them.
 
-    §6.4 is tried before §1.1: a player who arrives with a FIDE rating in a
-    modality enters on it, without passing through the cross-modality
-    carry-over or the initial-rating calculation.
+    The three §6.4 paths are mutually exclusive by their own conditions —
+    entry needs no rating and no games, substitution needs a rating — so the
+    order between them is a matter of reading, not of precedence. §1.1 comes
+    last: the cross-modality carry-over defers to a FIDE rating whenever one
+    applies.
     """
     states: dict[tuple[int, str], ModalityState] = {}
+    substitutions: dict[tuple[int, str], RatingSubstitution] = {}
     for game in games:
         key = (game.player_id, game.modality)
         if key in states:
@@ -128,9 +140,13 @@ def _entry_states(
         player = players[game.player_id]
         entry = fide_entry_state(player, game.modality)
         if entry is None:
+            substituted = fide_substitution_state(player, game.modality, period_month)
+            if substituted is not None:
+                entry, substitutions[key] = substituted
+        if entry is None:
             entry = transposed_state(player, game.modality)
         states[key] = entry if entry is not None else player.modalities[game.modality]
-    return states
+    return states, substitutions
 
 
 def _opponent_ratings_by_modality(
@@ -150,16 +166,19 @@ def _opponent_ratings_by_modality(
     return by_modality
 
 
-def _path_for(player: PlayerState, modality: str, entry: ModalityState) -> str:
+def _path_for(
+    player: PlayerState, modality: str, entry: ModalityState, substituted: bool
+) -> str:
     """How the player came to be rated this period, for the audit trail.
 
     A player with no rating on file who is nonetheless calculated as rated
     got there one of two ways: on a FIDE rating (§6.4), which is the only
     entry that carries `fide_rating` into the entry state, or on the
-    cross-modality carry-over (§1.1).
+    cross-modality carry-over (§1.1). One who *did* have a rating either kept
+    it or had it substituted (§6.4).
     """
     if player.modalities[modality].is_rated:
-        return "RATED"
+        return "FIDE_SUBSTITUTION" if substituted else "RATED"
     return "FIDE_ENTRY" if entry.fide_rating is not None else "TRANSPOSED"
 
 

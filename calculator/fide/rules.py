@@ -21,6 +21,18 @@ ACCUMULATION_WINDOW_MONTHS = 26     # §6.2 — FIDE 7.1.4
 NEW_PLAYER_GAMES = 30               # §5 — K=40 until 30 games are completed
 K_GAMES_PRODUCT_CAP = 700           # §5.1
 
+# Substitution of a stale local rating by the player's FIDE rating (§6.4).
+# The three thresholds are FEXERJ's, agreed 2026-08-13.
+#
+# The inactivity window is deliberately the same 26 months as the §6.2
+# pooling window — chosen so the model carries one duration and not two
+# similar ones — but it is a different measurement, over a different field,
+# and is named separately so that changing one never silently moves the
+# other.
+INACTIVITY_WINDOW_MONTHS = ACCUMULATION_WINDOW_MONTHS
+SUBSTITUTION_LOCAL_MAX = 1600       # local rating strictly below this
+SUBSTITUTION_FIDE_MIN = 2000        # FIDE rating at or above this
+
 
 def capped_diff(player_rating: int, opponent_rating: int) -> int:
     """Rating difference with the 400 cap always applied.
@@ -149,6 +161,13 @@ def initial_rating(opponents_sum: int, opponents_count: int, points: Decimal) ->
     return None if applies_rating_floor(ru) else ru
 
 
+def elapsed_months(earlier: str, later: str) -> int:
+    """Whole months between two "YYYY-MM" markers."""
+    earlier_year, earlier_month = int(earlier[:4]), int(earlier[5:7])
+    later_year, later_month = int(later[:4]), int(later[5:7])
+    return (later_year - earlier_year) * 12 + (later_month - earlier_month)
+
+
 def accumulation_expired(since: str, period_month: str) -> bool:
     """True when the §6.1 accumulator that began in `since` can no longer be
     pooled with the current period `period_month` (§6.2 / FIDE 7.1.4:
@@ -159,7 +178,19 @@ def accumulation_expired(since: str, period_month: str) -> bool:
     expiry: it only compares the period the accumulation started against the
     current one.
     """
-    since_year, since_month = int(since[:4]), int(since[5:7])
-    period_year, period_month_num = int(period_month[:4]), int(period_month[5:7])
-    elapsed_months = (period_year - since_year) * 12 + (period_month_num - since_month)
-    return elapsed_months > ACCUMULATION_WINDOW_MONTHS
+    return elapsed_months(since, period_month) > ACCUMULATION_WINDOW_MONTHS
+
+
+def is_inactive(last_played: str, period_month: str) -> bool:
+    """True when the player has not played for longer than the inactivity
+    window, and their local rating is therefore stale (§6.4).
+
+    An empty `last_played` counts as inactive. It means the list carries no
+    record of the player ever having played that modality — which after the
+    one-off conversion of the current list is every player, since the old
+    format never had the column. Reading it as "not inactive" would keep the
+    rule from ever reaching the very players it was written for until they
+    played and stopped again. The substitution cannot fire on this alone:
+    it also needs a FIDE rating, and that is the operator's to put there.
+    """
+    return not last_played or elapsed_months(last_played, period_month) > INACTIVITY_WINDOW_MONTHS

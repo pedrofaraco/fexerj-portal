@@ -25,6 +25,22 @@ class GameResult:
     k: int
 
 
+@dataclass(frozen=True)
+class RatingSubstitution:
+    """A local rating replaced by the player's FIDE rating, before the period
+    was calculated (§6.4).
+
+    Carried through to `Audit_Period.csv`, which would otherwise show the new
+    rating as though it had always been there — a jump of several hundred
+    points with nothing in the file to explain it. The date is the operator's
+    `FideDate_`, the day they checked the value on FIDE's side.
+    """
+
+    previous_rating: int
+    source: str
+    checked_on: str
+
+
 @dataclass
 class PeriodResult:
     """The period's closing result for a player in one modality.
@@ -52,6 +68,8 @@ class PeriodResult:
     # tournament leaves the count at zero while still spending the
     # opportunity — which is the whole reason the marker exists.
     first_tournament_seen: bool = False
+    # Set when the period opened on a substituted rating (§6.4).
+    substitution: "RatingSubstitution | None" = None
 
 
 @dataclass
@@ -87,6 +105,7 @@ def compute_rated_period(
     period_year: int,
     birth_year: int | None,
     path: str = "RATED",
+    substitution: RatingSubstitution | None = None,
 ) -> PeriodResult:
     """Closes the period for a rated player.
 
@@ -151,6 +170,7 @@ def compute_rated_period(
         final_rating=final_rating,
         path=path,
         game_results=results,
+        substitution=substitution,
     )
 
 
@@ -185,6 +205,65 @@ def fide_entry_state(player: PlayerState, modality: str) -> ModalityState | None
         last_played=state.last_played,
         fide_rating=state.fide_rating,
         fide_date=state.fide_date,
+    )
+
+
+def fide_substitution_state(
+    player: PlayerState, modality: str, period_month: str
+) -> tuple[ModalityState, RatingSubstitution] | None:
+    """A stale local rating replaced by the player's FIDE rating, or `None`.
+
+    FEXERJ, 2026-08-13. Three conditions, all of them at once, in one
+    modality:
+
+    - the player has a **local rating below 1600**. Having none at all is not
+      "below 1600" — it is the absence of a rating, the same reading §7 takes
+      of a zero in the list being converted;
+    - the operator has recorded a **FIDE rating of 2000 or more**;
+    - the player has **not played that modality for more than 26 months**.
+
+    What makes the substitution defensible here and nowhere else is that
+    there is no local evidence to discard. An active player's two ratings
+    differ because they measure two different fields of opponents, and
+    replacing one with the other imports a foreign scale for that player
+    alone. A player who stopped playing has no current local measurement at
+    all: the number is not disagreeing with FIDE, it stopped in time.
+
+    It fires again on a later return, as often as needed — decided by FEXERJ.
+    No marker is required for that: the substitution itself lifts the rating
+    to 2000 or more and stamps the activity date with the current period, so
+    both remaining conditions turn false and only another long absence
+    followed by a fall back under 1600 can bring them back.
+
+    The rating enters at face value, and 2200 or more switches the permanent
+    K=10 on, exactly as a FIDE rating does when a player first joins the list.
+    The game count is untouched: no games were played to justify a change to
+    it, and altering it was one of the objections that sank an earlier
+    proposal.
+    """
+    state = player.modalities[modality]
+    if (
+        state.rating is None
+        or state.rating >= rules.SUBSTITUTION_LOCAL_MAX
+        or state.fide_rating is None
+        or state.fide_rating < rules.SUBSTITUTION_FIDE_MIN
+        or not rules.is_inactive(state.last_played, period_month)
+    ):
+        return None
+    substituted = ModalityState(
+        rating=state.fide_rating,
+        games=state.games,
+        reached_2200=state.reached_2200 or state.fide_rating >= rules.K10_THRESHOLD,
+        first_tournament_played=state.first_tournament_played,
+        last_played=state.last_played,
+        fide_rating=state.fide_rating,
+        fide_date=state.fide_date,
+        accumulator=state.accumulator,
+    )
+    return substituted, RatingSubstitution(
+        previous_rating=state.rating,
+        source="FIDE",
+        checked_on=state.fide_date,
     )
 
 

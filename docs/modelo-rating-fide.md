@@ -17,14 +17,13 @@ federação. Substitui o modelo por torneio descrito em
 - **Validação:** o cálculo da seção 3 foi conferido contra uma consulta oficial da FIDE
   (seção 10) e o modelo completo foi rodado sobre um ciclo real da federação (seção 13).
 
-> Os pontos ainda em aberto estão na primeira seção. O restante do documento descreve o
-> modelo como ele vale.
+> Não há pontos em aberto: o documento descreve o modelo como ele vale.
 
 ---
 
 ## Sumário
 
-- **Pontos em aberto** — o que ainda depende de decisão
+- **Reaproximação entre os dois ratings** — o que o modelo não faz
 - **1. Modalidades** — Clássico, Rápido e Blitz; transpasse entre elas
 - **2. Parâmetros** — os números da FIDE e as adaptações da FEXERJ
 - **3. Cálculo para jogador já rated** — a conta, passo a passo
@@ -41,28 +40,14 @@ federação. Substitui o modelo por torneio descrito em
 
 ---
 
-## Pontos em aberto
+## Reaproximação entre os dois ratings
 
-Um ponto. Enquanto não houver decisão, o programa segue o que está descrito nele.
-
-### Se o rating FIDE é reconferido depois da entrada
-
-O momento de captura está definido (§6.4, alínea d). Ficou em aberto o que acontece
-**depois**: o rating FEXERJ de quem entrou pela FIDE deve ser reaproximado do rating FIDE
-quando os dois divergirem além de alguma margem?
-
-**Recomendação: não reaproximar.** Feita a entrada, aquele rating é da federação e evolui
-pelas partidas disputadas aqui. As duas listas medem populações de adversários
-diferentes, e divergir é o esperado, não um defeito. Reaproximar substituiria por um
-número de fora o resultado de partidas já calculadas e publicadas, sem linha de auditoria
-que explicasse a mudança.
-
-Se ainda assim a federação quiser um gatilho, ele precisa ser regra escrita — margem,
-periodicidade e o que acontece com a contagem de partidas —, e não correção manual caso a
-caso, que é indistinguível de erro de digitação. A diferença não é de forma: uma regra
-escrita o programa aplica e registra na auditoria do ciclo, com o rating anterior à vista;
-uma correção feita à mão no arquivo chega ao programa como um rating qualquer, e o valor
-substituído já não existe quando a execução começa.
+**Não há reaproximação periódica entre os dois ratings.** Feita a entrada, o rating é da
+federação e evolui pelas partidas disputadas aqui; divergir do rating FIDE é o esperado,
+não um defeito, porque as duas listas medem populações de adversários diferentes. A única
+troca prevista é a substituição do rating parado no tempo, na seção 6.4, e ela é regra
+escrita, com condições fechadas e registro em auditoria — não correção caso a caso, que
+seria indistinguível de erro de digitação.
 
 ---
 
@@ -386,6 +371,48 @@ de partidas na FEXERJ é tratada pelo programa e começa em zero.
   da filiação** e **reconferido antes do primeiro uso**: na montagem da lista inicial e,
   depois dela, sempre que o jogador for entrar numa modalidade em que ainda tenha **zero
   partidas** na federação. Vale o valor da reconferência, não o guardado na filiação.
+- **Substituição do rating local parado no tempo.** O rating da federação de um jogador é
+  substituído pelo rating FIDE dele naquela modalidade quando as **três** condições
+  valerem ao mesmo tempo, no início do período:
+
+  1. o jogador tem rating da federação **abaixo de 1.600**;
+  2. tem rating FIDE registrado de **2.000 ou mais**;
+  3. está **há mais de 26 meses sem disputar partida** naquela modalidade.
+
+  A substituição ocorre **antes do cálculo do período**: todas as partidas do período,
+  do jogador e dos adversários dele, são calculadas contra o rating novo. A **contagem
+  de partidas não é alterada** — nenhuma partida foi disputada que justificasse mexer
+  nela. Um rating substituído de **2.200 ou mais liga o indicador permanente de K=10**,
+  como qualquer rating FIDE que entra na lista.
+
+  A substituição fica registrada no arquivo de auditoria do ciclo, com o rating
+  anterior, a origem do valor adotado e a data em que ele foi conferido. Sem esse
+  registro, a lista publicada mostraria um salto de centenas de pontos sem nada, em
+  lugar nenhum, que o explicasse.
+
+  **A regra vale outras vezes**, sempre que as três condições voltarem a se cumprir. Não
+  há limite de uso e não é preciso registrar que ela já agiu: a própria substituição leva
+  o rating a 2.000 ou mais e marca a atividade no período corrente, de modo que as
+  condições 1 e 3 só podem voltar a valer depois de outra ausência longa **e** de uma
+  queda de volta abaixo de 1.600 — que é justamente a situação em que ela deve agir de
+  novo.
+
+  **Por que só para quem parou.** Entre dois jogadores em atividade, uma diferença entre
+  o rating da federação e o da FIDE não é defeito: as duas listas medem populações de
+  adversários diferentes, e substituir uma pela outra importaria a escala da FIDE para um
+  jogador só, deixando o resto da lista na escala da federação. Além disso, cada ponto do
+  rating de um jogador ativo saiu de um adversário; substituí-lo injeta pontos que não
+  vieram de partida nenhuma, e o adversário que os perdeu não os recebe de volta. Para
+  quem parou há anos não existe essa objeção: não há medida local recente a descartar,
+  porque não há medida local nenhuma.
+
+  **A conferência do rating FIDE é do operador.** A regra parte do princípio de que o
+  rating FIDE é o mais atual dos dois, e o programa não tem como verificar isso: a data
+  que ele guarda é a da **conferência**, não a da obtenção do rating. Um jogador parado
+  há 26 meses na federação pode ter parado também na FIDE, e a troca seria de um número
+  velho por outro igualmente velho. Como a regra só age sobre rating FIDE que o operador
+  tenha registrado, a proteção é dele: **não se registra rating FIDE tão parado quanto o
+  da federação.**
 
 ### 6.5 Jogador que recebe rating entre torneios (8.2.4)
 
@@ -647,6 +674,19 @@ usam hoje.
 Precisa identificar a modalidade e passa a ter forma **por partida**: as colunas
 atuais (`Erm`, `Rm`, `Dif`, `Nwe`, `Dw`, `kDw`) descrevem agregados de torneio que
 deixam de existir no modelo novo.
+
+A auditoria do período traz ainda **três colunas para a substituição de rating** (seção
+6.4) — o rating anterior, a origem do rating adotado e a data em que ele foi conferido
+—, vazias em toda linha que não seja de substituição. Elas existem porque a substituição
+acontece **antes** do cálculo: sem elas, a linha mostraria o rating novo como se sempre
+tivesse sido aquele.
+
+O arquivo de auditoria é **saída, regerada a cada execução**, e é onde ficam os
+**eventos** de um ciclo. A lista de jogadores é **estado**: diz como cada jogador está no
+fim do último ciclo, e é reescrita inteira a cada execução. É por isso que o registro de
+uma mudança pertence à auditoria, e não a uma coluna de observações na lista — texto
+digitado numa coluna de estado ou some na execução seguinte, ou se acumula sem que
+ninguém apague nem leia.
 
 ---
 

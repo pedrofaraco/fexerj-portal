@@ -17,9 +17,16 @@ GAMES_AUDIT_HEADER = (
 )
 
 PERIOD_AUDIT_PREAMBLE = "# fide_period_v1"
+# The last three describe a rating substitution (§6.4) and are empty on every
+# other row. They exist because the substitution happens *before* the period
+# is calculated: without them the row would show the new rating as the one the
+# player always had, and a jump of several hundred points would appear in the
+# published list with nothing anywhere to explain it. This is the file someone
+# opens two years later to ask why.
 PERIOD_AUDIT_HEADER = (
     "Tournaments;PlayerId;PlayerName;TimeControl;InitialRating;Games;SumDeltaR;"
-    "Variation;RoundedVariation;FinalRating;Path;AccumSumOpp;AccumPoints;AccumGames;AccumSince"
+    "Variation;RoundedVariation;FinalRating;Path;AccumSumOpp;AccumPoints;AccumGames;AccumSince;"
+    "PreviousRating;RatingSource;RatingCheckedOn"
 )
 
 
@@ -76,5 +83,8 @@ def write_period_audit(outcome: PeriodOutcome) -> str:
             str(result.accumulator.points),
             str(result.accumulator.games),
             result.accumulator.since,
+            "" if result.substitution is None else str(result.substitution.previous_rating),
+            "" if result.substitution is None else result.substitution.source,
+            "" if result.substitution is None else result.substitution.checked_on,
         ]), file=buf)
     return buf.getvalue()

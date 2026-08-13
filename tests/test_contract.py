@@ -142,3 +142,22 @@ class TestPerGameModelContracts:
                 f"_ZIP_NAME_BY_MODE in backend/main.py has drifted from "
                 f"frontend/src/hooks/useRunCycle.js — {filename} is missing there."
             )
+
+
+class TestRatingSubstitutionAudit:
+    """§6.4: the substitution happens before the period is calculated, so the
+    three fields below are the only record that it happened at all. They are
+    locked here because losing one is silent — the file still parses, and the
+    rating jump simply stops being explained."""
+
+    def test_the_period_audit_carries_the_three_substitution_columns(self):
+        emitted = PERIOD_AUDIT_HEADER.split(";")
+        for column in ("PreviousRating", "RatingSource", "RatingCheckedOn"):
+            assert column in emitted, (
+                f"Audit_Period.csv no longer carries {column} — the rating "
+                "substitution of §6.4 would go unrecorded."
+            )
+
+    def test_they_sit_at_the_end_so_the_columns_before_them_do_not_shift(self):
+        emitted = PERIOD_AUDIT_HEADER.split(";")
+        assert emitted[-3:] == ["PreviousRating", "RatingSource", "RatingCheckedOn"]

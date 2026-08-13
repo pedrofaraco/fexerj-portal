@@ -1,8 +1,8 @@
 """Rated player period calculation — spec §3, §4 and §5."""
 from decimal import Decimal
 
-from calculator.fide.model import Game, ModalityState
-from calculator.fide.period import compute_rated_period
+from calculator.fide.model import Game, ModalityState, PlayerState
+from calculator.fide.period import compute_rated_period, fide_substitution_state
 
 
 def _game(ord_, opponent_id, score):
@@ -141,3 +141,124 @@ class TestNoValidGames:
         assert result.games_counted == 0
         assert result.variation == Decimal("0")
         assert result.final_rating == 1800
+
+
+class TestFideSubstitution:
+    """§6.4, decided by FEXERJ on 2026-08-13: a local rating that stopped in
+    time is replaced by the player's FIDE rating on the period they come
+    back. Three conditions, all at once: local rating below 1600, FIDE rating
+    of 2000 or more, and more than 26 months without playing that modality."""
+
+    MONTH = "2026-03"
+
+    def _player(self, **std):
+        state = ModalityState(**{
+            "rating": 1400, "games": 60, "last_played": "2023-01",
+            "fide_rating": 2100, "fide_date": "10/07/2026",
+            **std,
+        })
+        return PlayerState(
+            id_fexerj=1, name="Player One",
+            modalities={"STD": state, "RPD": ModalityState(), "BLZ": ModalityState()},
+        )
+
+    def test_all_three_conditions_met_substitutes(self):
+        state, substitution = fide_substitution_state(self._player(), "STD", self.MONTH)
+        assert state.rating == 2100
+        assert substitution.previous_rating == 1400
+        assert substitution.source == "FIDE"
+        assert substitution.checked_on == "10/07/2026"
+
+    def test_an_active_player_is_left_alone(self):
+        """The one the federation asked about: a gap on an active player is
+        two fields of opponents disagreeing, not a stale number."""
+        assert fide_substitution_state(
+            self._player(last_played="2026-01"), "STD", self.MONTH
+        ) is None
+
+    def test_exactly_at_the_window_is_still_active(self):
+        """26 months elapsed is inside the window; the rule needs *more* than 26."""
+        assert fide_substitution_state(
+            self._player(last_played="2024-01"), "STD", self.MONTH
+        ) is None
+
+    def test_one_month_past_the_window_substitutes(self):
+        assert fide_substitution_state(
+            self._player(last_played="2023-12"), "STD", self.MONTH
+        ) is not None
+
+    def test_a_local_rating_at_1600_is_left_alone(self):
+        assert fide_substitution_state(self._player(rating=1600), "STD", self.MONTH) is None
+
+    def test_a_local_rating_just_below_1600_substitutes(self):
+        assert fide_substitution_state(self._player(rating=1599), "STD", self.MONTH) is not None
+
+    def test_a_fide_rating_below_2000_is_left_alone(self):
+        assert fide_substitution_state(self._player(fide_rating=1999), "STD", self.MONTH) is None
+
+    def test_a_fide_rating_of_exactly_2000_substitutes(self):
+        """"2000 ou mais" — the case that motivated the rule lands exactly on
+        the boundary, which is why it is not "acima de 2000"."""
+        assert fide_substitution_state(self._player(fide_rating=2000), "STD", self.MONTH) is not None
+
+    def test_no_fide_rating_is_left_alone(self):
+        assert fide_substitution_state(self._player(fide_rating=None), "STD", self.MONTH) is None
+
+    def test_no_local_rating_is_not_below_1600(self):
+        """Having no rating is the absence of one, not a low one — the same
+        reading §7 takes of a zero in the list being converted. An unrated
+        player takes the §6.1 road back."""
+        assert fide_substitution_state(self._player(rating=None), "STD", self.MONTH) is None
+
+    def test_an_empty_activity_date_counts_as_inactive(self):
+        """Every player converted from the current list arrives with this
+        column empty, since the old format never had it."""
+        assert fide_substitution_state(self._player(last_played=""), "STD", self.MONTH) is not None
+
+    def test_the_game_count_is_untouched(self):
+        """One of the three questions FEXERJ used to sink an earlier proposal:
+        the substitution alters no game count."""
+        state, _ = fide_substitution_state(self._player(), "STD", self.MONTH)
+        assert state.games == 60
+
+    def test_a_fide_rating_of_2200_locks_the_permanent_k10(self):
+        state, _ = fide_substitution_state(self._player(fide_rating=2200), "STD", self.MONTH)
+        assert state.reached_2200 is True
+
+    def test_below_2200_does_not_lock_it(self):
+        state, _ = fide_substitution_state(self._player(fide_rating=2199), "STD", self.MONTH)
+        assert state.reached_2200 is False
+
+    def test_a_player_who_already_reached_2200_keeps_it(self):
+        state, _ = fide_substitution_state(
+            self._player(fide_rating=2000, reached_2200=True), "STD", self.MONTH
+        )
+        assert state.reached_2200 is True
+
+    def test_the_substituted_rating_drives_the_period(self):
+        """The substitution happens before the calculation, so every game of
+        the period is computed against the new rating."""
+        state, substitution = fide_substitution_state(self._player(), "STD", self.MONTH)
+        result = compute_rated_period(
+            player_id=1, modality="STD", state=state,
+            games=[_game(1, 2, "1")],
+            opponent_ratings={2: 2000},
+            period_year=2026, birth_year=None,
+            substitution=substitution,
+        )
+        assert result.initial_rating == 2100
+        assert result.substitution is substitution
+
+    def test_it_fires_again_on_a_later_return(self):
+        """FEXERJ, 2026-08-13: "deve valer de novo tantas vezes quanto
+        necessário". Nothing records that a substitution already happened,
+        and nothing needs to: the substitution itself lifts the rating over
+        1600 and stamps the activity date, so only another long absence
+        *and* another fall back below 1600 can bring the conditions round
+        again. This is the state of a player that happened to."""
+        after_a_previous_substitution = self._player(
+            rating=1450, last_played="2023-05", fide_rating=2100,
+        )
+        assert fide_substitution_state(
+            after_a_previous_substitution, "STD", self.MONTH
+        ) is not None
