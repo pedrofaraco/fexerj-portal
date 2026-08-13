@@ -9,9 +9,16 @@ _LEGACY_PLAYERS = (
     LEGACY_HEADER + "\n"
     "1;;;Carlos Mendes;1800;CLUB A;01/01/1990;M;BRA;50;0;0\n"
 )
+# One rated Classical player in the 43-column format: ten identity columns
+# (the last of them the §11.1 status), then eleven per modality.
 _FIDE_PLAYERS = (
     FIDE_HEADER + "\n"
-    "1;;;Carlos Mendes;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
+    + ";".join(
+        ["1", "", "", "", "Carlos Mendes", "CLUB A", "01/01/1990", "M", "BRA", "1"]
+        + ["1800", "50", "20", "1", "", "", "", "0", "0", "0", ""]
+        + ["", "0", "40", "0", "", "", "", "0", "0", "0", ""] * 2
+    )
+    + "\n"
 )
 # 12-column format with Birthday (column 7 of LEGACY_HEADER) missing or
 # unreadable — the compatibility path exercised on every run, which used to

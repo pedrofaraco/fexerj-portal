@@ -12,6 +12,7 @@ from .period import (
     PeriodResult,
     compute_rated_period,
     compute_unrated_period,
+    fide_entry_state,
     transposed_state,
 )
 from .ratinglist import read_rating_list, write_rating_list
@@ -76,7 +77,7 @@ class FideRatingCycle:
                     opponent_ratings=ratings,
                     period_year=year,
                     birth_year=parse_birth_year(initial_players[player_id].birthday),
-                    path=_path_for(initial_players[player_id], modality),
+                    path=_path_for(initial_players[player_id], modality, state),
                 ))
             else:
                 results.append(compute_unrated_period(
@@ -88,7 +89,7 @@ class FideRatingCycle:
                     period_month=month,
                 ))
 
-        final_players = _apply_results(initial_players, results)
+        final_players = _apply_results(initial_players, results, entry_states, month)
         return PeriodOutcome(players=final_players, tournaments=tournaments, results=results)
 
     def run_cycle(self) -> dict[str, str]:
@@ -104,7 +105,7 @@ class FideRatingCycle:
         if outcome.is_empty_window:
             return {}
         return {
-            "RatingList.csv": write_rating_list(outcome.players),
+            "RatingList.csv": write_rating_list(outcome.players, period_year(outcome.tournaments)),
             "Audit_Games.csv": audit.write_games_audit(outcome),
             "Audit_Period.csv": audit.write_period_audit(outcome),
         }
@@ -113,15 +114,22 @@ class FideRatingCycle:
 def _entry_states(
     players: dict[int, PlayerState], games: list[Game]
 ) -> dict[tuple[int, str], ModalityState]:
-    """Entry state of every (player, modality) pair that played in the period."""
+    """Entry state of every (player, modality) pair that played in the period.
+
+    §6.4 is tried before §1.1: a player who arrives with a FIDE rating in a
+    modality enters on it, without passing through the cross-modality
+    carry-over or the initial-rating calculation.
+    """
     states: dict[tuple[int, str], ModalityState] = {}
     for game in games:
         key = (game.player_id, game.modality)
         if key in states:
             continue
         player = players[game.player_id]
-        transposed = transposed_state(player, game.modality)
-        states[key] = transposed if transposed is not None else player.modalities[game.modality]
+        entry = fide_entry_state(player, game.modality)
+        if entry is None:
+            entry = transposed_state(player, game.modality)
+        states[key] = entry if entry is not None else player.modalities[game.modality]
     return states
 
 
@@ -142,31 +150,74 @@ def _opponent_ratings_by_modality(
     return by_modality
 
 
-def _path_for(player: PlayerState, modality: str) -> str:
-    return "TRANSPOSED" if not player.modalities[modality].is_rated else "RATED"
+def _path_for(player: PlayerState, modality: str, entry: ModalityState) -> str:
+    """How the player came to be rated this period, for the audit trail.
+
+    A player with no rating on file who is nonetheless calculated as rated
+    got there one of two ways: on a FIDE rating (§6.4), which is the only
+    entry that carries `fide_rating` into the entry state, or on the
+    cross-modality carry-over (§1.1).
+    """
+    if player.modalities[modality].is_rated:
+        return "RATED"
+    return "FIDE_ENTRY" if entry.fide_rating is not None else "TRANSPOSED"
 
 
 def _apply_results(
     initial_players: dict[int, PlayerState],
     results: list[PeriodResult],
+    entry_states: dict[tuple[int, str], ModalityState],
+    period_month: str,
 ) -> dict[int, PlayerState]:
     """Applies the results onto a copy of the initial state.
 
     The initial state itself is never modified: §4 requires the whole period
     to be computed against it.
+
+    Three fields survive every path here. `first_tournament_played` and the
+    permanent `reached_2200` only ever go from false to true — the §6.1
+    discard is not handed back by the 26-month window (§6.2) nor by the floor
+    (§7), and neither is the K=10. The FIDE columns are the operator's and are
+    copied through untouched.
     """
     final = copy.deepcopy(initial_players)
     for result in results:
         player = final[result.player_id]
         before = player.modalities[result.modality]
+        entry = entry_states[(result.player_id, result.modality)]
         games = before.games + result.games_counted
+        # A tournament with rated opponents spends the §6.1 discard whether or
+        # not it survives it: `first_tournament_seen` is what reports a
+        # discarded one, which by then has left `games_counted` at zero.
+        first_tournament_played = (
+            before.first_tournament_played
+            or result.first_tournament_seen
+            or result.games_counted > 0
+        )
+        # Any game at all in the period counts as activity, including games
+        # against unrated opponents and a discarded tournament's: a result
+        # only exists for a player who played.
+        last_played = period_month
+        # `entry.reached_2200` is the one that is not in `before`: a player
+        # entering on a FIDE rating of 2200 or more (§6.4) has the indicator
+        # switched on at entry, and would otherwise lose it by ending the
+        # period a few points below the mark.
+        reached_2200 = (
+            before.reached_2200
+            or entry.reached_2200
+            or (result.final_rating is not None and result.final_rating >= K10_THRESHOLD)
+        )
 
         if result.final_rating is None and result.path in _STILL_UNRATED_PATHS:
             # Still unrated: the §6.1 accumulator carries over to the next period.
             player.modalities[result.modality] = ModalityState(
                 rating=None,
                 games=games,
-                reached_2200=before.reached_2200,
+                reached_2200=reached_2200,
+                first_tournament_played=first_tournament_played,
+                last_played=last_played,
+                fide_rating=before.fide_rating,
+                fide_date=before.fide_date,
                 accumulator=result.accumulator,
             )
             continue
@@ -176,9 +227,11 @@ def _apply_results(
         player.modalities[result.modality] = ModalityState(
             rating=result.final_rating,
             games=games,
-            reached_2200=before.reached_2200 or (
-                result.final_rating is not None and result.final_rating >= K10_THRESHOLD
-            ),
+            reached_2200=reached_2200,
+            first_tournament_played=first_tournament_played,
+            last_played=last_played,
+            fide_rating=before.fide_rating,
+            fide_date=before.fide_date,
             accumulator=Accumulator(),
         )
     return final

@@ -1,6 +1,6 @@
 """Reading and writing the rating list.
 
-Reads and writes the 29-column format (spec §2.1) and the legacy 12-column
+Reads and writes the 43-column format (spec §11.1) and the legacy 12-column
 format (spec §2.2).
 """
 import csv
@@ -13,6 +13,8 @@ from .rules import (
     MIN_GAMES_FOR_FIRST_RATING,
     RATING_FLOOR,
     applies_rating_floor,
+    base_k,
+    parse_birth_year,
 )
 
 _DELIMITER = ";"
@@ -22,26 +24,45 @@ LEGACY_HEADER = (
     "TotalNumGames;SumOpponRating;TotalPoints"
 )
 
-_IDENTITY_COLUMNS = "Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed"
-# The first three fields per modality (Rtg, Games, Peak2200) are what the
-# player *is* in that modality and never zero out together. The last four
-# share the "Acc" prefix, sit adjacent, and are the §6.1 accumulator: they
-# zero out together the moment the player gains a rating.
+# `PrevId` and `Status` are cadastral (§11.1): the operator fills them and no
+# calculation reads either.
+_IDENTITY_COLUMNS = "Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status"
+# Per modality, in three blocks:
+#   Rtg, Games, K, FirstTrn, LastPlayed — what the player *is* in that
+#     modality. None of them zero out together, and the program writes all
+#     five. `K` doubles as the permanent "reached 2200" indicator (§5).
+#   RtgFide, FideDate — the operator's, read by §6.4 and never written here.
+#   Acc* — the §6.1 accumulator, adjacent and sharing a prefix because the
+#     four zero out together the moment the player gains a rating.
+_MODALITY_COLUMN_PREFIXES = (
+    "Rtg", "Games", "K", "FirstTrn", "LastPlayed", "RtgFide", "FideDate",
+    "AccGames", "AccSumOpp", "AccPts", "AccSince",
+)
 FIDE_HEADER = _DELIMITER.join(
     [_IDENTITY_COLUMNS]
     + [
         _DELIMITER.join(
-            f"{prefix}_{COLUMN_SUFFIX[modality]}"
-            for prefix in ("Rtg", "Games", "Peak2200", "AccGames", "AccSumOpp", "AccPts", "AccSince")
+            f"{prefix}_{COLUMN_SUFFIX[modality]}" for prefix in _MODALITY_COLUMN_PREFIXES
         )
         for modality in MODALITIES
     ]
 )
 
-_IDENTITY_FIELD_COUNT = 8
-_FIELDS_PER_MODALITY = 7
-FIDE_COLUMN_COUNT = _IDENTITY_FIELD_COUNT + _FIELDS_PER_MODALITY * len(MODALITIES)
+# Public because the validator walks the same row layout, and hardcoding
+# the two numbers there is how the two drift apart.
+FIDE_IDENTITY_FIELD_COUNT = 10
+FIDE_FIELDS_PER_MODALITY = len(_MODALITY_COLUMN_PREFIXES)
+FIDE_COLUMN_COUNT = FIDE_IDENTITY_FIELD_COUNT + FIDE_FIELDS_PER_MODALITY * len(MODALITIES)
 LEGACY_COLUMN_COUNT = 12
+
+# §5, decided by FEXERJ on 2026-08-11: the K factor is written to the list and
+# is itself the record that the player has reached 2200 — there is no separate
+# flag. `base_k` returns 10 if and only if `reached_2200` is true, which is
+# what makes the two interchangeable, and it only holds for the K *before* the
+# 700 cap: `cap_k_by_games(20, 64..70)` is also 10, so writing the capped K
+# would freeze a player at K=10 for good after one very long period. The
+# effective K of each game is in `Audit_Games.csv`.
+K10_MARKER = "10"
 
 # calculator/classes.py (`_MAX_NUM_GAMES_TEMP_RATING`) zeroes SumOpponRating and
 # TotalPoints once a legacy player's TotalNumGames reaches this many, and never
@@ -62,7 +83,7 @@ def _optional_int(value: str) -> int | None:
 
 
 def read_rating_list(csv_text: str) -> dict[int, PlayerState]:
-    """Read the rating list, in either the 29-column or the legacy 12-column format."""
+    """Read the rating list, in either the 43-column or the legacy 12-column format."""
     rows = _rows(csv_text)
     if not rows:
         return {}
@@ -83,25 +104,34 @@ def _read_fide_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
         player = PlayerState(
             id_fexerj=int(row[0]),
             id_cbx=row[1].strip(),
-            title=row[2],
-            name=row[3],
-            club=row[4],
-            birthday=row[5],
-            sex=row[6],
-            federation=row[7],
+            prev_id=row[2].strip(),
+            title=row[3],
+            name=row[4],
+            club=row[5],
+            birthday=row[6],
+            sex=row[7],
+            federation=row[8],
+            status=row[9].strip(),
             modalities={},
         )
         for index, modality in enumerate(MODALITIES):
-            base = _IDENTITY_FIELD_COUNT + index * _FIELDS_PER_MODALITY
+            base = FIDE_IDENTITY_FIELD_COUNT + index * FIDE_FIELDS_PER_MODALITY
             player.modalities[modality] = ModalityState(
                 rating=_optional_int(row[base]),
                 games=int(row[base + 1] or 0),
-                reached_2200=row[base + 2].strip() == "1",
+                # Compared as text, not parsed: a blank or a corrupt K reads as
+                # "has not reached 2200" rather than raising. It is the
+                # validator that refuses anything outside 10/20/40.
+                reached_2200=row[base + 2].strip() == K10_MARKER,
+                first_tournament_played=row[base + 3].strip() == "1",
+                last_played=row[base + 4].strip(),
+                fide_rating=_optional_int(row[base + 5]),
+                fide_date=row[base + 6].strip(),
                 accumulator=Accumulator(
-                    games=int(row[base + 3] or 0),
-                    sum_opponents=int(row[base + 4] or 0),
-                    points=Decimal(row[base + 5].strip() or "0"),
-                    since=row[base + 6].strip(),
+                    games=int(row[base + 7] or 0),
+                    sum_opponents=int(row[base + 8] or 0),
+                    points=Decimal(row[base + 9].strip() or "0"),
+                    since=row[base + 10].strip(),
                 ),
             )
         players[player.id_fexerj] = player
@@ -181,11 +211,20 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
             or applies_rating_floor(legacy_rating)
         )
 
+        # The §6.1 discard is spent by the first tournament the player plays,
+        # and the legacy list records no more than that they have played:
+        # a lifetime count above zero is exactly the test the engine used to
+        # make before the marker became a field of its own, so converting it
+        # this way leaves the imported player's discard where it already was.
+        # Getting this wrong hands every converted player a fresh discard.
+        first_tournament_played = games > 0
+
         if enters_unrated:
             std = ModalityState(
                 rating=None,
                 games=games,
                 reached_2200=False,
+                first_tournament_played=first_tournament_played,
                 accumulator=Accumulator(
                     games=games if games < _LEGACY_TEMP_RATING_GAMES else 0,
                     sum_opponents=sum_opponents,
@@ -197,6 +236,7 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 rating=RATING_FLOOR,
                 games=games,
                 reached_2200=False,
+                first_tournament_played=first_tournament_played,
                 accumulator=Accumulator(sum_opponents=sum_opponents, points=points),
             )
         else:
@@ -204,9 +244,14 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
                 rating=legacy_rating,
                 games=games,
                 reached_2200=legacy_rating >= K10_THRESHOLD,
+                first_tournament_played=first_tournament_played,
                 accumulator=Accumulator(sum_opponents=sum_opponents, points=points),
             )
 
+        # `status` takes its default of "1" (active) and `prev_id` stays
+        # empty: the legacy list carries neither, and both are the operator's
+        # to fill in after the conversion (§11.1). `last_played` has no source
+        # either — the legacy format never recorded when a player last played.
         player = PlayerState(
             id_fexerj=int(row[0]),
             id_cbx=row[1].strip(),
@@ -222,27 +267,52 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
     return players
 
 
-def write_rating_list(players: dict[int, PlayerState]) -> str:
-    """Write the list in the 29-column format."""
+def write_rating_list(players: dict[int, PlayerState], period_year: int) -> str:
+    """Write the list in the 43-column format (§11.1).
+
+    `period_year` dates the under-18 branch of §5, which is why the K factor
+    cannot be written without it.
+
+    The K written is the one the state *ends* the period on, not the one the
+    period was calculated with. That is forced by K being the record of the
+    permanent K=10 (§5): a player who enters at 2150 and leaves at 2210 has
+    to leave this file holding a 10, or the permanence is lost in the very
+    cycle that earned it. The K each game was actually calculated with — the
+    one the 700 cap may have lowered — is in `Audit_Games.csv`.
+    """
     buf = io.StringIO()
     print(FIDE_HEADER, file=buf)
     for player in players.values():
+        birth_year = parse_birth_year(player.birthday)
         cells = [
             str(player.id_fexerj),
             player.id_cbx,
+            player.prev_id,
             player.title,
             player.name,
             player.club,
             player.birthday,
             player.sex,
             player.federation,
+            player.status,
         ]
         for modality in MODALITIES:
             state = player.modalities[modality]
             cells.extend([
                 "" if state.rating is None else str(state.rating),
                 str(state.games),
-                "1" if state.reached_2200 else "0",
+                str(base_k(
+                    rating=state.rating,
+                    games=state.games,
+                    reached_2200=state.reached_2200,
+                    birth_year=birth_year,
+                    period_year=period_year,
+                    from_fide_rating=state.fide_rating is not None,
+                )),
+                "1" if state.first_tournament_played else "0",
+                state.last_played,
+                "" if state.fide_rating is None else str(state.fide_rating),
+                state.fide_date,
                 str(state.accumulator.games),
                 str(state.accumulator.sum_opponents),
                 _format_points(state.accumulator.points),

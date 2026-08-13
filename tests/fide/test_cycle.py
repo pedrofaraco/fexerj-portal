@@ -7,6 +7,48 @@ from calculator.fide.tournaments import TOURNAMENTS_HEADER
 
 BINARY_DIR = pathlib.Path(__file__).parent.parent / 'binary'
 
+
+_EMPTY_MODALITY = ["", "0", "40", "0", "", "", "", "0", "0", "0", ""]
+_STD_FIELDS = (
+    "rtg", "games", "k", "first", "last", "fide", "fide_date",
+    "acc_games", "acc_sum", "acc_pts", "acc_since",
+)
+
+
+def _player_row(id_no, name, birthday="01/01/1980", status="1", prev_id="", **std) -> str:
+    """One row of the 43-column format.
+
+    Keyword arguments override the Classical group, field by field; a `rpd`
+    dict does the same for Rapid. Blitz always stays empty. The K passed in
+    has to be the one §5 produces for the state alongside it, because the
+    column is also the record of the permanent K=10 (§5): a 10 on the way in
+    says this player has already reached 2200.
+    """
+    rpd = std.pop("rpd", None) or {}
+    empty = dict(zip(_STD_FIELDS, _EMPTY_MODALITY, strict=True))
+    cells = [str(id_no), "", prev_id, "", name, "CLUB", birthday, "M", "BRA", status]
+    for group in (empty | std, empty | rpd):
+        cells += [str(group[field]) for field in _STD_FIELDS]
+    cells += _EMPTY_MODALITY
+    return ";".join(cells)
+
+
+def _players_csv(*rows: str) -> str:
+    return "\n".join([FIDE_HEADER, *rows]) + "\n"
+
+
+def _rated(id_no, name, birthday, rating, k, games=50) -> str:
+    return _player_row(id_no, name, birthday, rtg=rating, games=games, k=k, first="1")
+
+
+def _audit_rows(csv_text: str) -> list[dict[str, str]]:
+    """Audit rows as dicts, keyed by column name — the file carries a
+    preamble line before its header."""
+    lines = csv_text.splitlines()
+    header = lines[1].split(";")
+    return [dict(zip(header, line.split(";"), strict=True)) for line in lines[2:]]
+
+
 _PLAYERS_CSV = (
     LEGACY_HEADER + "\n"
     "3741;;;Carlos Mendes;1800;CLUB A;01/01/1980;M;BRA;50;0;0\n"
@@ -212,20 +254,13 @@ class TestPeak2200IndicatorIsPermanent:
     once the rating itself drops below 2200 again."""
 
     def test_the_indicator_stays_on_after_the_rating_falls_below_2200(self):
-        players_csv = (
-            FIDE_HEADER + "\n"
-            "3741;;;Carlos Mendes;CLUB A;01/01/1980;M;BRA;"
-            "2210;50;1;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
-            "643;;;Roberto Faria;CLUB B;01/01/1975;M;BRA;"
-            "1900;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
-            "1979;;;Andre Nunes;CLUB C;01/01/1982;M;BRA;"
-            "1850;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
-            "2831;;;Felipe Borges;CLUB D;01/01/1978;M;BRA;"
-            "1950;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
-            "3541;;;Lucas Carvalho;CLUB E;01/01/1985;M;BRA;"
-            "1800;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
-            "5400;;;Bruno Teixeira;CLUB F;01/01/1995;M;BRA;"
-            "1900;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;\n"
+        players_csv = _players_csv(
+            _rated("3741", "Carlos Mendes", "01/01/1980", 2210, 10),
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
         )
         data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
         cycle = FideRatingCycle(
@@ -237,4 +272,178 @@ class TestPeak2200IndicatorIsPermanent:
         row = next(r for r in output.splitlines()[1:] if r.startswith("3741;")).split(';')
 
         assert int(row[header.index("Rtg_Std")]) < 2210
-        assert row[header.index("Peak2200_Std")] == "1"
+        assert row[header.index("K_Std")] == "10"
+
+
+class TestCadastralColumnsSurviveTheCycle:
+    """§11.1: status, "Id Anterior" and the two FIDE columns are the
+    operator's. The program reads them and writes them back untouched."""
+
+    def _run(self, status="4", prev_id="643"):
+        players_csv = _players_csv(
+            _player_row("3741", "Carlos Mendes", status=status, prev_id=prev_id,
+                        rtg=1800, games=50, k=20, first="1",
+                        fide=1750, fide_date="10/07/2026"),
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()["RatingList.csv"]
+        header = output.splitlines()[0].split(";")
+        row = next(r for r in output.splitlines()[1:] if r.startswith("3741;")).split(";")
+        return dict(zip(header, row, strict=True))
+
+    def test_a_deceased_player_is_still_calculated(self):
+        """The status governs publication, not calculation: someone who died
+        mid-cycle has tournaments in flight."""
+        row = self._run(status="4")
+        assert row["Status"] == "4"
+        assert row["Games_Std"] == "55"          # 50 on file plus the five played
+
+    def test_prev_id_is_written_back(self):
+        assert self._run(prev_id="643")["PrevId"] == "643"
+
+    def test_the_fide_columns_are_written_back(self):
+        row = self._run()
+        assert row["RtgFide_Std"] == "1750"
+        assert row["FideDate_Std"] == "10/07/2026"
+
+
+class TestActivityAndFirstTournamentMarkers:
+    def _run(self, newcomer):
+        players_csv = _players_csv(
+            newcomer,
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()["RatingList.csv"]
+        header = output.splitlines()[0].split(";")
+        return {
+            row.split(";")[0]: dict(zip(header, row.split(";"), strict=True))
+            for row in output.splitlines()[1:]
+        }
+
+    def test_last_played_is_stamped_with_the_period(self):
+        """The tournament ends 2026-03-15, so the period is 2026-03."""
+        rows = self._run(_rated("3741", "Carlos Mendes", "01/01/1980", 1800, 20))
+        assert rows["3741"]["LastPlayed_Std"] == "2026-03"
+        assert rows["643"]["LastPlayed_Std"] == "2026-03"
+
+    def test_the_other_modalities_are_left_alone(self):
+        """Activity is per modality: a Classical tournament says nothing
+        about Rapid."""
+        rows = self._run(_rated("3741", "Carlos Mendes", "01/01/1980", 1800, 20))
+        assert rows["3741"]["LastPlayed_Rpd"] == ""
+
+    def test_a_newcomer_spends_the_discard_on_their_first_tournament(self):
+        rows = self._run(_player_row("3741", "Carlos Mendes"))
+        assert rows["3741"]["FirstTrn_Std"] == "1"
+
+    def test_the_marker_stays_on_for_a_player_who_already_had_it(self):
+        rows = self._run(_rated("3741", "Carlos Mendes", "01/01/1980", 1800, 20))
+        assert rows["3741"]["FirstTrn_Std"] == "1"
+
+
+class TestEntryOnAFideRating:
+    """§6.4: a player arriving with a FIDE rating enters on it, at face
+    value, without the initial-rating calculation and without the §1.1
+    carry-over."""
+
+    def _run(self, entrant):
+        players_csv = _players_csv(
+            entrant,
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        header = output["RatingList.csv"].splitlines()[0].split(";")
+        row = next(
+            r for r in output["RatingList.csv"].splitlines()[1:] if r.startswith("3741;")
+        ).split(";")
+        period = next(r for r in _audit_rows(output["Audit_Period.csv"]) if r["PlayerId"] == "3741")
+        games = [r for r in _audit_rows(output["Audit_Games.csv"]) if r["PlayerId"] == "3741"]
+        return dict(zip(header, row, strict=True)), period, games
+
+    def test_the_period_is_calculated_from_the_fide_rating(self):
+        _, period, _ = self._run(
+            _player_row("3741", "Carlos Mendes", fide=2300, fide_date="10/07/2026")
+        )
+        assert period["InitialRating"] == "2300"
+        assert period["Path"] == "FIDE_ENTRY"
+
+    def test_the_k_comes_from_the_rating_band_not_the_game_count(self):
+        """Zero games in the federation would otherwise mean the new-player
+        K=40. A rating of 1900 puts them in the K=20 band."""
+        _, _, games = self._run(
+            _player_row("3741", "Carlos Mendes", fide=1900, fide_date="10/07/2026")
+        )
+        assert games
+        assert {row["K"] for row in games} == {"20"}
+
+    def test_2200_or_more_locks_k10_even_if_the_period_ends_below_it(self):
+        """The indicator is switched on at entry, so losing a few points in
+        the first period cannot take it away again."""
+        row, _, _ = self._run(
+            _player_row("3741", "Carlos Mendes", fide=2201, fide_date="10/07/2026")
+        )
+        assert int(row["Rtg_Std"]) < 2200
+        assert row["K_Std"] == "10"
+
+    def test_a_player_with_games_in_the_modality_does_not_re_enter(self):
+        """Whoever the floor dropped (§7) would otherwise come back at their
+        FIDE rating every single period. They take the ordinary unrated road
+        back instead: the five games of §6.1 and the §6.3 formula, which is
+        what puts them a long way from the 2300 on file."""
+        row, period, _ = self._run(
+            _player_row("3741", "Carlos Mendes", games=40, first="1", k=20,
+                        fide=2300, fide_date="10/07/2026")
+        )
+        assert period["Path"] == "INITIAL_RATING"
+        assert period["InitialRating"] == ""      # entered the period unrated
+        assert int(row["Rtg_Std"]) < 2000         # §6.3's cap, not the FIDE rating
+
+    def test_a_fide_rating_beats_the_cross_modality_carry_over(self):
+        """§1.1 defers to §6.4. The player holds a Classical rating that
+        would otherwise carry into Rapid at K=40, and a Rapid FIDE rating
+        that takes precedence over it."""
+        players_csv = _players_csv(
+            _player_row("3741", "Carlos Mendes", rtg=1800, games=50, k=20, first="1",
+                        rpd={"fide": 2300, "fide_date": "10/07/2026"}),
+            _rated("643", "Roberto Faria", "01/01/1975", 1900, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", 1850, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", 1950, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", 1800, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", 1900, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        rapid = TOURNAMENTS_HEADER + "\n1;99999;Torneio Rápido;2026-03-15;RR;0;1;RPD\n"
+        output = FideRatingCycle(
+            tournaments_csv=rapid, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()
+        period = next(
+            r for r in _audit_rows(output["Audit_Period.csv"])
+            if r["PlayerId"] == "3741" and r["TimeControl"] == "RPD"
+        )
+        assert period["Path"] == "FIDE_ENTRY"
+        assert period["InitialRating"] == "2300"   # not the 1800 §1.1 would carry over

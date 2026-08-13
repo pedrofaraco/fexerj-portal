@@ -299,3 +299,50 @@ class TestConversionDecisionD:
         players = read_rating_list(_CONVERSION_CSV)
         assert _std(players[15]).rating is None
         assert _std(players[15]).games == 2
+
+
+class TestConversionOfTheFirstTournamentMarker:
+    """The §6.1 discard is spent by the first tournament the player plays.
+    The legacy list records no more than *that* they have played, so a
+    lifetime count above zero — the test the engine itself made before the
+    marker became a field — is what carries over. Getting this wrong hands
+    every converted player in the federation's list a fresh discard."""
+
+    def test_a_player_with_games_has_already_spent_the_discard(self):
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[1]).first_tournament_played is True
+
+    def test_an_unrated_player_with_games_has_spent_it_too(self):
+        """Player 7 has 60 games and no rating: exactly the case that must
+        not come back as a newcomer."""
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[7]).rating is None
+        assert _std(players[7]).first_tournament_played is True
+
+    def test_a_player_with_no_games_still_has_it(self):
+        players = read_rating_list(_LEGACY_CSV)
+        assert _std(players[2]).games == 0
+        assert _std(players[2]).first_tournament_played is False
+
+    def test_rapid_and_blitz_start_with_the_discard_available(self):
+        """The marker is per modality, like everything else in §5 and §6."""
+        players = read_rating_list(_LEGACY_CSV)
+        assert players[1].modalities["RPD"].first_tournament_played is False
+        assert players[1].modalities["BLZ"].first_tournament_played is False
+
+
+class TestConversionOfTheCadastralColumns:
+    def test_status_defaults_to_active(self):
+        """The legacy list has no status column; the operator fills it after
+        the conversion (§11.1)."""
+        assert read_rating_list(_LEGACY_CSV)[1].status == "1"
+
+    def test_prev_id_starts_empty(self):
+        assert read_rating_list(_LEGACY_CSV)[1].prev_id == ""
+
+    def test_no_fide_rating_is_invented(self):
+        assert _std(read_rating_list(_LEGACY_CSV)[1]).fide_rating is None
+
+    def test_last_played_starts_empty(self):
+        """The legacy format never recorded when a player last played."""
+        assert _std(read_rating_list(_LEGACY_CSV)[1]).last_played == ""

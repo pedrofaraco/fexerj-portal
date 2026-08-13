@@ -44,11 +44,30 @@ class ModalityState:
     out of rated status. `accumulator.games` is how many of those games have
     gone into the still-open §6.1 accumulator toward the five needed for a
     first rating.
+
+    `reached_2200` is not stored as a flag of its own in the file: FEXERJ
+    decided the K factor goes in the list and *is* the indicator, so it is
+    read back as `K_<mod> == 10` and written back out as the §5 K factor
+    (`ratinglist`). It stays a boolean in here because that is what §5 reads.
+
+    `first_tournament_played` marks the §6.1 discard as spent. It has to be
+    a field of its own: once the discarded tournament stops adding to
+    `games` (§6.1), a game count of zero no longer distinguishes a newcomer
+    from someone whose first tournament was just discarded, and that player
+    would earn a second discard.
+
+    `fide_rating` and `fide_date` are the operator's — a rating brought in
+    from FIDE (§6.4) and the date it was checked. The engine reads them; it
+    never writes them.
     """
 
     rating: int | None = None
     games: int = 0
     reached_2200: bool = False
+    first_tournament_played: bool = False
+    last_played: str = ""
+    fide_rating: int | None = None
+    fide_date: str = ""
     accumulator: Accumulator = field(default_factory=Accumulator)
 
     @property
@@ -58,16 +77,24 @@ class ModalityState:
 
 @dataclass
 class PlayerState:
-    """A player's unique identity, with one `ModalityState` per modality."""
+    """A player's unique identity, with one `ModalityState` per modality.
+
+    `status` and `prev_id` are cadastral (§11.1): the operator fills them,
+    and no calculation reads either. `status` governs publication only — a
+    player who died mid-cycle keeps being calculated, which is why nothing
+    here or in the validator correlates it with games.
+    """
 
     id_fexerj: int
     id_cbx: str = ""
+    prev_id: str = ""
     title: str = ""
     name: str = ""
     club: str = ""
     birthday: str = ""
     sex: str = ""
     federation: str = ""
+    status: str = "1"
     modalities: dict[str, ModalityState] = field(
         default_factory=lambda: {m: ModalityState() for m in MODALITIES}
     )

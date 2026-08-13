@@ -11,7 +11,13 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from calculator.fide.model import COLUMN_SUFFIX, MODALITIES
-from calculator.fide.ratinglist import FIDE_COLUMN_COUNT, FIDE_HEADER, LEGACY_HEADER
+from calculator.fide.ratinglist import (
+    FIDE_COLUMN_COUNT,
+    FIDE_FIELDS_PER_MODALITY,
+    FIDE_HEADER,
+    FIDE_IDENTITY_FIELD_COUNT,
+    LEGACY_HEADER,
+)
 from calculator.fide.rules import RATING_FLOOR, parse_birth_year
 from calculator.fide.tournaments import parsed_end_date
 
@@ -32,6 +38,11 @@ MODE_LEGACY = "legacy"
 MODE_FIDE = "fide"
 MODE_COMPARE = "compare"
 _VALID_MODES = frozenset({MODE_LEGACY, MODE_FIDE, MODE_COMPARE})
+
+# §11.1. Cadastral only: the status governs publication, never calculation.
+_PLAYER_STATUSES = frozenset({"0", "1", "2", "3", "4"})
+# §5. The three factors the model produces, before the 700 cap of §5.1.
+_K_FACTORS = frozenset({"10", "20", "40"})
 
 
 def validate_inputs(
@@ -225,7 +236,7 @@ def _validate_legacy_format_birthdays(content: str) -> list[str]:
     LEGACY_HEADER) — it is the compatibility path exercised on every run, so
     a fide/compare cycle fed this format must not silently drop the under-18
     K=40 the way the legacy engine itself does. Mirrors the check
-    _validate_fide_players_csv performs on the 29-column format's own
+    _validate_fide_players_csv performs on the 43-column format's own
     Birthday column. Relies on the caller having already confirmed the
     header and only adds to what _validate_players_csv already reports, so
     it re-checks the header itself and skips any row that function has
@@ -255,13 +266,24 @@ def _validate_legacy_format_birthdays(content: str) -> list[str]:
 
 
 def _validate_fide_players_csv(content: str) -> list[str]:
-    """Rules for the 29-column format (spec §2.1)."""
+    """Rules for the 43-column format (spec §11.1).
+
+    Two things this deliberately does **not** check, both §11.1:
+
+    - the status is never correlated with anything. It governs publication,
+      not calculation, so a player marked deceased with games in the period
+      is a valid file: the death happens mid-cycle, with tournaments already
+      under way. Refusing it would stop the federation's own list.
+    - a `K_` of 10 on a player rated below 2200 is accepted. That is the
+      permanent K=10 of §5 doing its job, not a corrupt cell.
+    """
     errors: list[str] = []
     reader = csv.reader(io.StringIO(content), delimiter=";")
     next(reader, None)
 
     id_no_seen: dict[str, int] = {}
     id_cbx_seen: dict[str, int] = {}
+    prev_ids_seen: list[tuple[str, int]] = []
 
     for row_num, row in enumerate(reader, start=2):
         if not any(cell.strip() for cell in row):
@@ -275,12 +297,27 @@ def _validate_fide_players_csv(content: str) -> list[str]:
 
         id_no = row[0].strip()
         id_cbx = row[1].strip()
+        prev_id = row[2].strip()
 
         if not id_no:
             errors.append(f"players.csv linha {row_num}: Id_No é obrigatório")
-        if not row[3].strip():
+        if not row[4].strip():
             errors.append(f"players.csv linha {row_num}: Name é obrigatório")
-        birthday = row[5].strip()
+        if prev_id:
+            # §11.1: "É um id de jogador que já existe na lista — a existência
+            # é condição necessária." Checked after the loop, once every Id_No
+            # in the file is known.
+            if not _is_int(prev_id):
+                errors.append(f"players.csv linha {row_num}: PrevId deve ser vazio ou um número inteiro")
+            else:
+                prev_ids_seen.append((prev_id, row_num))
+        status = row[9].strip()
+        if status not in _PLAYER_STATUSES:
+            errors.append(
+                f"players.csv linha {row_num}: Status deve ser "
+                f"{', '.join(sorted(_PLAYER_STATUSES))} — ver §11.1"
+            )
+        birthday = row[6].strip()
         if not birthday:
             # §5.3: birthday becomes a required field — the under-18 K depends on it.
             errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
@@ -294,7 +331,7 @@ def _validate_fide_players_csv(content: str) -> list[str]:
             )
 
         for index, modality in enumerate(MODALITIES):
-            base = 8 + index * 7
+            base = FIDE_IDENTITY_FIELD_COUNT + index * FIDE_FIELDS_PER_MODALITY
             suffix = COLUMN_SUFFIX[modality]
             rating = row[base].strip()
             if rating:
@@ -312,22 +349,38 @@ def _validate_fide_players_csv(content: str) -> list[str]:
                     )
             if not _is_int(row[base + 1].strip() or "0"):
                 errors.append(f"players.csv linha {row_num}: Games_{suffix} deve ser um inteiro")
-            if row[base + 2].strip() not in {"0", "1"}:
-                errors.append(f"players.csv linha {row_num}: Peak2200_{suffix} deve ser 0 ou 1")
-            if not _is_int(row[base + 3].strip() or "0"):
+            if row[base + 2].strip() not in _K_FACTORS:
+                # The K is not decoration: a 10 here is what tells the program
+                # the player has reached 2200, permanently (§5). Anything else
+                # in the cell is a corrupt file, and blank is the worst of them
+                # — it would silently drop a legitimate K=10.
+                errors.append(
+                    f"players.csv linha {row_num}: K_{suffix} deve ser "
+                    f"{', '.join(sorted(_K_FACTORS, key=int))}"
+                )
+            if row[base + 3].strip() not in {"0", "1"}:
+                errors.append(f"players.csv linha {row_num}: FirstTrn_{suffix} deve ser 0 ou 1")
+            last_played = row[base + 4].strip()
+            if last_played and not _is_year_month(last_played):
+                errors.append(
+                    f"players.csv linha {row_num}: LastPlayed_{suffix} deve ser vazio ou uma data "
+                    "no formato AAAA-MM"
+                )
+            errors.extend(_validate_fide_rating_pair(row, base, suffix, row_num))
+            if not _is_int(row[base + 7].strip() or "0"):
                 errors.append(f"players.csv linha {row_num}: AccGames_{suffix} deve ser um inteiro")
-            acc_sum_opp = row[base + 4].strip()
+            acc_sum_opp = row[base + 8].strip()
             if acc_sum_opp and (not _is_int(acc_sum_opp) or int(acc_sum_opp) < 0):
                 errors.append(
                     f"players.csv linha {row_num}: AccSumOpp_{suffix} deve ser um inteiro não negativo"
                 )
-            acc_points = row[base + 5].strip()
+            acc_points = row[base + 9].strip()
             if acc_points:
                 try:
                     Decimal(acc_points)
                 except InvalidOperation:
                     errors.append(f"players.csv linha {row_num}: AccPts_{suffix} deve ser um número válido")
-            acc_since = row[base + 6].strip()
+            acc_since = row[base + 10].strip()
             if acc_since and not _is_year_month(acc_since):
                 errors.append(
                     f"players.csv linha {row_num}: AccSince_{suffix} deve ser vazio ou uma data "
@@ -357,6 +410,55 @@ def _validate_fide_players_csv(content: str) -> list[str]:
             else:
                 id_cbx_seen[id_cbx] = row_num
 
+    for prev_id, row_num in prev_ids_seen:
+        if prev_id not in id_no_seen:
+            errors.append(
+                f"players.csv linha {row_num}: PrevId {prev_id} não corresponde a nenhum "
+                "Id_No da lista"
+            )
+
+    return errors
+
+
+def _validate_fide_rating_pair(row: list[str], base: int, suffix: str, row_num: int) -> list[str]:
+    """The `RtgFide_`/`FideDate_` pair of §6.4.
+
+    The two travel together: the rating is reconferred before first use
+    (§6.4, alínea d) and it is the date of that check that says which value
+    was adopted. A rating without its date leaves the audit unable to say
+    when the number was taken, and a date without a rating is a half-finished
+    edit.
+    """
+    errors: list[str] = []
+    rating = row[base + 5].strip()
+    date = row[base + 6].strip()
+
+    if rating:
+        if not _is_int(rating):
+            errors.append(f"players.csv linha {row_num}: RtgFide_{suffix} deve ser inteiro ou vazio")
+        elif int(rating) < RATING_FLOOR:
+            # §6.4: the FIDE rating enters at face value, and a player entering
+            # rated below the floor is a state §7 does not admit.
+            errors.append(
+                f"players.csv linha {row_num}: RtgFide_{suffix} deve ser vazio ou um inteiro "
+                f"maior ou igual ao piso de {RATING_FLOOR}"
+            )
+        if not date:
+            errors.append(
+                f"players.csv linha {row_num}: FideDate_{suffix} é obrigatório quando "
+                f"RtgFide_{suffix} está preenchido"
+            )
+    elif date:
+        errors.append(
+            f"players.csv linha {row_num}: FideDate_{suffix} só se preenche junto com "
+            f"RtgFide_{suffix}"
+        )
+
+    if date and parsed_end_date(date) is None:
+        errors.append(
+            f"players.csv linha {row_num}: FideDate_{suffix} '{date}' não foi reconhecida como "
+            "uma data (formatos aceitos: AAAA-MM-DD, DD/MM/AAAA ou DD.MM.AAAA)"
+        )
     return errors
 
 
@@ -382,7 +484,7 @@ def _build_players_index(content: str) -> tuple[set[int], dict[int, int]]:
 
     Dispatches on the header, like the rest of the validator: Id_No and
     Id_CBX sit in the same first two columns in both the legacy 12-column
-    format and the FIDE 29-column format, so only the expected row width
+    format and the FIDE 43-column format, so only the expected row width
     differs between them.
     """
     lines = content.splitlines()

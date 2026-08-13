@@ -119,9 +119,10 @@ class TestUnratedPeriod:
         assert result.final_rating == 1743
 
     def test_a_zeroed_first_event_is_discarded(self):
-        """§6.1 / 8.2.1: zeroing the first event discards the result from
-        the accumulator — but the games still count toward `games_counted`,
-        the lifetime total that feeds §5's K factor (pendência B)."""
+        """§6.1 / 8.2.1: zeroing the first event discards the result from the
+        accumulator, and — answered by FEXERJ — from `games_counted` too, the
+        lifetime total §5's K factor reads. The count records games that were
+        valid for a rating calculation, and these went into none."""
         state = ModalityState()
         games = [_game(1, i, "0") for i in range(2, 8)]
         result = compute_unrated_period(
@@ -132,11 +133,12 @@ class TestUnratedPeriod:
         )
         assert result.final_rating is None
         assert result.path == "FIRST_EVENT_ZEROED"
-        assert result.games_counted == 6
+        assert result.games_counted == 0
         assert result.accumulator.games == 0
+        assert result.first_tournament_seen is True
 
     def test_a_zeroed_later_event_is_not_discarded(self):
-        state = ModalityState(games=4, accumulator=Accumulator(
+        state = ModalityState(games=4, first_tournament_played=True, accumulator=Accumulator(
             games=4, sum_opponents=6400, points=Decimal("2"), since="2025-10",
         ))
         games = [_game(1, i, "0") for i in range(2, 8)]
@@ -168,10 +170,9 @@ class TestPerTournamentDiscard:
 
     def test_zeroing_the_first_tournament_discards_only_that_tournament(self):
         """Two tournaments in the same period: zero in the first, a win in
-        the second. Only the first tournament's result is dropped from the
-        accumulator — but games_counted (which feeds the lifetime count and
-        therefore §5's K factor) includes both tournaments, per the
-        federation's "sem alterar o número de partidas" reading."""
+        the second. The first tournament leaves nothing behind — neither in
+        the accumulator nor in games_counted — while the second is counted
+        normally, because the discard is per tournament and not per period."""
         state = ModalityState()
         games = [_game(1, 2, "0"), _game(1, 3, "0"), _game(2, 4, "1")]
         result = compute_unrated_period(
@@ -181,7 +182,7 @@ class TestPerTournamentDiscard:
             period_month=_MONTH,
         )
         assert result.path == "FIRST_EVENT_ZEROED"
-        assert result.games_counted == 3          # both tournaments' games
+        assert result.games_counted == 1          # only the second tournament's game
         assert result.accumulator.games == 1        # only the second tournament fed the accumulator
         assert result.accumulator.points == Decimal("1")
         assert result.accumulator.sum_opponents == 1600
@@ -207,7 +208,7 @@ class TestPerTournamentDiscard:
         """"Primeiro" also looks at earlier periods: once the accumulator
         already has games behind it, this period's first tournament is not
         eligible for the discard even if it scores zero."""
-        state = ModalityState(games=2, accumulator=Accumulator(
+        state = ModalityState(games=2, first_tournament_played=True, accumulator=Accumulator(
             games=2, sum_opponents=3200, points=Decimal("1"), since="2025-12",
         ))
         games = [_game(1, 5, "0")]
@@ -267,9 +268,26 @@ class TestZeroingMeansTheWholeTournament:
         assert result.path == "FIRST_EVENT_ZEROED"
         assert result.accumulator.games == 0
 
-    def test_the_games_still_count_toward_the_lifetime_total(self):
-        """Only the rated games count as games played, discarded or not."""
+    def test_a_discarded_tournaments_games_do_not_count(self):
+        """§6.1, answered by FEXERJ: the games of the discarded tournament
+        leave the lifetime count as well. The player ends the period looking
+        exactly as they started — which is why the discard needs a marker of
+        its own, and cannot be read off the game count."""
         games = [_game(1, 2, "0"), _game(1, 90, "0")]
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=games,
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.games_counted == 0
+        assert result.first_tournament_seen is True
+
+    def test_a_surviving_tournaments_rated_games_do_count(self):
+        """The counterpart: nothing discarded, so the rated game counts and
+        the unrated one does not."""
+        games = [_game(1, 2, "1"), _game(1, 90, "0")]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=ModalityState(),
             games=games,
@@ -286,9 +304,9 @@ class TestOnlyTheVeryFirstTournamentIsDiscardable:
     therefore left the accumulator empty."""
 
     def test_a_player_who_has_played_before_gets_no_discard(self):
-        """Lifetime count above zero with an empty accumulator is exactly
-        the state left behind by a discarded first tournament."""
-        state = ModalityState(games=2, accumulator=Accumulator())
+        """The marker set with an empty accumulator and a zero game count is
+        exactly the state a discarded first tournament leaves behind."""
+        state = ModalityState(games=0, first_tournament_played=True, accumulator=Accumulator())
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
             games=[_game(1, 5, "0")],
@@ -298,6 +316,30 @@ class TestOnlyTheVeryFirstTournamentIsDiscardable:
         assert result.path == "ACCUMULATING"
         assert result.accumulator.games == 1        # counted, not discarded
         assert result.accumulator.points == Decimal("0")
+
+    def test_the_marker_is_reported_when_the_first_tournament_is_counted(self):
+        """The opportunity is spent by playing, not by being discarded."""
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=[_game(1, 2, "1")],
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.first_tournament_seen is True
+
+    def test_a_tournament_with_no_rated_opponents_does_not_spend_the_discard(self):
+        """A tournament that contributes nothing to the accumulator is
+        skipped whole: it is not the "first tournament" for §6.1 purposes,
+        and the player keeps the discard for the next one."""
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=[_game(1, 90, "0"), _game(1, 91, "0")],
+            opponent_ratings={},
+            period_month=_MONTH,
+        )
+        assert result.games_counted == 0
+        assert result.first_tournament_seen is False
 
     def test_two_periods_in_a_row_discard_only_once(self):
         """Period 1 zeroes and is discarded; period 2 zeroes again and
@@ -312,8 +354,11 @@ class TestOnlyTheVeryFirstTournamentIsDiscardable:
         assert first.path == "FIRST_EVENT_ZEROED"
 
         carried = ModalityState(
-            games=first.games_counted, accumulator=first.accumulator,
+            games=first.games_counted,
+            first_tournament_played=first.first_tournament_seen,
+            accumulator=first.accumulator,
         )
+        assert carried.games == 0        # the discarded tournament left no games behind
         second = compute_unrated_period(
             player_id=1, modality="RPD", state=carried,
             games=[_game(2, 3, "0")],
@@ -362,10 +407,10 @@ class TestAccumulationWindow:
         """A window reset wipes the accumulator, but it does not turn the
         player back into a newcomer: they have played before, and "só o
         primeiro" (FEXERJ, 2026-08-11) spends the discard on the first
-        tournament ever, not on the first after a reset. The lifetime count
-        is what remembers it — the accumulator cannot, since a reset is
+        tournament ever, not on the first after a reset. The marker is what
+        remembers it — the accumulator cannot, since a reset is
         indistinguishable from never having played once it is zeroed."""
-        state = ModalityState(games=3, accumulator=Accumulator(
+        state = ModalityState(games=3, first_tournament_played=True, accumulator=Accumulator(
             games=3, sum_opponents=4800, points=Decimal("1.5"), since="2024-01",
         ))
         result = compute_unrated_period(

@@ -14,9 +14,9 @@ export const FIDE_TOURNAMENTS_HEADER = 'Ord;CrId;Name;EndDate;Type;IsIrt;IsFexer
 
 /** Must match calculator `calculator/fide/ratinglist.py` `FIDE_HEADER`. */
 export const FIDE_PLAYERS_HEADER =
-  'Id_No;Id_CBX;Title;Name;ClubName;Birthday;Sex;Fed;Rtg_Std;Games_Std;Peak2200_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;Peak2200_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;Peak2200_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz'
+  'Id_No;Id_CBX;PrevId;Title;Name;ClubName;Birthday;Sex;Fed;Status;Rtg_Std;Games_Std;K_Std;FirstTrn_Std;LastPlayed_Std;RtgFide_Std;FideDate_Std;AccGames_Std;AccSumOpp_Std;AccPts_Std;AccSince_Std;Rtg_Rpd;Games_Rpd;K_Rpd;FirstTrn_Rpd;LastPlayed_Rpd;RtgFide_Rpd;FideDate_Rpd;AccGames_Rpd;AccSumOpp_Rpd;AccPts_Rpd;AccSince_Rpd;Rtg_Blz;Games_Blz;K_Blz;FirstTrn_Blz;LastPlayed_Blz;RtgFide_Blz;FideDate_Blz;AccGames_Blz;AccSumOpp_Blz;AccPts_Blz;AccSince_Blz'
 
-const FIDE_PLAYERS_COLUMN_COUNT = 29
+const FIDE_PLAYERS_COLUMN_COUNT = 43
 
 const VALID_TOURNAMENT_TYPES = new Set(['SS', 'RR', 'ST'])
 const VALID_TIME_CONTROLS = new Set(['STD', 'RPD', 'BLZ'])
@@ -175,7 +175,7 @@ function validateIdCell(
 }
 
 /**
- * Structural checks for the 29-column format of the per-game model. The
+ * Structural checks for the 43-column format of the per-game model. The
  * per-modality rules (rating floor, accumulator columns, birthday) stay with
  * the server: this pass exists for immediate feedback on the offending row,
  * not to be a second implementation of the model.
@@ -215,8 +215,9 @@ function validateFidePlayersRows(lines) {
       ...validateIdCell(row[0], 'Id_No', rowNum, prefix, 0, line, { required: true }),
     )
     if (idCbx) errors.push(...validateIdCell(row[1], 'Id_CBX', rowNum, prefix, 1, line))
-    if (!row[3].trim()) {
-      errors.push(csvRowError(`${prefix} linha ${rowNum}: Name é obrigatório`, line, 3))
+    // Column 4 in this format, not 3: PrevId sits between Id_CBX and Title.
+    if (!row[4].trim()) {
+      errors.push(csvRowError(`${prefix} linha ${rowNum}: Name é obrigatório`, line, 4))
     }
 
     if (idNo) {

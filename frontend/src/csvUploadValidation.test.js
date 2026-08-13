@@ -192,8 +192,14 @@ describe('the per-game model formats, by mode', () => {
     return [FIDE_PLAYERS_HEADER, ...rows].join('\n')
   }
 
-  const FIDE_PLAYER_ROW =
-    '3741;;;Carlos Mendes;CLUB A;01/01/1990;M;BRA;1800;50;0;0;0;0;;;0;0;0;0;0;;;0;0;0;0;0;'
+  // Ten identity columns — the last two being PrevId's neighbours Fed and the
+  // §11.1 Status — then eleven per modality.
+  const FIDE_PLAYER_ROW = [
+    '3741', '', '', '', 'Carlos Mendes', 'CLUB A', '01/01/1990', 'M', 'BRA', '1',
+    '1800', '50', '20', '1', '', '', '', '0', '0', '0', '',
+    '', '0', '40', '0', '', '', '', '0', '0', '0', '',
+    '', '0', '40', '0', '', '', '', '0', '0', '0', '',
+  ].join(';')
 
   describe('tournaments.csv', () => {
     it('accepts the TimeControl header in fide mode', () => {
@@ -232,7 +238,7 @@ describe('the per-game model formats, by mode', () => {
   })
 
   describe('players.csv', () => {
-    it('accepts the 29-column format in fide mode', () => {
+    it('accepts the 43-column format in fide mode', () => {
       expect(validatePlayersCsv(fidePlayersCsv(FIDE_PLAYER_ROW), 'fide')).toEqual([])
     })
 
@@ -240,19 +246,33 @@ describe('the per-game model formats, by mode', () => {
       expect(validatePlayersCsv(playersCsv(VALID_PLAYER_ROW), 'fide')).toEqual([])
     })
 
-    it('rejects the 29-column format in the current model', () => {
+    it('rejects the 43-column format in the current model', () => {
       const errors = validatePlayersCsv(fidePlayersCsv(FIDE_PLAYER_ROW), 'legacy')
       expect(errorMessage(errors[0])).toMatch(/cabeçalho inválido/)
     })
 
-    it('checks the column count of a 29-column row', () => {
+    it('checks the column count of a 43-column row', () => {
       const errors = validatePlayersCsv(fidePlayersCsv('3741;;;Carlos Mendes;CLUB A'), 'fide')
-      expect(errorMessage(errors[0])).toMatch(/esperadas 29 colunas/)
+      expect(errorMessage(errors[0])).toMatch(/esperadas 43 colunas/)
     })
 
-    it('catches a duplicate id in the 29-column format', () => {
+    it('catches a duplicate id in the 43-column format', () => {
       const errors = validatePlayersCsv(fidePlayersCsv(FIDE_PLAYER_ROW, FIDE_PLAYER_ROW), 'fide')
       expect(errors.some(e => errorMessage(e).includes('Id_No duplicado'))).toBe(true)
+    })
+
+    it('requires Name at its own column, not Title', () => {
+      // Name moved one column along when PrevId joined the identity block:
+      // reading the old index would report a missing name for every player
+      // who has no title.
+      const noName = FIDE_PLAYER_ROW.replace('Carlos Mendes', '')
+      const errors = validatePlayersCsv(fidePlayersCsv(noName), 'fide')
+      expect(errorMessage(errors[0])).toMatch(/Name é obrigatório/)
+    })
+
+    it('accepts a player who has a title but no PrevId', () => {
+      const titled = FIDE_PLAYER_ROW.replace('3741;;;;', '3741;;;FM;')
+      expect(validatePlayersCsv(fidePlayersCsv(titled), 'fide')).toEqual([])
     })
   })
 })

@@ -47,6 +47,11 @@ class PeriodResult:
     path: str
     game_results: list[GameResult] = field(default_factory=list)
     accumulator: Accumulator = field(default_factory=Accumulator)
+    # True when this period contained the tournament that spends the §6.1
+    # discard. Reported separately from `games_counted` because a discarded
+    # tournament leaves the count at zero while still spending the
+    # opportunity — which is the whole reason the marker exists.
+    first_tournament_seen: bool = False
 
 
 @dataclass
@@ -105,6 +110,11 @@ def compute_rated_period(
         reached_2200=state.reached_2200,
         birth_year=birth_year,
         period_year=period_year,
+        # §6.4: while a FIDE rating is on record for the modality, the K comes
+        # from the rating band and the new-player K=40 does not apply — not
+        # only on the period the player entered on, when they would still have
+        # fewer than 30 games here anyway.
+        from_fide_rating=state.fide_rating is not None,
     )
 
     counted = [g for g in games if g.opponent_id in opponent_ratings]
@@ -141,6 +151,40 @@ def compute_rated_period(
         final_rating=final_rating,
         path=path,
         game_results=results,
+    )
+
+
+def fide_entry_state(player: PlayerState, modality: str) -> ModalityState | None:
+    """Entry state for a player arriving on a FIDE rating (§6.4), or `None`.
+
+    The rating enters at face value — the 2000 cap of §6.3 is for an estimate
+    made on five games, and a FIDE rating is not an estimate. What still
+    limits it is the 400 cap of §3, applied game by game.
+
+    Two conditions, both from §6.4. The operator has recorded a FIDE rating
+    for the modality, and the player has **no games at all** there: once they
+    have played, the federation's rating is theirs and the recorded FIDE
+    rating stops being a door in. Without that second condition a player the
+    floor dropped (§7) would be re-entered at their FIDE rating every period,
+    and the floor would never take effect on them.
+
+    A rating of 2200 or more switches the permanent K=10 on at entry, exactly
+    as if the mark had been reached on a list of the federation's own.
+
+    Runs ahead of `transposed_state`: §1.1 defers to §6.4 when both could
+    apply.
+    """
+    state = player.modalities[modality]
+    if state.rating is not None or state.games > 0 or state.fide_rating is None:
+        return None
+    return ModalityState(
+        rating=state.fide_rating,
+        games=0,
+        reached_2200=state.fide_rating >= rules.K10_THRESHOLD,
+        first_tournament_played=state.first_tournament_played,
+        last_played=state.last_played,
+        fide_rating=state.fide_rating,
+        fide_date=state.fide_date,
     )
 
 
@@ -184,13 +228,17 @@ def compute_unrated_period(
     tournament's result from the accumulator instead of counting it (§6.1 /
     8.2.1) — "event" is the tournament, not the period, so a second
     tournament in the same period is counted normally even when the first
-    one was just discarded. "First" also looks past this period:
-    `state.accumulator.games == 0` is what marks the opportunity as still
-    open, so once any tournament has actually contributed to the
-    accumulator — this period or an earlier one — it is gone. The discarded
-    tournament's games still feed `games_counted`, and therefore the
-    lifetime `ModalityState.games` count §5's K factor reads: only the
-    initial-rating calculation drops them, not the player's game count.
+    one was just discarded. "First" also looks past this period, through
+    `state.first_tournament_played`.
+
+    The discarded tournament's games are dropped from `games_counted` as
+    well, and therefore from the lifetime `ModalityState.games` count §5's K
+    factor reads (§6.1, answered by FEXERJ): the count records the games
+    that were valid for a rating calculation, and this tournament's went
+    into none. That is what forced `first_tournament_played` to become a
+    field of its own — a lifetime count of zero used to mean "has not played
+    yet", and once the discarded tournament stops incrementing it, the
+    player looks like a newcomer again and earns a second discard.
 
     `period_month` ("YYYY-MM") is checked against `state.accumulator.since`
     for the 26-month pooling window (§6.2 / FIDE 7.1.4): once the gap is
@@ -220,12 +268,9 @@ def compute_unrated_period(
 
     # "Só o primeiro" (FEXERJ, 2026-08-11): the opportunity is spent by the
     # first tournament the player plays, not by the first that survives the
-    # discard. The lifetime count is what carries that across periods —
-    # a discarded tournament still adds its games to it, so a player who
-    # zeroed and was discarded already has `games > 0` and gets no second
-    # chance. (If decision B ever stops counting unrated games toward the
-    # lifetime total, this marker has to become a field of its own.)
-    first_tournament_pending = state.games == 0
+    # discard.
+    first_tournament_pending = not state.first_tournament_played
+    first_tournament_seen = False
     games_counted = 0
     total_games = accumulator.games
     total_points = accumulator.points
@@ -238,10 +283,10 @@ def compute_unrated_period(
         if not counted:
             continue
         tournament_points = sum((g.score for g in counted), Decimal("0"))
-        games_counted += len(counted)
 
         if first_tournament_pending:
             first_tournament_pending = False
+            first_tournament_seen = True
             # "Zerar um torneio inteiro" (FEXERJ, 2026-08-11): the whole
             # tournament is what has to be scoreless, not just the games
             # against rated opponents. A newcomer in a field of unrated
@@ -249,11 +294,12 @@ def compute_unrated_period(
             # while winning everything else — that is not a zeroed
             # tournament, and the loss counts.
             if sum((g.score for g in tournament_games), Decimal("0")) == 0:
-                # §6.1 / 8.2.1: discarded from the accumulator, but its games
-                # were already added to games_counted above.
+                # §6.1 / 8.2.1: discarded from the accumulator and from the
+                # game count alike — these games were used in no calculation.
                 discarded_first_tournament = True
                 continue
 
+        games_counted += len(counted)
         total_games += len(counted)
         total_points += tournament_points
         total_sum_opponents += sum(opponent_ratings[g.opponent_id] for g in counted)
@@ -281,6 +327,7 @@ def compute_unrated_period(
                 points=total_points,
                 since=since,
             ),
+            first_tournament_seen=first_tournament_seen,
         )
 
     ru = rules.initial_rating(total_sum_opponents, total_games, total_points)
@@ -300,4 +347,5 @@ def compute_unrated_period(
             points=total_points,
             since=since,
         ),
+        first_tournament_seen=first_tournament_seen,
     )

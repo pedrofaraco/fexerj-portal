@@ -73,8 +73,17 @@ def base_k(
     reached_2200: bool,
     birth_year: int | None,
     period_year: int,
+    from_fide_rating: bool = False,
 ) -> int:
     """K factor from §5, before the 700 cap (§5.1).
+
+    `from_fide_rating` drops the new-player branch, and only that one: §6.4
+    gives a player who came in on a FIDE rating "o K de quem tem 2.300, não o
+    K=40 de jogador novo". It has to keep applying after the period they
+    entered on, not just during it — they still have fewer than 30 FEXERJ
+    games in their second period, so keying it on the entry alone would hand
+    them back the very K=40 §6.4 rules out. The under-18 branch survives:
+    it keys on age and rating, not on the game count.
 
     `reached_2200` is checked first, ahead of every other condition. Decided
     by FEXERJ: the permanent K=10 is a brake that only tightens — once a
@@ -94,7 +103,7 @@ def base_k(
     """
     if reached_2200:
         return 10
-    if games < NEW_PLAYER_GAMES:
+    if games < NEW_PLAYER_GAMES and not from_fide_rating:
         return 40
     if (
         birth_year is not None
