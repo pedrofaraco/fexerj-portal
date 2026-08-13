@@ -1,6 +1,7 @@
 # Anexo Normativo — Modelo de rating da FEXERJ
 
-**Versão 1.5 — 13/08/2026.** Vigência prevista a partir de 01/03/2027.
+**Rascunho 1 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
+Vigência prevista a partir de 01/03/2027.
 
 Regras do modelo de rating **por partida** da FEXERJ, aplicável às modalidades Clássico,
 Rápido e Blitz. Alinhado ao Handbook FIDE B02, com as adaptações numéricas da federação.

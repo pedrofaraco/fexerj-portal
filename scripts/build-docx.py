@@ -38,6 +38,12 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 # The model is three documents, split by one rule: the normative annex carries
 # nothing that stops being true after the turn. See docs/modelo-rating-fide.md.
 ANNEXES = ("anexo-normativo", "anexo-transicao", "anexo-testes")
+
+# Each annex is revised with the federation on its own, so each carries its own
+# draft number. The number lives in one place — the "**Rascunho N**" line of the
+# source — and the built filename follows it, so what they are reading is named
+# in the file they were sent. Bump the line; the name follows.
+DRAFT = re.compile(r"^\*\*Rascunho (\d+)", re.M)
 SOFFICE = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
 # US Letter, as LibreOffice's HTML import sets it, with symmetric margins.
@@ -178,6 +184,16 @@ def set_margins(xml: str) -> str:
                   f'<w:pgMar w:left="{MARGIN}" w:right="{MARGIN}"', xml, count=1)
 
 
+def draft_number(md: pathlib.Path) -> str:
+    match = DRAFT.search(md.read_text())
+    if match is None:
+        raise SystemExit(
+            f"{md.name}: falta a linha '**Rascunho N — DD/MM/AAAA.**'. "
+            "É dela que sai o número no nome do arquivo."
+        )
+    return match.group(1)
+
+
 def build(md: pathlib.Path, out: pathlib.Path) -> None:
     body = markdown.markdown(
         md.read_text(), extensions=["tables", "fenced_code", "sane_lists", "attr_list"]
@@ -228,7 +244,7 @@ def main() -> None:
         return
     for name in ANNEXES:
         md = REPO / "docs" / f"{name}.md"
-        build(md, md.with_suffix(".docx"))
+        build(md, md.with_name(f"{name}-rascunho-{draft_number(md)}.docx"))
 
 
 if __name__ == "__main__":

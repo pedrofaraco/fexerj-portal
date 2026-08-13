@@ -1,6 +1,6 @@
 # Anexo de Testes — Modelo de rating da FEXERJ
 
-**Versão 1.5 — 13/08/2026.**
+**Rascunho 1 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
 
 As conferências que sustentam os números do modelo. São registros **fechados, com data e
 escopo declarados**: não deixam de ser verdade com o tempo, viram histórico. É a seção 2

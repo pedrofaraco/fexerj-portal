@@ -1,16 +1,21 @@
 # Modelo de rating FEXERJ — índice dos anexos
 
-**Versão 1.5 — 13/08/2026.** Vigência prevista a partir de 01/03/2027.
+Vigência prevista a partir de 01/03/2027.
 
 O modelo de rating **por partida** da FEXERJ está descrito em **três anexos**, gerados de
 fontes próprias neste diretório. Este arquivo é só o índice: não vai à federação e não
 tem `.docx`.
 
-| Anexo | Fonte | O que contém |
-|---|---|---|
-| **Normativo** | [`anexo-normativo.md`](anexo-normativo.md) | As regras do modelo: modalidades e transpasse, parâmetros, cálculo por partida, período, fator K, rating inicial, rating vindo da FIDE, piso, e as duas tabelas da FIDE. |
-| **Transição** | [`anexo-transicao.md`](anexo-transicao.md) | A conversão da lista atual, os formatos dos arquivos, e as regras do modelo antigo que são aposentadas. |
-| **Testes** | [`anexo-testes.md`](anexo-testes.md) | A validação contra uma consulta oficial da FIDE e a simulação sobre o ciclo real de 2026. |
+| Anexo | Rascunho | Fonte | O que contém |
+|---|---|---|---|
+| **Normativo** | 1 | [`anexo-normativo.md`](anexo-normativo.md) | As regras do modelo: modalidades e transpasse, parâmetros, cálculo por partida, período, fator K, rating inicial, rating vindo da FIDE, piso, e as duas tabelas da FIDE. |
+| **Transição** | 1 | [`anexo-transicao.md`](anexo-transicao.md) | A conversão da lista atual, os formatos dos arquivos, e as regras do modelo antigo que são aposentadas. |
+| **Testes** | 1 | [`anexo-testes.md`](anexo-testes.md) | A validação contra uma consulta oficial da FIDE e a simulação sobre o ciclo real de 2026. |
+
+Os três nascem da **versão 1.5** do documento único, que é onde a numeração de versões
+para: daqui em diante cada anexo é revisado com a federação por conta própria e leva o
+**seu** rascunho. Numeração compartilhada faria o anexo de testes chegar ao rascunho 3 sem
+ter mudado uma vírgula.
 
 ## O critério da divisão
 
@@ -33,6 +38,16 @@ mantido o teto de 700 do fator K.
 ```
 
 Sem argumento, constrói os três. Com um caminho, constrói só aquele.
+
+**O número do rascunho fica no nome do arquivo** —
+`anexo-normativo-rascunho-1.docx` —, para que o arquivo que a federação abre diga qual
+rascunho é. Ele sai de um lugar só: a linha `**Rascunho N — DD/MM/AAAA.**` no topo da
+fonte. **Para revisar: mude a linha, rode o script.** O nome acompanha, e o rascunho
+anterior continua onde estava, com o nome dele — que é o que permite responder "no
+rascunho 2 a regra dizia outra coisa".
+
+Os `.md` **não levam número no nome**: são a fonte versionada em git, e renomeá-los a cada
+rodada quebraria histórico e ligações.
 
 **Confira o resultado no Word, não no LibreOffice.** Os dois calculam tabela de formas
 diferentes, e uma conferência no LibreOffice não vale como prova sobre o arquivo que a
