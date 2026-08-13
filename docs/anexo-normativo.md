@@ -1,6 +1,6 @@
 # Anexo Normativo — Modelo de rating da FEXERJ
 
-**Rascunho 1 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
+**Rascunho 2 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
 Vigência prevista a partir de 01/03/2027.
 
 Regras do modelo de rating **por partida** da FEXERJ, aplicável às modalidades Clássico,

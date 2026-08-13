@@ -1,6 +1,6 @@
 # Anexo de Transição — Modelo de rating da FEXERJ
 
-**Rascunho 1 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
+**Rascunho 2 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
 
 O que vale **uma única vez**, na passagem do modelo por torneio para o modelo por partida,
 mais a descrição dos arquivos que o programa lê e escreve. Nada aqui é regra permanente do

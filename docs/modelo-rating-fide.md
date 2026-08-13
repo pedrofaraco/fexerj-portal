@@ -8,14 +8,22 @@ tem `.docx`.
 
 | Anexo | Rascunho | Fonte | O que contém |
 |---|---|---|---|
-| **Normativo** | 1 | [`anexo-normativo.md`](anexo-normativo.md) | As regras do modelo: modalidades e transpasse, parâmetros, cálculo por partida, período, fator K, rating inicial, rating vindo da FIDE, piso, e as duas tabelas da FIDE. |
-| **Transição** | 1 | [`anexo-transicao.md`](anexo-transicao.md) | A conversão da lista atual, os formatos dos arquivos, e as regras do modelo antigo que são aposentadas. |
+| **Normativo** | 2 | [`anexo-normativo.md`](anexo-normativo.md) | As regras do modelo: modalidades e transpasse, parâmetros, cálculo por partida, período, fator K, rating inicial, rating vindo da FIDE, piso, e as duas tabelas da FIDE. |
+| **Transição** | 2 | [`anexo-transicao.md`](anexo-transicao.md) | A conversão da lista atual, os formatos dos arquivos, e as regras do modelo antigo que são aposentadas. |
 | **Testes** | 1 | [`anexo-testes.md`](anexo-testes.md) | A validação contra uma consulta oficial da FIDE e a simulação sobre o ciclo real de 2026. |
 
 Os três nascem da **versão 1.5** do documento único, que é onde a numeração de versões
 para: daqui em diante cada anexo é revisado com a federação por conta própria e leva o
 **seu** rascunho. Numeração compartilhada faria o anexo de testes chegar ao rascunho 3 sem
-ter mudado uma vírgula.
+ter mudado uma vírgula — e ele está no 1 pelo mesmo motivo pelo qual os outros dois já
+estão no 2.
+
+**O rascunho 1 dos três foi enviado à federação em 13/08/2026** e está em análise. Os
+`.docx` daquele rascunho continuam neste diretório, gerados da fonte como ela estava
+naquele momento: é o que permite responder ao que eles comentarem, que é sobre aquele
+texto e não sobre este. O que mudou depois — a redação do aviso de K=10 no normativo e a
+descrição dos arquivos de auditoria no de transição — está no rascunho 2, que **ainda não
+foi enviado**.
 
 ## O critério da divisão
 
