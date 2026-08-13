@@ -1,6 +1,7 @@
-"""Builds the .docx of the rules document from its markdown source.
+"""Builds the .docx of the rules documents from their markdown sources.
 
-    python3 scripts/build-docx.py [source.md] [output.docx]
+    python3 scripts/build-docx.py                    # all three annexes
+    python3 scripts/build-docx.py source.md [out.docx]   # one document
 
 markdown -> HTML -> LibreOffice -> a pass over the OOXML. Needs `soffice`
 and Python's `markdown` (in requirements-dev.txt).
@@ -34,8 +35,9 @@ from html.parser import HTMLParser
 import markdown
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-MD = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "docs/modelo-rating-fide.md"
-OUT = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else MD.with_suffix(".docx")
+# The model is three documents, split by one rule: the normative annex carries
+# nothing that stops being true after the turn. See docs/modelo-rating-fide.md.
+ANNEXES = ("anexo-normativo", "anexo-transicao", "anexo-testes")
 SOFFICE = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
 # US Letter, as LibreOffice's HTML import sets it, with symmetric margins.
@@ -176,9 +178,9 @@ def set_margins(xml: str) -> str:
                   f'<w:pgMar w:left="{MARGIN}" w:right="{MARGIN}"', xml, count=1)
 
 
-def main() -> None:
+def build(md: pathlib.Path, out: pathlib.Path) -> None:
     body = markdown.markdown(
-        MD.read_text(), extensions=["tables", "fenced_code", "sane_lists", "attr_list"]
+        md.read_text(), extensions=["tables", "fenced_code", "sane_lists", "attr_list"]
     )
     tables = []
     for match in re.finditer(r"<table>.*?</table>", body, re.S):
@@ -188,7 +190,7 @@ def main() -> None:
 
     html = (
         f'<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">'
-        f"<title>{MD.stem}</title><style>{CSS}</style></head><body>\n{body}\n</body></html>"
+        f"<title>{md.stem}</title><style>{CSS}</style></head><body>\n{body}\n</body></html>"
     )
     tmp = pathlib.Path("_build.html")
     tmp.write_text(html, encoding="utf-8")
@@ -200,7 +202,7 @@ def main() -> None:
 
     built = pathlib.Path("_build.docx")
     zin = zipfile.ZipFile(built)
-    with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zout:
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             data = zin.read(item.filename)
             if item.filename == "word/document.xml":
@@ -214,7 +216,19 @@ def main() -> None:
     zin.close()
     tmp.unlink(missing_ok=True)
     built.unlink(missing_ok=True)
-    print(f"{OUT} ok — {len(tables)} tabelas, largura útil {PRINTABLE} twips")
+    print(f"{out.name} ok — {len(tables)} tabelas, largura útil {PRINTABLE} twips")
+
+
+def main() -> None:
+    """No arguments builds the three annexes; a path builds that one file."""
+    if len(sys.argv) > 1:
+        md = pathlib.Path(sys.argv[1])
+        out = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else md.with_suffix(".docx")
+        build(md, out)
+        return
+    for name in ANNEXES:
+        md = REPO / "docs" / f"{name}.md"
+        build(md, md.with_suffix(".docx"))
 
 
 if __name__ == "__main__":

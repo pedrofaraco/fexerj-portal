@@ -7,8 +7,10 @@ There are **two rating engines** in this repository:
   engine (`mode=legacy`) and the one this note describes.
 - **Per-game engine** (`calculator.fide.FideRatingCycle`, in `calculator/fide/`) — the FIDE
   Handbook B02 per-game model with the FEXERJ Art. 68 adaptations, reachable via `mode=fide` (and
-  compared against the current engine via `mode=compare`). Fully specified in
-  [`docs/modelo-rating-fide.md`](docs/modelo-rating-fide.md).
+  compared against the current engine via `mode=compare`). Specified across three annexes,
+  indexed by [`docs/modelo-rating-fide.md`](docs/modelo-rating-fide.md): the rules in
+  [`anexo-normativo.md`](docs/anexo-normativo.md), the file formats and the one-off
+  conversion in [`anexo-transicao.md`](docs/anexo-transicao.md).
 
 This note explains what the **current engine** does: which files it reads, what it writes, which
 parts of the Swiss Manager binary file it trusts, and how it picks a rating rule.
