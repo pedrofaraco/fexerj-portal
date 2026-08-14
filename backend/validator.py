@@ -17,8 +17,9 @@ from calculator.fide.ratinglist import (
     FIDE_HEADER,
     FIDE_IDENTITY_FIELD_COUNT,
     LEGACY_HEADER,
+    read_rating_list,
 )
-from calculator.fide.rules import RATING_FLOOR, parse_birth_year
+from calculator.fide.rules import RATING_FLOOR, birthday_decides_k, parse_birth_year
 from calculator.fide.tournaments import parsed_end_date
 
 # BIO_MARKER and PAIRING_MARKER are imported explicitly so the validator can
@@ -90,10 +91,11 @@ def validate_inputs(
 def _validate_players_for_mode(content: str, mode: str) -> list[str]:
     """In legacy mode only the 12-column format is valid; in FIDE mode both are.
 
-    Birthday is required by *mode*, not by column format (§5.3): fide and
-    compare both need it, because the under-18 K depends on it, even when
-    the list still uses the 12-column legacy layout — the compatibility
-    path exercised on every run. In legacy mode it stays optional.
+    Birthday is checked by *mode*, not by column format: fide and compare
+    both read it, because the under-18 K depends on it, even when the list
+    still uses the 12-column legacy layout — the compatibility path
+    exercised on every run. In legacy mode the current engine never looks at
+    it, so it stays optional. Which players must have it is `_validate_birthdays`.
     """
     if mode == MODE_LEGACY:
         return _validate_players_csv(content)
@@ -107,15 +109,15 @@ def _validate_players_for_mode(content: str, mode: str) -> list[str]:
                 "players.csv: o modo comparar exige a lista no formato de 12 colunas, porque o "
                 "modelo atual não lê outro formato. Use o arquivo que a federação usa hoje."
             ]
-        return _validate_players_csv(content) + _validate_legacy_format_birthdays(content)
+        return _validate_players_csv(content) + _validate_birthdays(content)
     lines = content.splitlines()
     if not lines or not any(lines):
         return ["players.csv: arquivo vazio"]
     first_line = lines[0].strip()
     if first_line == FIDE_HEADER:
-        return _validate_fide_players_csv(content)
+        return _validate_fide_players_csv(content) + _validate_birthdays(content)
     if first_line == _PLAYERS_HEADER:
-        return _validate_players_csv(content) + _validate_legacy_format_birthdays(content)
+        return _validate_players_csv(content) + _validate_birthdays(content)
     return [
         "players.csv: cabe\u00e7alho inv\u00e1lido \u2014 aceito o formato de 12 colunas "
         f"ou o de {FIDE_COLUMN_COUNT} colunas do modelo por partida."
@@ -228,41 +230,71 @@ def _validate_players_csv(content: str) -> list[str]:
     return errors
 
 
-def _validate_legacy_format_birthdays(content: str) -> list[str]:
-    """Birthday, required in fide/compare modes regardless of column format (§5.3).
+def _validate_birthdays(content: str) -> list[str]:
+    """Birthday, required of the players whose K factor it decides (§5.2).
 
-    _validate_players_csv doesn't know about `mode`, so it never looks at
-    Birthday even though the 12-column layout has one (position 6, per
-    LEGACY_HEADER) — it is the compatibility path exercised on every run, so
-    a fide/compare cycle fed this format must not silently drop the under-18
-    K=40 the way the legacy engine itself does. Mirrors the check
-    _validate_fide_players_csv performs on the 42-column format's own
-    Birthday column. Relies on the caller having already confirmed the
-    header and only adds to what _validate_players_csv already reports, so
-    it re-checks the header itself and skips any row that function has
-    already flagged for a wrong column count.
+    Not of everyone. The date is read by one rule — the under-18 K=40 — and
+    `birthday_decides_k` says exactly when that rule can be reached; for
+    every other player the K comes out the same with the date and without
+    it. Demanding it from all of them would hold the whole file hostage to
+    cadastral work that changes no rating: on the federation's list of 2385
+    players it is **1** row rather than 298, and the player who would
+    silently lose the under-18 K=40 is still the one being protected.
+
+    Runs on the **converted** state rather than on raw cells, through the
+    same `read_rating_list` the engine uses, so both column formats are
+    covered by one check and the 12-column conversion rules are never
+    reimplemented here. A file too malformed to read yields nothing: the
+    structural checks report that, and guessing at a state nobody can parse
+    would only bury their messages.
     """
-    lines = content.splitlines()
-    if not lines or lines[0].strip() != _PLAYERS_HEADER:
+    try:
+        players = read_rating_list(content)
+    except (ValueError, IndexError, InvalidOperation):
+        # Every way a cell can defeat the reader: a non-numeric id or count,
+        # a short row, a points field that is not a number.
         return []
 
+    rows_by_id = _row_numbers_by_id(content)
     errors: list[str] = []
-    reader = csv.reader(io.StringIO(content), delimiter=";")
-    next(reader, None)  # skip header
-
-    for row_num, row in enumerate(reader, start=2):
-        if not any(cell.strip() for cell in row) or len(row) != 12:
+    for player_id, player in players.items():
+        deciding = [
+            modality for modality in MODALITIES
+            if birthday_decides_k(
+                rating=(state := player.modalities[modality]).rating,
+                games=state.games,
+                reached_2200=state.reached_2200,
+                has_fide_rating=state.fide_rating is not None,
+            )
+        ]
+        if not deciding:
             continue
-
-        birthday = row[6].strip()
+        where = f"players.csv linha {rows_by_id[player_id]}" if player_id in rows_by_id else "players.csv"
+        modalities = ", ".join(COLUMN_SUFFIX[m] for m in deciding)
+        birthday = player.birthday.strip()
         if not birthday:
-            errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
+            errors.append(
+                f"{where}: Birthday é obrigatório para este jogador — o fator K dele depende "
+                f"da regra de sub-18 ({modalities})"
+            )
         elif parse_birth_year(birthday) is None:
             errors.append(
-                f"players.csv linha {row_num}: Birthday '{birthday}' não foi reconhecida como uma data"
+                f"{where}: Birthday '{birthday}' não foi reconhecida como uma data, e o fator K "
+                f"deste jogador depende dela ({modalities})"
             )
-
     return errors
+
+
+def _row_numbers_by_id(content: str) -> dict[int, int]:
+    """Line number of each Id_No, so a message can point at the row to fix."""
+    numbers: dict[int, int] = {}
+    reader = csv.reader(io.StringIO(content), delimiter=";")
+    next(reader, None)
+    for row_num, row in enumerate(reader, start=2):
+        if not row or not row[0].strip().isdigit():
+            continue
+        numbers.setdefault(int(row[0].strip()), row_num)
+    return numbers
 
 
 def _validate_fide_players_csv(content: str) -> list[str]:
@@ -307,19 +339,6 @@ def _validate_fide_players_csv(content: str) -> list[str]:
                 f"players.csv linha {row_num}: Status deve ser "
                 f"{', '.join(sorted(_PLAYER_STATUSES))} — ver §11.1"
             )
-        birthday = row[5].strip()
-        if not birthday:
-            # §5.3: birthday becomes a required field — the under-18 K depends on it.
-            errors.append(f"players.csv linha {row_num}: Birthday é obrigatório no modelo por partida")
-        elif parse_birth_year(birthday) is None:
-            # Same year-extraction the calculator uses, so validation and
-            # calculation never disagree on what counts as a readable date —
-            # a two-digit year like "10/05/10" would otherwise pass here and
-            # silently drop the under-18 K=40 during the calculation.
-            errors.append(
-                f"players.csv linha {row_num}: Birthday '{birthday}' não foi reconhecida como uma data"
-            )
-
         for index, modality in enumerate(MODALITIES):
             base = FIDE_IDENTITY_FIELD_COUNT + index * FIDE_FIELDS_PER_MODALITY
             suffix = COLUMN_SUFFIX[modality]

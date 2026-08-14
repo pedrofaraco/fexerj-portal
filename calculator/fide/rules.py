@@ -127,6 +127,36 @@ def base_k(
     return 20
 
 
+def birthday_decides_k(
+    rating: int | None,
+    games: int,
+    reached_2200: bool,
+    has_fide_rating: bool = False,
+) -> bool:
+    """True when the birth year can change the K factor `base_k` returns.
+
+    Mirrors `base_k`'s own branches, in the same order: the under-18 rule is
+    the only place the birth year is read, and every branch above it returns
+    before reaching it. So the date decides only for a player who has not
+    reached 2200, is past the new-player game count (or carries a FIDE
+    rating, which skips that branch), and holds a rating below the under-18
+    cap.
+
+    `tests/fide/test_rules_k.py` locks the mirror: wherever this returns
+    False, `base_k` gives the same K with a birth year and without one.
+
+    §5.2 requires the date of anyone it decides for. Outside that set the
+    file is accepted without it — on the federation's list of 2385 players,
+    that is 1 row rather than 298, and the player who would silently lose the
+    under-18 K=40 is still the one being protected.
+    """
+    if reached_2200:
+        return False
+    if games < NEW_PLAYER_GAMES and not has_fide_rating:
+        return False
+    return rating is not None and rating < U18_RATING_CAP
+
+
 def cap_k_by_games(k: int, games: int) -> int:
     """§5.1 cap, verbatim FIDE: "If the number of games (n) for a player on any list
     for a rating period multiplied by K exceeds 700, then K shall be the largest whole

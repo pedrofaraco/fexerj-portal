@@ -232,9 +232,31 @@ A regra de sub-18 exige a **data de nascimento**, hoje presente na coluna `Birth
 do arquivo de jogadores mas **nunca usada** pelo cálculo. Passa a ser insumo com
 efeito direto no rating, o que torna a qualidade desse dado relevante.
 
-**A data de nascimento é dado obrigatório.** Nos torneios IRT e FEXERJ a informação já
-está disponível pelo cadastro; a lacuna aparece nos internos. Não há comportamento padrão
-para o caso ausente: o arquivo é recusado.
+**A data de nascimento é dado obrigatório para o jogador cujo fator K ela decide.** Não
+há comportamento padrão para o caso ausente nesse recorte: o arquivo é recusado. Tratar a
+data ausente como "não é sub-18" tiraria o K=40 de um jovem em silêncio, e ninguém
+descobriria. Nos torneios IRT e FEXERJ a informação já está disponível pelo cadastro; a
+lacuna aparece nos internos.
+
+**Quem está nesse recorte.** A data é lida por uma regra só — o K=40 de sub-18 — e as
+condições acima dela na seção 5 decidem antes. Ela só muda o resultado do jogador que, na
+modalidade, cumpre as três ao mesmo tempo:
+
+1. **não** tem o indicador permanente de K=10 — se tem, o K é 10 e a idade não altera;
+2. tem **30 partidas ou mais**, ou tem rating FIDE registrado (seção 6.4), que dispensa a
+   contagem — abaixo disso o K já é 40 pela regra de jogador novo, o mesmo 40 que a regra
+   de sub-18 daria;
+3. tem rating **abaixo de 2.100** — no teto ou acima dele a regra de sub-18 não alcança, e
+   sem rating não há a que aplicá-la.
+
+Fora desse recorte o arquivo é aceito sem a data, porque o fator K sai idêntico com ela e
+sem ela. **Efeito medido na lista atual da federação:** a exigência recai sobre **1**
+jogador dos 2.385, em vez dos 298 sem data legível — e é justamente o jogador que poderia
+perder o K=40 que continua protegido. Preencher os demais é trabalho de cadastro que não
+altera rating nenhum, e não precisa bloquear a execução de um ciclo.
+
+O recorte é verificado a cada execução, não uma vez: um jogador fora dele hoje entra nele
+ao completar 30 partidas, e aí a data passa a ser exigida dele.
 
 **Basta o ano.** O cálculo só usa o ano de nascimento, então os formatos que o cadastro
 produz na prática — `00/00/AAAA`, comum nos IRT, e registros antigos que trazem apenas

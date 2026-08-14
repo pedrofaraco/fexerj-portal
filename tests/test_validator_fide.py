@@ -258,7 +258,8 @@ def test_unreadable_birthday_is_rejected():
     unreadable = _players(_row(birthday="10/05/10", **_RATED))
     errors = _errors(unreadable, "fide")
     assert any(
-        "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data" == e
+        "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data, e o "
+        "fator K deste jogador depende dela (Std)" == e
         for e in errors
     )
 

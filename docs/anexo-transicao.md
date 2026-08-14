@@ -68,11 +68,16 @@ A conferência é, por isso, do operador, e acontece uma única vez, na virada:
 
 ### 1.2 Data de nascimento
 
-A data de nascimento passa a ser dado obrigatório, porque o fator K depende dela (seção
-5.2 do Anexo Normativo). A lista atual aceita `Birthday` em branco e o validador passa a
-rejeitar. Resolve-se na mesma conversão única que adiciona as colunas de Rápido e Blitz
-(seção 2.1) — não exige passo separado, mas exige que os cadastros estejam completos antes
-do primeiro ciclo no modelo novo.
+A data de nascimento passa a ser exigida do jogador cujo fator K ela decide (seção 5.2 do
+Anexo Normativo). Na lista atual, **298 jogadores** não têm data legível, mas o recorte da
+seção 5.2 alcança **1** deles: os demais recebem o mesmo K com a data e sem ela.
+
+A conversão, portanto, **não depende** de completar os 298 — depende de **uma** célula.
+Completar o resto é trabalho de cadastro que vale por si, e pode acontecer depois da
+virada, à medida que cada jogador entre no recorte ao completar 30 partidas.
+
+Duas células da lista atual trazem número de série do Excel no lugar da data (ids 998 e
+3000). A do id 3000 é justamente a única dentro do recorte.
 
 ---
 

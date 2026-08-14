@@ -69,8 +69,12 @@ class TestEndDate:
         assert not any("EndDate" in e for e in errors)
 
 
+_REQUIRED = "Birthday é obrigatório para este jogador"
+_UNREADABLE = "não foi reconhecida como uma data, e o fator K deste jogador depende dela"
+
+
 class TestBirthday:
-    # Birthday is required by *mode* (fide/compare), not by the players.csv
+    # Birthday is read by *mode* (fide/compare), not by the players.csv
     # column format. The hole: fide mode with the 12-column format — the
     # main compatibility path, exercised on every run — used to delegate
     # straight to the legacy validator, which never looks at Birthday at
@@ -78,20 +82,18 @@ class TestBirthday:
     # is worse: it *requires* the 12-column format, so the migration
     # comparison the federation will use to decide would always be wrong
     # for juniors.
+    #
+    # Which players must have it is §5.2: only those whose K it decides. The
+    # fixtures above carry 50 games and a rating of 1800, which is inside
+    # that set; TestBirthdayOnlyWhereItDecides covers the outside.
 
     def test_required_in_fide_mode_with_12_column_format(self):
         errors = _errors(_LEGACY_PLAYERS_NO_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "fide")
-        assert any(
-            "players.csv linha 2: Birthday é obrigatório no modelo por partida" == e
-            for e in errors
-        )
+        assert any(e.startswith("players.csv linha 2: " + _REQUIRED) for e in errors)
 
     def test_required_in_compare_mode(self):
         errors = _errors(_LEGACY_PLAYERS_NO_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "compare")
-        assert any(
-            "players.csv linha 2: Birthday é obrigatório no modelo por partida" == e
-            for e in errors
-        )
+        assert any(e.startswith("players.csv linha 2: " + _REQUIRED) for e in errors)
 
     def test_still_optional_in_legacy_mode(self):
         legacy_tournaments = _LEGACY_TOURNAMENTS_HEADER + "\n1;99999;Torneio;2026-03-15;RR;0;1\n"
@@ -101,17 +103,45 @@ class TestBirthday:
     def test_unreadable_date_rejected_in_fide_mode(self):
         """A two-digit year like '10/05/10' must not pass as a readable date."""
         errors = _errors(_LEGACY_PLAYERS_BAD_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "fide")
-        assert any(
-            "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data" == e
-            for e in errors
-        )
+        assert any("'10/05/10' " + _UNREADABLE in e for e in errors)
 
     def test_unreadable_date_rejected_in_compare_mode(self):
         errors = _errors(_LEGACY_PLAYERS_BAD_BIRTHDAY, _FIDE_TOURNAMENTS_SINGLE_STD, "compare")
-        assert any(
-            "players.csv linha 2: Birthday '10/05/10' não foi reconhecida como uma data" == e
-            for e in errors
-        )
+        assert any("'10/05/10' " + _UNREADABLE in e for e in errors)
+
+
+class TestBirthdayOnlyWhereItDecides:
+    """§5.2: the date is demanded of the players whose K factor it decides,
+    and of no one else. On the federation's own list that is 1 row instead of
+    298 — and the under-18 player who would silently lose K=40 is still the
+    one being protected."""
+
+    @staticmethod
+    def _row(rating: str, games: str) -> str:
+        return LEGACY_HEADER + f"\n1;;;Jogador Um;{rating};CLUB A;;M;BRA;{games};0;0\n"
+
+    def _birthday_errors(self, rating: str, games: str, mode: str = "fide"):
+        errors = _errors(self._row(rating, games), _FIDE_TOURNAMENTS_SINGLE_STD, mode)
+        return [e for e in errors if "Birthday" in e]
+
+    def test_a_new_player_is_accepted_without_it(self):
+        """Fewer than 30 games is K=40 by the new-player rule — the same 40
+        the under-18 rule would give."""
+        assert self._birthday_errors("1800", "8") == []
+
+    def test_a_player_above_the_under_18_cap_is_accepted_without_it(self):
+        assert self._birthday_errors("2150", "50") == []
+
+    def test_a_player_the_date_decides_for_is_still_refused(self):
+        assert self._birthday_errors("1800", "50") != []
+
+    def test_the_same_holds_in_compare_mode(self):
+        assert self._birthday_errors("1800", "8", mode="compare") == []
+        assert self._birthday_errors("1800", "50", mode="compare") != []
+
+    def test_the_message_says_which_modality_needs_it(self):
+        (message,) = self._birthday_errors("1800", "50")
+        assert "(Std)" in message
 
 
 class TestCompareModeRestrictions:
@@ -201,3 +231,24 @@ class TestTournamentsColumnReductionIsCsvAware:
         assert any("linha 3" in e and "Type" in e for e in errors)
         assert any("linha 3" in e and "IsIrt" in e for e in errors)
         assert any("linha 3" in e and "IsFexerj" in e for e in errors)
+
+
+class TestBirthdayCheckOnAnUnreadableFile:
+    """The check reads the converted state, so it needs the file to parse.
+    When it does not, the structural checks are the ones that report it —
+    this must not crash, and must not bury their messages."""
+
+    def _errors_for(self, row: str):
+        return _errors(LEGACY_HEADER + "\n" + row + "\n", _FIDE_TOURNAMENTS_SINGLE_STD, "fide")
+
+    def test_a_non_numeric_id_is_reported_not_raised(self):
+        errors = self._errors_for("abc;;;Jogador Um;1800;CLUB A;;M;BRA;50;0;0")
+        assert any("Id_No" in e for e in errors)
+
+    def test_a_non_numeric_points_field_is_reported_not_raised(self):
+        errors = self._errors_for("1;;;Jogador Um;1800;CLUB A;;M;BRA;50;0;abc")
+        assert any("TotalPoints" in e for e in errors)
+
+    def test_a_short_row_is_reported_not_raised(self):
+        errors = self._errors_for("1;;;Jogador Um;1800")
+        assert any("colunas" in e for e in errors)

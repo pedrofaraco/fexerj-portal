@@ -110,3 +110,50 @@ def test_sentinel_date_falls_into_the_safe_not_under_18_path():
     # validation layer's job, not these functions'.
     assert rules.parse_birth_year("00/00/0000") == 0
     assert rules.is_under_18_at_year_end(0, 2026) is False
+
+
+class TestBirthdayDecidesK:
+    """§5.2: the date is required only where it can change the K factor."""
+
+    def test_it_mirrors_base_k_over_the_whole_grid(self):
+        """The contract, checked exhaustively rather than by example:
+        wherever `birthday_decides_k` says no, `base_k` must return the same
+        factor with a birth year and without one. A branch added to `base_k`
+        that reads the birth year, without the predicate learning about it,
+        fails here."""
+        period_year = 2026
+        young, old = 2015, 1960          # under 18 in 2026, and far from it
+        for rating in (None, 1200, 1500, 2099, 2100, 2199, 2200, 2400):
+            for games in (0, 29, 30, 200):
+                for reached in (False, True):
+                    for has_fide in (False, True):
+                        decides = rules.birthday_decides_k(rating, games, reached, has_fide)
+                        factors = {
+                            rules.base_k(rating, games, reached, birth, period_year, has_fide)
+                            for birth in (None, young, old)
+                        }
+                        if decides:
+                            assert len(factors) > 1, (rating, games, reached, has_fide)
+                        else:
+                            assert len(factors) == 1, (rating, games, reached, has_fide)
+
+    def test_a_player_who_reached_2200_never_needs_it(self):
+        assert rules.birthday_decides_k(1500, 200, reached_2200=True) is False
+
+    def test_a_new_player_never_needs_it(self):
+        """Fewer than 30 games is K=40 by the new-player rule, which is the
+        same 40 the under-18 rule would give."""
+        assert rules.birthday_decides_k(1500, 29, reached_2200=False) is False
+
+    def test_but_a_new_player_with_a_fide_rating_does(self):
+        """§6.4 drops the new-player branch, so the under-18 one is reached."""
+        assert rules.birthday_decides_k(1500, 29, reached_2200=False, has_fide_rating=True) is True
+
+    def test_an_unrated_player_never_needs_it(self):
+        assert rules.birthday_decides_k(None, 200, reached_2200=False) is False
+
+    def test_at_or_above_the_under_18_cap_it_is_not_needed(self):
+        assert rules.birthday_decides_k(2100, 200, reached_2200=False) is False
+
+    def test_just_below_the_cap_it_is(self):
+        assert rules.birthday_decides_k(2099, 200, reached_2200=False) is True
