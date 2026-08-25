@@ -271,9 +271,10 @@ produz na prática — `00/00/AAAA`, comum nos IRT, e registros antigos que traz
 Só quando o jogador acumular **pelo menos 5 partidas contra adversários rated**
 (7.1.4). Até lá, os resultados ficam acumulados e nenhum rating é publicado.
 
-**O acúmulo não começa enquanto o jogador não pontuar.** Todo torneio em que ele não
-fizer ponto algum é **descartado** do cálculo do primeiro rating (8.2.1) — tantos
-quantos forem —, e a contagem passa a valer **a partir do primeiro torneio não zerado**.
+**O acúmulo não começa enquanto o jogador não pontuar contra um adversário com rating.**
+Todo torneio em que ele não tirar nada de adversário com rating é **descartado** do
+cálculo do primeiro rating (8.2.1) — tantos quantos forem —, e a contagem passa a valer
+**a partir do primeiro torneio não zerado**.
 
 > **O texto da FIDE é dúbio neste ponto**, e a leitura acima é a da FEXERJ. O artigo
 > 8.2.1 diz *"If an unrated player scores zero in their first event this score is
@@ -285,10 +286,11 @@ quantos forem —, e a contagem passa a valer **a partir do primeiro torneio nã
 
 Três precisões sobre o alcance do descarte:
 
-- **"Zerar" é zerar o torneio inteiro**, não só as partidas contra adversários com
-  rating. Um estreante num torneio cheio de não-rated pode enfrentar um único jogador
-  com rating e perder, ganhando todo o resto: o torneio não foi zerado, e a derrota
-  conta.
+- **"Zerar" é não pontuar contra adversário com rating.** Pontos tirados de não-rated
+  não abrem o acúmulo: eles são invisíveis ao cálculo do rating, então não podem
+  iniciá-lo. Um estreante num torneio cheio de não-rated que enfrente um único jogador
+  com rating e perca zerou o torneio, mesmo tendo ganho todo o resto — e aquela derrota
+  não entra.
 - **"Evento" é o torneio, não o período.** Dois torneios no mesmo período são olhados um
   a um: zerar o primeiro e pontuar no segundo descarta só o primeiro.
 - **Depois do primeiro torneio aceito, a proteção acaba.** Um resultado zerado a partir
@@ -306,8 +308,9 @@ jogador descartado termina o período com a contagem em zero, indistinguível de
 jogou. A coluna `FirstTrn_` da modalidade (Anexo de Transição, seção 2.1) guarda que um
 torneio já foi **aceito** — e é ela, não a contagem de partidas, que decide se o próximo
 torneio zerado é descartado. Ela é ligada pelo primeiro torneio não zerado com ao menos um
-adversário com rating, e **nunca é desligada**: nem pela janela de 26 meses (seção 6.2),
-nem pelo piso (seção 7).
+adversário com rating. Ela é **desligada quando o jogador perde o rating** e passa a
+refazê-lo (seção 7): quem recomeça do zero recomeça também com a proteção. O que não
+volta atrás é o indicador permanente de K=10, que o piso não devolve.
 
 ### 6.2 Janela de 26 meses (7.1.4)
 
@@ -448,10 +451,12 @@ Jogador cujo rating cair abaixo de **1200** passa a ser exibido como **não-rate
 lista seguinte (7.2, adaptado).
 
 **O rating é zerado; a contagem de partidas é preservada.** O jogador volta à
-condição de não-rated e precisa das 5 partidas da seção 6 para ter rating publicado
-de novo, mas seu histórico de partidas jogadas não é apagado — o que significa que,
-ao voltar, o K vem da contagem preservada e não necessariamente de 40. *Confirmado
-pela FEXERJ.*
+condição de não-rated e **refaz o rating pela seção 6.1, do começo** — inclusive com o
+descarte dos torneios em que não pontuar contra adversário com rating, como qualquer
+estreante. O histórico de partidas jogadas, porém, não é apagado: ao voltar a ter
+rating, o fator K vem dessa contagem preservada, e não necessariamente de 40.
+*Confirmado pela FEXERJ em 20/08/2026: "quando o piso derruba, ele tem que refazer o
+rating como acima. Mas as partidas anteriores (e o K após conseguir) não mudam."*
 
 > Esta é uma decisão da FEXERJ, não uma leitura do texto da FIDE. Conferimos: o
 > regulamento FIDE é **silencioso** sobre o que acontece com a contagem de partidas e

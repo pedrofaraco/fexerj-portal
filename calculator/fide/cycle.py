@@ -194,11 +194,12 @@ def _apply_results(
     The initial state itself is never modified: §4 requires the whole period
     to be computed against it.
 
-    Three fields survive every path here. `first_tournament_played` and the
-    permanent `reached_2200` only ever go from false to true — the §6.1
-    discard is not handed back by the 26-month window (§6.2) nor by the floor
-    (§7), and neither is the K=10. The FIDE columns are the operator's and are
-    copied through untouched.
+    `reached_2200` only ever goes from false to true: neither the floor nor
+    the window takes the permanent K=10 away. `first_tournament_played` is
+    different — the floor resets it (§7, decided by FEXERJ on 2026-08-20:
+    "quando o piso derruba, ele tem que refazer o rating como acima"), so a
+    player who loses their rating rebuilds it with the §6.1 protection intact.
+    The FIDE columns are the operator's and are copied through untouched.
     """
     final = copy.deepcopy(initial_players)
     for result in results:
@@ -206,9 +207,9 @@ def _apply_results(
         before = player.modalities[result.modality]
         entry = entry_states[(result.player_id, result.modality)]
         games = before.games + result.games_counted
-        # A tournament with rated opponents spends the §6.1 discard whether or
-        # not it survives it: `first_tournament_seen` is what reports a
-        # discarded one, which by then has left `games_counted` at zero.
+        # `first_tournament_seen` reports that a tournament was *accepted*
+        # this period; a discarded one leaves it false, which is what keeps
+        # the next one discardable.
         first_tournament_played = (
             before.first_tournament_played
             or result.first_tournament_seen
@@ -242,13 +243,20 @@ def _apply_results(
             )
             continue
 
-        # Gained a rating, kept one, or fell below the floor (§7): the unrated
-        # accumulator no longer applies and is zeroed. The game count stays.
+        # Gained a rating, kept one, or ended the period without one because
+        # of the floor (§7). Either way the unrated accumulator no longer
+        # applies and is zeroed, and the game count stays.
+        #
+        # Ending without a rating means rebuilding from scratch, and FEXERJ
+        # decided the §6.1 protection comes back with it: the player is a
+        # newcomer again for the purpose of the discard, though not for the
+        # game count or the K that follows from it.
+        rebuilding_from_scratch = result.final_rating is None
         player.modalities[result.modality] = ModalityState(
             rating=result.final_rating,
             games=games,
             reached_2200=reached_2200,
-            first_tournament_played=first_tournament_played,
+            first_tournament_played=first_tournament_played and not rebuilding_from_scratch,
             last_played=last_played,
             fide_rating=before.fide_rating,
             fide_date=before.fide_date,

@@ -225,17 +225,21 @@ class TestPerTournamentDiscard:
         assert result.accumulator.points == Decimal("1")
 
 
-class TestZeroingMeansTheWholeTournament:
-    """Decided by FEXERJ on 2026-08-11, answering "o descarte deve valer
-    quando o jogador enfrentou só um ou dois adversários com rating?" with
-    "zerar um torneio inteiro". The discard now looks at the player's score
-    in the whole tournament, not at the subset of games against rated
-    opponents — a newcomer who wins against unrated opponents did not zero
-    anything, even if the one game that counts was a loss."""
+class TestScoringAgainstRatedOpponentsIsWhatCounts:
+    """Decided by FEXERJ on 2026-08-20, reversing their reading of
+    2026-08-11: "Ele deve pontuar pelo menos contra um rated em seu primeiro
+    torneio válido."
 
-    def test_points_against_unrated_opponents_prevent_the_discard(self):
-        # One rated opponent, lost; three unrated opponents, all beaten. The
-        # tournament was not zeroed, so the loss enters the accumulator.
+    What opens the accumulation is scoring against **rated** opponents.
+    Points taken from unrated ones are invisible to the rating calculation,
+    so they cannot start it either — which is the opposite of the earlier
+    rule, where beating a field of unrated players made the tournament count
+    and dragged the one rated loss in with it."""
+
+    def test_points_against_unrated_opponents_do_not_open_the_accumulation(self):
+        # One rated opponent, lost; three unrated opponents, all beaten.
+        # Nothing was taken from a rated player, so the tournament is
+        # discarded and the loss does not enter.
         games = [_game(1, 2, "0"), _game(1, 90, "1"), _game(1, 91, "1"), _game(1, 92, "1")]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=ModalityState(),
@@ -243,21 +247,21 @@ class TestZeroingMeansTheWholeTournament:
             opponent_ratings={2: 1600},   # 90, 91, 92 are unrated
             period_month=_MONTH,
         )
-        assert result.path == "ACCUMULATING"
-        assert result.accumulator.games == 1
-        assert result.accumulator.points == Decimal("0")
-        assert result.accumulator.sum_opponents == 1600
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.accumulator.games == 0
+        assert result.games_counted == 0
 
-    def test_half_a_point_against_an_unrated_opponent_is_enough(self):
-        games = [_game(1, 2, "0"), _game(1, 90, "0.5")]
+    def test_half_a_point_against_a_rated_opponent_is_enough(self):
+        games = [_game(1, 2, "0.5"), _game(1, 3, "0")]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=ModalityState(),
             games=games,
-            opponent_ratings={2: 1600},
+            opponent_ratings={2: 1600, 3: 1600},
             period_month=_MONTH,
         )
         assert result.path == "ACCUMULATING"
-        assert result.accumulator.games == 1
+        assert result.accumulator.games == 2
+        assert result.accumulator.points == Decimal("0.5")
 
     def test_losing_everything_still_discards(self):
         games = [_game(1, 2, "0"), _game(1, 90, "0")]
@@ -271,10 +275,10 @@ class TestZeroingMeansTheWholeTournament:
         assert result.accumulator.games == 0
 
     def test_a_discarded_tournaments_games_do_not_count(self):
-        """§6.1, answered by FEXERJ: the games of the discarded tournament
-        leave the lifetime count as well. The player ends the period looking
-        exactly as they started — which is why the discard needs a marker of
-        its own, and cannot be read off the game count."""
+        """The games of a discarded tournament leave the lifetime count as
+        well. The player ends the period looking exactly as they started —
+        which is why the discard needs a marker of its own, and cannot be
+        read off the game count."""
         games = [_game(1, 2, "0"), _game(1, 90, "0")]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=ModalityState(),
@@ -287,8 +291,8 @@ class TestZeroingMeansTheWholeTournament:
         assert result.first_tournament_seen is False
 
     def test_a_surviving_tournaments_rated_games_do_count(self):
-        """The counterpart: nothing discarded, so the rated game counts and
-        the unrated one does not."""
+        """The counterpart: something was taken from a rated opponent, so the
+        tournament opens the accumulation — and only the rated game enters."""
         games = [_game(1, 2, "1"), _game(1, 90, "0")]
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=ModalityState(),

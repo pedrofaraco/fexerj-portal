@@ -302,10 +302,13 @@ def compute_unrated_period(
     reaches five, at which point the initial rating is computed from the
     full accumulated history.
 
-    **The accumulation does not begin until the player scores** (§6.1 /
-    8.2.1, decided by FEXERJ on 2026-08-20). Every scoreless tournament
-    before that is discarded — as many as there are, not only the first —
-    and the count starts at the first tournament that is not scoreless.
+    **The accumulation does not begin until the player scores against a
+    rated opponent** (§6.1 / 8.2.1, decided by FEXERJ on 2026-08-20). Every
+    tournament in which they take nothing from rated opponents is discarded
+    before that — as many as there are, not only the first — and the count
+    starts at the first tournament that is not one of those. Points against
+    unrated opponents do not open the accumulation: they are invisible to the
+    rating calculation, so they cannot start it either.
 
     A discarded tournament leaves nothing behind: not in the accumulator,
     not in `games_counted`, and therefore not in the lifetime
@@ -365,12 +368,14 @@ def compute_unrated_period(
             continue
         tournament_points = sum((g.score for g in counted), Decimal("0"))
 
-        # "Zerar um torneio inteiro" (FEXERJ, 2026-08-11): the whole
-        # tournament is what has to be scoreless, not just the games against
-        # rated opponents. A newcomer in a field of unrated players may face
-        # a single rated opponent and lose to them while winning everything
-        # else — that is not a zeroed tournament, and the loss counts.
-        if not accepted and sum((g.score for g in tournament_games), Decimal("0")) == 0:
+        # "Ele deve pontuar pelo menos contra um rated em seu primeiro
+        # torneio válido" (FEXERJ, 2026-08-20). What opens the accumulation
+        # is scoring **against rated opponents**: points taken from unrated
+        # ones do not make the tournament count. This reverses the reading of
+        # 2026-08-11, where zeroing meant the whole tournament — under which
+        # a newcomer who beat a field of unrated players but lost their one
+        # rated game had that loss counted.
+        if not accepted and tournament_points == 0:
             # §6.1 / 8.2.1: discarded from the accumulator and from the game
             # count alike — these games were used in no calculation.
             discarded_any = True

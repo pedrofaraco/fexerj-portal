@@ -736,3 +736,58 @@ class TestChecksAudit:
             initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
         ).run_cycle()
         assert _audit_rows(output["Audit_Checks.csv"]) == []
+
+
+class TestTheFloorGivesTheProtectionBack:
+    """§7, decided by FEXERJ on 2026-08-20: "quando o piso derruba, ele tem
+    que refazer o rating como acima. Mas as partidas anteriores (e o K após
+    conseguir) não mudam."
+
+    A player the floor drops rebuilds their rating through §6.1 from the
+    start, discard protection included — but keeps the lifetime game count,
+    and therefore the K that follows from it."""
+
+    def _run(self, rating, k, opponents=1210):
+        # A field barely above the player: the expectation is near even, so
+        # losing costs real points. Against the 1800s of the other fixtures a
+        # player at 1205 *gains*, and the floor never gets a chance to act.
+        players_csv = _players_csv(
+            _player_row("3741", "Carlos Mendes", rtg=rating, games=60, k=k, first="1"),
+            _rated("643", "Roberto Faria", "01/01/1975", opponents, 20),
+            _rated("1979", "Andre Nunes", "01/01/1982", opponents, 20),
+            _rated("2831", "Felipe Borges", "01/01/1978", opponents, 20),
+            _rated("3541", "Lucas Carvalho", "01/01/1985", opponents, 20),
+            _rated("5400", "Bruno Teixeira", "01/01/1995", opponents, 20),
+        )
+        data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
+        output = FideRatingCycle(
+            tournaments_csv=_ONE_TOURNAMENT, first_item=1, items_to_process=1,
+            initial_rating_csv=players_csv, binary_files={"1-99999.TURX": data},
+        ).run_cycle()["RatingList.csv"]
+        header = output.splitlines()[0].split(";")
+        row = next(r for r in output.splitlines()[1:] if r.startswith("3741;")).split(";")
+        return dict(zip(header, row, strict=True))
+
+    def test_a_player_dropped_by_the_floor_gets_the_protection_back(self):
+        """Rating 1205 against a field of 1210: the period takes them under
+        1200 and they leave it unrated."""
+        row = self._run(1205, 20)
+        assert row["Rtg_Std"] == ""              # the floor acted
+        assert row["FirstTrn_Std"] == "0"        # rebuilding from scratch
+
+    def test_but_the_game_count_survives(self):
+        row = self._run(1205, 20)
+        assert row["Games_Std"] == "65"          # 60 on file plus the five played
+
+    def test_a_player_who_keeps_their_rating_keeps_the_marker(self):
+        row = self._run(1800, 20, opponents=1800)
+        assert row["Rtg_Std"] != ""
+        assert row["FirstTrn_Std"] == "1"
+
+    def test_the_permanent_k10_is_not_given_back_by_the_floor(self):
+        """The two markers behave differently on purpose: the discard comes
+        back, the K=10 never does."""
+        row = self._run(1202, 10)
+        assert row["Rtg_Std"] == ""
+        assert row["FirstTrn_Std"] == "0"
+        assert row["K_Std"] == "10"
