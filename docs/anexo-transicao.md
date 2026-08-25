@@ -156,7 +156,7 @@ Três blocos iguais, com os sufixos `_Std`, `_Rpd` e `_Blz`:
 | `Rtg_` | programa | Rating na modalidade. **Vazio significa sem rating.** |
 | `Games_` | programa | Partidas disputadas na vida, na modalidade. Alimenta o fator K (Anexo Normativo, seção 5) e é preservada quando o piso age (Anexo Normativo, seção 7). Não inclui as partidas do torneio descartado (Anexo Normativo, seção 6.1). |
 | `K_` | programa | Fator K da seção 5 do Anexo Normativo — `10`, `20` ou `40` —, **e o registro de que o jogador já atingiu 2.200**. Ver a seção 5 do Anexo Normativo. |
-| `FirstTrn_` | programa | `1` depois do primeiro torneio com ao menos um adversário com rating. Marca o descarte da seção 6.1 do Anexo Normativo como gasto, e nunca volta a `0`. |
+| `FirstTrn_` | programa | `1` depois do primeiro torneio **aceito** — não zerado e com ao menos um adversário com rating. Enquanto está em `0`, o próximo torneio zerado é descartado (seção 6.1 do Anexo Normativo). Nunca volta a `0`. |
 | `LastPlayed_` | programa | Período (`AAAA-MM`) em que o jogador teve partidas na modalidade pela última vez. Vazio se nunca teve. |
 | `RtgFide_` | **operador** | Rating FIDE do jogador na modalidade (Anexo Normativo, seção 6.4). Vazio quando não há. De 1.200 ou mais. |
 | `FideDate_` | **operador** | Data em que o `RtgFide_` foi conferido (Anexo Normativo, seção 6.4, alínea d). Obrigatória quando há rating FIDE, e só então. |
@@ -186,9 +186,10 @@ temporário, passam a servir apenas ao acúmulo de jogadores não-rated até as 
 
 Três colunas novas não têm origem na lista atual e recebem valor de partida:
 
-- `FirstTrn_` fica ligada para quem já tem partidas disputadas. É o mesmo critério que o
-  programa usava antes de a coluna existir; ligada de outro modo, todo jogador convertido
-  ganharia um descarte novo.
+- `FirstTrn_` fica ligada para quem já tem partidas disputadas: no modelo antigo a
+  contagem só avançava com resultados aproveitados, então quem tem partidas já teve um
+  torneio aceito. Ligada de outro modo, todo jogador convertido voltaria a ter direito ao
+  descarte da seção 6.1 do Anexo Normativo.
 - `Status` entra como `1`: a lista atual não traz a coluna, e ela é do operador.
 - `LastPlayed_`, `RtgFide_`, `FideDate_` e `AccSince_` entram vazias — a lista atual não
   registra quando cada jogador jogou pela última vez, nem quando um acúmulo começou.

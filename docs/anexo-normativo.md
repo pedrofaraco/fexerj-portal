@@ -271,32 +271,43 @@ produz na prática — `00/00/AAAA`, comum nos IRT, e registros antigos que traz
 Só quando o jogador acumular **pelo menos 5 partidas contra adversários rated**
 (7.1.4). Até lá, os resultados ficam acumulados e nenhum rating é publicado.
 
-Se o jogador **zerar seu primeiro torneio**, esse resultado é **descartado** do
-cálculo do primeiro rating (8.2.1). Aqui, "evento" é o **torneio**, não o período: o
-descarte olha o primeiro torneio isoladamente, mesmo que o jogador tenha pontuado em
-outro torneio do mesmo período.
+**O acúmulo não começa enquanto o jogador não pontuar.** Todo torneio em que ele não
+fizer ponto algum é **descartado** do cálculo do primeiro rating (8.2.1) — tantos
+quantos forem —, e a contagem passa a valer **a partir do primeiro torneio não zerado**.
 
-Duas precisões sobre o alcance do descarte:
+> **O texto da FIDE é dúbio neste ponto**, e a leitura acima é a da FEXERJ. O artigo
+> 8.2.1 diz *"If an unrated player scores zero in their first event this score is
+> disregarded"* — no singular. Mas, se o primeiro evento é *desconsiderado*, o seguinte
+> passa a ser o primeiro, e o descarte se repete. Foi assim que a FIDE operou no ciclo
+> 2017/2018, conforme caso examinado com a federação: um jogador que zerou dois torneios
+> teve os dois expurgados, e o rating de estreia publicado só fecha com essa leitura.
+> Registrado aqui para que a escolha fique explícita se a FIDE vier a esclarecer o ponto.
+
+Três precisões sobre o alcance do descarte:
 
 - **"Zerar" é zerar o torneio inteiro**, não só as partidas contra adversários com
   rating. Um estreante num torneio cheio de não-rated pode enfrentar um único jogador
   com rating e perder, ganhando todo o resto: o torneio não foi zerado, e a derrota
   conta.
-- **O descarte vale uma única vez, no primeiro torneio que o jogador disputa.** Se esse
-  primeiro torneio foi descartado e ele zerar o seguinte, o seguinte conta normalmente.
+- **"Evento" é o torneio, não o período.** Dois torneios no mesmo período são olhados um
+  a um: zerar o primeiro e pontuar no segundo descarta só o primeiro.
+- **Depois do primeiro torneio aceito, a proteção acaba.** Um resultado zerado a partir
+  daí conta normalmente, como qualquer outro.
 
 As partidas do torneio descartado **não entram na contagem de partidas** do jogador: a
 contagem registra as partidas válidas para cálculo de rating, e as desse torneio não
 foram usadas em cálculo nenhum. Isso é diferente do que acontece no piso (seção 7), onde
-o rating é zerado mas a contagem é inteiramente preservada.
+o rating é zerado mas a contagem é inteiramente preservada. Os **dois adversários
+fictícios** da seção 6.3 também não entram nessa contagem: eles existem para o cálculo do
+rating inicial, não para as 5 partidas exigidas.
 
 Disso decorre um registro próprio. Como o torneio descartado não movimenta a contagem, um
 jogador descartado termina o período com a contagem em zero, indistinguível de quem nunca
-jogou — e ganharia o descarte de novo no torneio seguinte, contra o "só o primeiro" acima.
-A coluna `FirstTrn_` da modalidade (Anexo de Transição, seção 2.1) guarda que o primeiro torneio já foi
-disputado. Ela é ligada pelo primeiro torneio em que o jogador enfrenta ao menos um
-adversário com rating, tenha esse torneio sido descartado ou não, e **nunca é desligada**:
-nem pela janela de 26 meses (seção 6.2), nem pelo piso (seção 7).
+jogou. A coluna `FirstTrn_` da modalidade (Anexo de Transição, seção 2.1) guarda que um
+torneio já foi **aceito** — e é ela, não a contagem de partidas, que decide se o próximo
+torneio zerado é descartado. Ela é ligada pelo primeiro torneio não zerado com ao menos um
+adversário com rating, e **nunca é desligada**: nem pela janela de 26 meses (seção 6.2),
+nem pelo piso (seção 7).
 
 ### 6.2 Janela de 26 meses (7.1.4)
 

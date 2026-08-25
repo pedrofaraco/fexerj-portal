@@ -135,7 +135,9 @@ class TestUnratedPeriod:
         assert result.path == "FIRST_EVENT_ZEROED"
         assert result.games_counted == 0
         assert result.accumulator.games == 0
-        assert result.first_tournament_seen is True
+        # Nothing was accepted, which is what leaves the next scoreless
+        # tournament discardable too.
+        assert result.first_tournament_seen is False
 
     def test_a_zeroed_later_event_is_not_discarded(self):
         state = ModalityState(games=4, first_tournament_played=True, accumulator=Accumulator(
@@ -282,7 +284,7 @@ class TestZeroingMeansTheWholeTournament:
         )
         assert result.path == "FIRST_EVENT_ZEROED"
         assert result.games_counted == 0
-        assert result.first_tournament_seen is True
+        assert result.first_tournament_seen is False
 
     def test_a_surviving_tournaments_rated_games_do_count(self):
         """The counterpart: nothing discarded, so the rated game counts and
@@ -297,15 +299,17 @@ class TestZeroingMeansTheWholeTournament:
         assert result.games_counted == 1
 
 
-class TestOnlyTheVeryFirstTournamentIsDiscardable:
-    """Decided by FEXERJ on 2026-08-11: "Sim. Só o primeiro. Se zerar a
-    partir do 2, conta." The opportunity is spent by the first tournament
-    the player plays, even when that tournament was itself discarded and
-    therefore left the accumulator empty."""
+class TestEveryScorelessTournamentIsDiscarded:
+    """Decided by FEXERJ on 2026-08-20, reversing the reading of 2026-08-11:
+    "Tantos descartes quantos forem os torneios zerados contra rated, ou
+    seja, considera somente a partir do 1 não zerado."
 
-    def test_a_player_who_has_played_before_gets_no_discard(self):
-        """The marker set with an empty accumulator and a zero game count is
-        exactly the state a discarded first tournament leaves behind."""
+    The accumulation does not begin until the player scores. What carries
+    across periods is therefore that a tournament was **accepted**, not that
+    one was played."""
+
+    def test_a_player_with_an_accepted_tournament_gets_no_discard(self):
+        """Once something has been accepted, a later zero counts normally."""
         state = ModalityState(games=0, first_tournament_played=True, accumulator=Accumulator())
         result = compute_unrated_period(
             player_id=1, modality="RPD", state=state,
@@ -341,10 +345,61 @@ class TestOnlyTheVeryFirstTournamentIsDiscardable:
         assert result.games_counted == 0
         assert result.first_tournament_seen is False
 
-    def test_two_periods_in_a_row_discard_only_once(self):
-        """Period 1 zeroes and is discarded; period 2 zeroes again and
-        counts. Runs the two periods back to back so the state carried
-        between them is the engine's own."""
+    def test_two_scoreless_tournaments_in_one_period_are_both_discarded(self):
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=[_game(1, 2, "0"), _game(2, 3, "0")],
+            opponent_ratings={2: 1600, 3: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.games_counted == 0
+        assert result.accumulator.games == 0
+
+    def test_the_count_starts_at_the_first_tournament_that_is_not_scoreless(self):
+        """Two zeroes, then a win: only the third tournament enters."""
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=[_game(1, 2, "0"), _game(2, 3, "0"), _game(3, 4, "1")],
+            opponent_ratings={2: 1600, 3: 1600, 4: 1600},
+            period_month=_MONTH,
+        )
+        assert result.games_counted == 1
+        assert result.accumulator.games == 1
+        assert result.accumulator.points == Decimal("1")
+        assert result.accumulator.sum_opponents == 1600
+
+    def test_a_zero_after_an_accepted_tournament_counts(self):
+        """Once the accumulation has begun, the protection is over."""
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=ModalityState(),
+            games=[_game(1, 2, "1"), _game(2, 3, "0")],
+            opponent_ratings={2: 1600, 3: 1600},
+            period_month=_MONTH,
+        )
+        assert result.games_counted == 2
+        assert result.accumulator.games == 2
+        assert result.accumulator.points == Decimal("1")
+
+    def test_the_marker_is_the_authority_not_the_game_count(self):
+        """A game count above zero does not mean a tournament was accepted.
+        The engine cannot produce that state — a discarded tournament adds no
+        games — but a file can carry it, and then the marker is what decides.
+        Reading the count instead would silently deny the discard."""
+        state = ModalityState(games=5, first_tournament_played=False)
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=[_game(1, 2, "0")],
+            opponent_ratings={2: 1600},
+            period_month=_MONTH,
+        )
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.accumulator.games == 0
+
+    def test_it_discards_again_across_periods(self):
+        """Two periods back to back, each a single scoreless tournament, with
+        the state carried between them by the engine itself. Under the rule
+        this replaces, the second one would have counted."""
         first = compute_unrated_period(
             player_id=1, modality="RPD", state=ModalityState(),
             games=[_game(1, 2, "0")],
@@ -365,8 +420,9 @@ class TestOnlyTheVeryFirstTournamentIsDiscardable:
             opponent_ratings={3: 1600},
             period_month=_LATER_MONTH,
         )
-        assert second.path == "ACCUMULATING"
-        assert second.accumulator.games == 1
+        assert second.path == "FIRST_EVENT_ZEROED"
+        assert second.accumulator.games == 0
+        assert second.games_counted == 0
 
 
 class TestAccumulationWindow:
