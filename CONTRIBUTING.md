@@ -53,6 +53,30 @@ npm run build
 
 These same checks run automatically via GitHub Actions on pushes to `master`, `develop`, and matching `feature/**`, `fix/**`, `refactor/**`, and `chore/**` branches, and on pull requests targeting `master` or `develop` (Python lint/typecheck, shellcheck, and frontend lint, test, and production build).
 
+## Falar com a FEXERJ
+
+A federação responde por WhatsApp, em mensagens curtas e às vezes truncadas. Pedro é o
+intermediário: o texto é escrito aqui, ele cola lá. Perguntas curtas, uma decisão por item.
+
+**Toda mensagem é escrita em `.superpowers/sdd/fexerj/` antes de ser enviada, e é de lá
+que Pedro copia.** Um arquivo por mensagem, `AAAA-MM-DD-enviado.md` ou `-recebido.md`,
+**nunca editado depois de escrito**: se algo nele se revelar errado, o texto enviado fica
+como está e a descoberta vai num bloco `CORREÇÃO POSTERIOR` datado, no fim. Cada arquivo
+fecha com três seções — **números afirmados**, **compromissos assumidos**, **fica em
+aberto** — e o `INDICE.md` da pasta carrega a tabela de perguntas sem resposta.
+
+A pasta é git-ignored, por decisão do Pedro: mantém a correspondência da federação fora de
+um repositório público, e um registro append-only quase não precisa de histórico do git,
+porque nada é reescrito. **Esta seção é a parte versionada.** Se a pasta não existir num
+clone, é porque ela não vem no clone — recrie-a e peça o histórico ao Pedro. **Não
+reconstrua o que foi dito a partir de mensagem de commit e apresente como fala deles:**
+reconstrução que depois vira citação é o mecanismo por trás das quatro regras que já foram
+implementadas a partir de leitura errada.
+
+Registrar não é tarefa para o fim da sessão. Número dito a eles vira número que eles têm:
+quando um documento publica depois outro número para a mesma coisa, eles veem contradição
+e nós não vemos nada. Foi o que quase aconteceu com o 84 e o 87 do anexo de testes.
+
 ## Branch Strategy
 
 - `master` — production only; never commit directly
