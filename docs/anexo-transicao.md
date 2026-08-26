@@ -141,9 +141,9 @@ conhece. Para o cálculo ele é um jogador como qualquer outro — entra, joga, 
 evolui. O status `2` apenas o mantém fora da lista publicada, como todos os status
 diferentes de `1`.
 
-Grampos continuam a ser criados a cada ciclo. O que a conversão descarta (Anexo Normativo, seção 7) são os
-registros de grampo **remanescentes na lista atual**, cujos ids temporários venceram sem
-que o jogador se federasse — não a figura do grampo.
+Grampos continuam a ser criados a cada ciclo. O que a conversão descarta (seção 1.1) são
+os registros de grampo **remanescentes na lista atual**, cujos ids temporários venceram
+sem que o jogador se federasse — não a figura do grampo.
 
 #### As onze colunas de cada modalidade
 

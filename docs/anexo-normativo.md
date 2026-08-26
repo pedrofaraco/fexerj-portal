@@ -109,7 +109,7 @@ FIDE exibe o adversário já limitado em suas páginas de cálculo.
 - `D < 0`: usa a coluna **L** para `|D|`, que equivale a `1 − PD_H`
 
 **Não usar a fórmula logística.** A tabela produz valores diferentes — a divergência
-foi medida e está documentada na seção 1 do Anexo de Testes.
+foi medida e está documentada na seção 2 do Anexo de Testes.
 
 ### Passo 3 — variação da partida
 
@@ -217,8 +217,8 @@ Um K, um n, o período inteiro: `n` é o número de partidas do jogador **no per
 tal que `K × n ≤ 700`.
 
 **O teto é de 700, aplicado por período e não por torneio.** Sobre o valor: no ciclo
-real de 2026 (Anexo de Testes, seção 2) o teto não chegou a atuar — a mediana foi de 4 a 5 partidas por
-jogador por bimestre, com máximo de 26, contra as 18 partidas necessárias para o teto
+real de 2026 (Anexo de Testes, seção 3) o teto não chegou a atuar — a mediana foi de 5 partidas por
+jogador por bimestre, com máximo de 25, contra as 18 partidas necessárias para o teto
 atuar sob K=40. O valor de 700 é o da própria FIDE.
 
 Sobre o recorte: aplicado torneio a torneio, o total do período ultrapassaria o limite
