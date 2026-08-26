@@ -185,16 +185,36 @@ onde ficam as regras aposentadas (Anexo de Transição, seção 3).
 ### 3.4 O que o modelo novo faz e o atual não fazia
 
 Dos **480** jogadores que disputaram partidas, **347** terminam o semestre com rating e
-**133** sem. Dos 347, **49** conquistaram o primeiro rating pela regra da seção 6 do Anexo
-Normativo. Dos 133, **46** têm partidas acumuladas rumo às 5 e **87** não têm nenhuma:
-todo torneio que disputaram foi descartado, porque em nenhum deles pontuaram contra
-adversário com rating.
+**133** sem. **49** conquistaram o primeiro rating pela regra da seção 6 do Anexo
+Normativo.
+
+| Como entraram no ciclo | Jogadores | Terminam com rating | Sem rating |
+|---|---:|---:|---:|
+| Já com rating | 301 | 298 | 3 |
+| Estreantes — sem rating e sem partidas | 162 | 41 | 121 |
+| Sem rating, com partidas já acumuladas | 17 | 8 | 9 |
+
+Dos **121 estreantes que terminam sem rating**, **37** têm partidas acumuladas rumo às 5 e
+**84 não têm nenhuma**: o torneio que disputaram foi descartado, porque nele não pontuaram
+contra adversário com rating. **Todos os 84 disputaram um único torneio.** Os **3** que
+entraram com rating e terminam sem ele caíram abaixo do piso de 1200 (Anexo Normativo,
+seção 7).
 
 O descarte da seção 6.1 do Anexo Normativo foi acionado **71 vezes, sobre 68 jogadores**.
 Este é o número com as duas decisões da FEXERJ de 20/08/2026 — descartam-se tantos
 torneios quantos forem os zerados, e "zerar" é não pontuar contra adversário com rating.
 No rascunho 1, sob as leituras anteriores — um único descarte, e "zerar" como não pontuar
 de forma alguma —, eram 23. É a mudança de maior alcance desta rodada de revisão.
+
+**Os 71 descartes cabem em 68 jogadores porque um deles teve quatro**, e esse caso merece
+registro. O jogador entrou no ciclo com rating no piso, caiu abaixo dele no primeiro
+bimestre e, refazendo o rating como estreante, disputou **quatro torneios sem pontuar
+contra adversário com rating** — os quatro descartados. Termina o semestre sem rating e
+sem nada acumulado rumo às 5 partidas, embora a contagem de partidas disputadas esteja
+preservada (Anexo Normativo, seção 7). É a regra como está escrita: o piso devolve a
+proteção do descarte, e ela vale enquanto o jogador não pontuar contra adversário com
+rating. **Entre os estreantes isso não aconteceu** — nenhum dos 84 disputou mais de um
+torneio. Aparece em quem refaz o rating.
 
 Na conversão, **1.361** jogadores entram com rating, dos quais **60 no piso de 1200**.
 
