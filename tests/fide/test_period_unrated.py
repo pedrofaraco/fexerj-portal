@@ -463,13 +463,16 @@ class TestAccumulationWindow:
         assert result.accumulator.points == Decimal("0.5")
         assert result.accumulator.since == "2026-04"     # restarted from this period
 
-    def test_a_window_reset_does_not_hand_back_the_discard(self):
-        """A window reset wipes the accumulator, but it does not turn the
-        player back into a newcomer: they have played before, and "só o
-        primeiro" (FEXERJ, 2026-08-11) spends the discard on the first
-        tournament ever, not on the first after a reset. The marker is what
-        remembers it — the accumulator cannot, since a reset is
-        indistinguishable from never having played once it is zeroed."""
+    def test_a_window_reset_hands_the_discard_back(self):
+        """A window reset turns the player back into a newcomer for the §6.1
+        discard, the way the §7 floor does. FEXERJ, 2026-09-14, asked whether
+        the player returning after 26 months has the scoreless tournament
+        counted or discarded: "Nao é tem direito. É a regra, descartado."
+
+        This reverses the reading held until then, which spent the discard on
+        the first tournament ever and never gave it back. The marker is what
+        carries it: the accumulator cannot, since once zeroed a reset is
+        indistinguishable from never having played."""
         state = ModalityState(games=3, first_tournament_played=True, accumulator=Accumulator(
             games=3, sum_opponents=4800, points=Decimal("1.5"), since="2024-01",
         ))
@@ -479,11 +482,29 @@ class TestAccumulationWindow:
             opponent_ratings={2: 1600},
             period_month="2026-04",  # past the window
         )
-        assert result.path == "ACCUMULATING"
-        assert result.accumulator.games == 1               # counted, not discarded
+        assert result.path == "FIRST_EVENT_ZEROED"
+        assert result.accumulator.games == 0               # discarded, not counted
         assert result.accumulator.points == Decimal("0")
-        assert result.accumulator.sum_opponents == 1600
-        assert result.accumulator.since == "2026-04"       # restarted from this period
+        assert result.accumulator.sum_opponents == 0
+        assert result.first_tournament_seen is False       # still discardable next time
+
+    def test_an_undated_accumulator_does_not_hand_the_discard_back(self):
+        """The undated reset is not a window expiry and must not be treated as
+        one. It happens once, right after the §2.2 legacy conversion, which
+        deliberately marks every converted player as having had a tournament
+        accepted (Anexo de Transição §2.1) — precisely so the whole converted
+        list does not get a free discard in its first period."""
+        state = ModalityState(games=3, first_tournament_played=True, accumulator=Accumulator(
+            games=3, sum_opponents=4800, points=Decimal("1.5"), since="",
+        ))
+        result = compute_unrated_period(
+            player_id=1, modality="RPD", state=state,
+            games=[_game(1, 2, "0")],
+            opponent_ratings={2: 1600},
+            period_month="2026-04",
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 1               # counted, as before
 
 
 class TestFloorExpelledPlayerAccumulator:

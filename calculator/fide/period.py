@@ -320,8 +320,13 @@ def compute_unrated_period(
     false, the next scoreless tournament is discarded again. It is a field of
     its own rather than a reading of the game count because a discarded
     tournament increments nothing, so a count of zero cannot tell "never
-    played" from "played and was discarded" — and it survives the §6.2 window
-    reset and the §7 floor, neither of which hands the protection back.
+    played" from "played and was discarded".
+
+    Both resets hand the protection back, each decided by FEXERJ on its own:
+    the §7 floor on 2026-08-20, applied in `cycle._apply_results` because only
+    the caller knows the period ended without a rating; and the §6.2 window
+    here, on 2026-09-14 ("é a regra, descartado"). The undated reset below is
+    the exception and hands nothing back.
 
     `period_month` ("YYYY-MM") is checked against `state.accumulator.since`
     for the 26-month pooling window (§6.2 / FIDE 7.1.4): once the gap is
@@ -340,9 +345,18 @@ def compute_unrated_period(
     all.
     """
     accumulator = state.accumulator
-    if accumulator.games > 0 and (
-        not accumulator.since or rules.accumulation_expired(accumulator.since, period_month)
-    ):
+    # Only a real 26-month expiry makes the player a newcomer again. The
+    # undated case is reset on the same conservative reading but must not
+    # hand the discard back: the legacy conversion deliberately marks every
+    # converted player as having had a tournament accepted (Anexo de
+    # Transição §2.1), and clearing it here would give the whole converted
+    # list a free discard in its first period.
+    window_expired = bool(
+        accumulator.games > 0
+        and accumulator.since
+        and rules.accumulation_expired(accumulator.since, period_month)
+    )
+    if accumulator.games > 0 and (not accumulator.since or window_expired):
         accumulator = Accumulator()
 
     games_by_tournament: dict[int, list[Game]] = {}
@@ -354,7 +368,7 @@ def compute_unrated_period(
     # Every scoreless tournament before that is discarded, not only the
     # first — so `first_tournament_played` marks that a tournament has
     # already been *accepted*, not merely played.
-    accepted = state.first_tournament_played
+    accepted = state.first_tournament_played and not window_expired
     games_counted = 0
     total_games = accumulator.games
     total_points = accumulator.points

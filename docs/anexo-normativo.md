@@ -308,9 +308,10 @@ jogador descartado termina o período com a contagem em zero, indistinguível de
 jogou. A coluna `FirstTrn_` da modalidade (Anexo de Transição, seção 2.1) guarda que um
 torneio já foi **aceito** — e é ela, não a contagem de partidas, que decide se o próximo
 torneio zerado é descartado. Ela é ligada pelo primeiro torneio não zerado com ao menos um
-adversário com rating. Ela é **desligada quando o jogador perde o rating** e passa a
-refazê-lo (seção 7): quem recomeça do zero recomeça também com a proteção. O que não
-volta atrás é o indicador permanente de K=10, que o piso não devolve.
+adversário com rating. Ela é **desligada sempre que o acúmulo recomeça do zero**: quando o
+piso derruba o rating (seção 7) e quando a janela de 26 meses vence o acúmulo (seção 6.2).
+Quem recomeça do zero recomeça também com o descarte. O que não volta atrás, em nenhum dos
+dois casos, é o indicador permanente de K=10.
 
 ### 6.2 Janela de 26 meses (7.1.4)
 
@@ -331,14 +332,16 @@ período corrente.
 O que se perde é o **acúmulo** rumo ao primeiro rating. A **contagem de partidas
 disputadas é preservada**: ela alimenta o fator K (seção 5).
 
-O reinício do acúmulo **não devolve ao jogador o descarte** do primeiro torneio zerado
-(seção 6.1): a janela vence o **acúmulo**, não a condição de estreante. Quem volta depois
-de mais de 26 meses é calculado como quem já teve um torneio aceito, e um torneio zerado
-dali em diante conta normalmente.
+O reinício do acúmulo **devolve ao jogador o descarte** do primeiro torneio zerado (seção
+6.1). Quem volta depois de mais de 26 meses recomeça como estreante, e o primeiro torneio
+em que não pontuar contra adversário com rating é descartado, como em qualquer estreia.
+*Confirmado pela FEXERJ em 14/09/2026, sobre o caso de um jogador que volta com o acúmulo
+vencido e perde todas as partidas: "é a regra, descartado".*
 
-**O piso é o caso oposto**, por decisão da FEXERJ de 20/08/2026: quem perde o rating
-refaz o descarte junto com o rating (seções 6.1 e 7). As duas situações zeram o acúmulo
-pelo mesmo mecanismo, e só uma devolve a proteção.
+É o mesmo tratamento do piso (seção 7), decidido em 20/08/2026. As duas situações zeram o
+acúmulo e as duas devolvem o descarte — o que muda entre elas é só o motivo pelo qual o
+acúmulo acabou. O que não volta atrás, em nenhuma das duas, é o indicador permanente de
+K=10.
 
 ### 6.3 Fórmula
 
