@@ -332,9 +332,13 @@ O que se perde é o **acúmulo** rumo ao primeiro rating. A **contagem de partid
 disputadas é preservada**: ela alimenta o fator K (seção 5).
 
 O reinício do acúmulo **não devolve ao jogador o descarte** do primeiro torneio zerado
-(seção 6.1). Esse descarte é contado por jogador, e não por acúmulo: uma vez usado, não
-volta a valer, nem quando a janela expira, nem quando o jogador perde o rating pelo piso
-(seção 7).
+(seção 6.1): a janela vence o **acúmulo**, não a condição de estreante. Quem volta depois
+de mais de 26 meses é calculado como quem já teve um torneio aceito, e um torneio zerado
+dali em diante conta normalmente.
+
+**O piso é o caso oposto**, por decisão da FEXERJ de 20/08/2026: quem perde o rating
+refaz o descarte junto com o rating (seções 6.1 e 7). As duas situações zeram o acúmulo
+pelo mesmo mecanismo, e só uma devolve a proteção.
 
 ### 6.3 Fórmula
 
