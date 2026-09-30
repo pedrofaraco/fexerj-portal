@@ -1,6 +1,6 @@
 # Anexo de Transição — Modelo de rating da FEXERJ
 
-**Rascunho 2 — 13/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
+**Rascunho 2 — 30/09/2026.** Documento em revisão com a FEXERJ; não é versão final.
 
 O que vale **uma única vez**, na passagem do modelo por torneio para o modelo por partida,
 mais a descrição dos arquivos que o programa lê e escreve. Nada aqui é regra permanente do
@@ -32,11 +32,15 @@ O piso de 1200 do modelo novo (seção 7 do Anexo Normativo) é escrito para um 
 tratam de registros que **já existem** na lista de hoje. As duas regras:
 
 - **Jogador com rating publicado e menos de 5 partidas: o rating é zerado**, e ele
-  entra não-rated. A contagem de partidas é preservada "para registro", e as partidas
-  já disputadas valem como acúmulo rumo às 5 que ele passa a precisar. Motivo: o
-  modelo novo não produz rating com menos de 5 partidas (Anexo Normativo, seção 6.1), e a lista
-  convertida conteria números que o próprio modelo recusa. **256 jogadores** na lista
-  atual.
+  entra não-rated — ativo ou inativo. A contagem de partidas é preservada "para
+  registro". **Se ele estiver ativo**, tendo disputado partida nos 2 anos anteriores à
+  virada, as partidas já disputadas valem como acúmulo rumo às 5 que ele passa a precisar;
+  **se estiver inativo, não valem**, e ele recomeça do zero. O critério é o jogador, não a
+  partida: estando ativo, valem todas. *Confirmado pela FEXERJ em 29/09/2026 — "em ambos
+  os casos 'zerado'" — e em 30/09/2026: "se ele está ativo (2025), conta. Se ele inativou
+  (antes) não conta."* Motivo do zeramento: o modelo novo não produz rating com menos de 5
+  partidas (Anexo Normativo, seção 6.1), e a lista convertida conteria números que o
+  próprio modelo recusa. **256 jogadores** na lista atual.
 - **Jogador com rating abaixo de 1200 e 5 partidas ou mais: sobe para o piso** e entra
   rated. Motivo: entrar não-rated o removeria da lista em silêncio, porque o cálculo do
   rating inicial raramente devolve alguém acima de 1200; entrando no piso, a saída — se
@@ -53,11 +57,14 @@ Três fronteiras que as respostas não explicitavam, resolvidas assim:
   5 partidas), vale o primeiro: ele entra não-rated.
 
 **A conferência do operador na data de corte.** A lista de hoje não registra *quando*
-cada rating foi obtido, e é isso que a janela de 26 meses (Anexo Normativo, seção 6.2) precisaria saber.
-A conferência é, por isso, do operador, e acontece uma única vez, na virada:
+cada jogador jogou pela última vez, e é isso que a primeira regra acima precisa saber. A
+conferência é, por isso, do operador, e acontece uma única vez, na virada:
 
-- Para cada jogador com **menos de 5 partidas**, verificar quando o rating foi obtido; se
-  for anterior à janela, o rating é descartado e o jogador entra não-rated.
+- Para cada jogador com **menos de 5 partidas**, verificar se ele disputou partida nos
+  **2 anos anteriores à virada** — é o que decide se as partidas dele valem como acúmulo
+  (primeira regra acima). A lista de hoje não registra quando cada um jogou pela última
+  vez. Uma forma mecânica de saber: comparar com a lista publicada 2 anos antes — se a
+  contagem de partidas mudou entre as duas, ele jogou no intervalo.
 - Registro de **grampo remanescente** — id temporário de não-federado, marcado com o
   **status 2** (seção 2.1) — é descartado quando o prazo dele já venceu sem que o
   jogador se federasse. O que se descarta é o registro vencido, não a figura do grampo,

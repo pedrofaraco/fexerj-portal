@@ -1,6 +1,6 @@
 # Anexo de Testes — Modelo de rating da FEXERJ
 
-**Rascunho 2 — 26/08/2026.** Documento em revisão com a FEXERJ; não é versão final.
+**Rascunho 2 — 30/09/2026.** Documento em revisão com a FEXERJ; não é versão final.
 
 As conferências que sustentam os números do modelo. São registros **fechados, com data e
 escopo declarados**: não deixam de ser verdade com o tempo, viram histórico. É a seção 3
@@ -217,6 +217,13 @@ rating. **Entre os estreantes isso não aconteceu** — nenhum dos 84 disputou m
 torneio. Aparece em quem refaz o rating.
 
 Na conversão, **1.361** jogadores entram com rating, dos quais **60 no piso de 1200**.
+
+**O que esta simulação não aplica.** A conversão aqui não aproveita as partidas antigas de
+nenhum jogador zerado. Pela regra decidida em 30/09/2026 (Anexo de Transição, seção 1.1),
+as dos jogadores ativos valem — e saber quem estava ativo exige a lista publicada 2 anos
+antes, que não fazia parte dos dados. Com as partidas de todos os federados zerados
+aproveitadas, seriam **58 estreias em vez de 49**, e 25 ratings finais mudariam; pela
+regra, o número real fica entre os dois.
 
 ### 3.5 Por que o bimestre roda de uma vez
 
