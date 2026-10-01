@@ -117,7 +117,8 @@ período). **As 13 partidas conferem individualmente** e a soma reproduz exatame
 variação publicada de 19,60.
 
 A mesma conferência mostrou por que a tabela não pode ser trocada pela fórmula
-logística — **7 das 13 partidas divergem**:
+logística — **8 das 13 partidas divergem** quando a variação da fórmula é levada a duas
+casas, como a tabela publica:
 
 | D | esperado pela fórmula | ΔR pela fórmula | ΔR pela tabela (FIDE) |
 |---:|---:|---:|---:|
@@ -133,7 +134,7 @@ diferença** para um jogador em um mês.
 ## 3. Simulação sobre um ciclo real
 
 O modelo foi rodado sobre o último ciclo completo da federação: **35 torneios entre
-25/01 e 07/06/2026**, todos de Clássico, com os 2.385 jogadores da lista e 480 deles
+25/01 e 23/06/2026**, todos de Clássico, com os 2.385 jogadores da lista e 480 deles
 disputando partidas. Serve para sair da discussão teórica e ver o efeito das regras
 sobre gente real.
 
