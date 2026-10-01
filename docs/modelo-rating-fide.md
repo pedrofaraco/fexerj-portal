@@ -18,12 +18,13 @@ para: daqui em diante cada anexo é revisado com a federação por conta própri
 ter mudado uma vírgula: ele ficou no 1 até 26/08/2026, quando ganhou a seção 1. Os três
 estarem hoje no 2 é coincidência — o próximo a mudar sobe sozinho.
 
-**O rascunho 1 dos três foi enviado à federação em 13/08/2026** e está em análise. Os
-`.docx` daquele rascunho continuam neste diretório, gerados da fonte como ela estava
-naquele momento: é o que permite responder ao que eles comentarem, que é sobre aquele
-texto e não sobre este. O que mudou depois — a redação do aviso de K=10 no normativo, a
-descrição dos arquivos de auditoria no de transição e a seção 1 nova no de testes — está
-nos rascunhos 2, que **ainda não foram enviados**.
+**O rascunho 1 dos três foi enviado em 13/08/2026 e o rascunho 2 em 01/10/2026**, para
+apresentação ao presidente da federação. Os `.docx` de cada rascunho enviado ficam neste
+diretório, gerados da fonte como ela estava no envio: é o que permite responder ao que eles
+comentarem, que é sobre aquele texto e não sobre a fonte corrente. O rascunho 2 acumula a
+rodada de revisão de agosto e setembro — descarte repetido, "zerar" contra rated, piso e
+janela de 26 meses devolvendo o descarte, a conversão de quem tem menos de 5 partidas, a
+seção 1 nova do anexo de testes e a seção 3 remedida.
 
 ## O critério da divisão
 
