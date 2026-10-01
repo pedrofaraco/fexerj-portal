@@ -61,7 +61,7 @@ e 1860. Menor rating 921, maior 2496.
 | Rating mínimo | 1400 | **1200** | abaixo de 1200 estão 29 jogadores (3,3%); abaixo de 1400, **145 (16,7%)** |
 | Rating inicial máximo | 2200 | **2000** | 103 jogadores (11,9%) têm 2000 ou mais; 29 (3,3%) têm 2200 ou mais |
 | Rating que fixa K=10 | 2400 | **2200** | 29 jogadores (3,3%) alcançam 2200; 2400 é alcançado por **1** |
-| Teto de rating para o K=40 de sub-18 | 2300 | **2100** | acima de 2100 estão 56 jogadores (6,5%); acima de 2300, 10 (1,2%) |
+| Teto de rating para o K=40 de sub-18 | 2300 | **2100** | 56 jogadores (6,5%) têm 2100 ou mais; 10 (1,2%) têm 2300 ou mais |
 
 **Os adversários fictícios são o parâmetro que mais mexe em rating**, porque entram na
 conta do primeiro rating de todo estreante (Anexo Normativo, seção 6.3): dois empates
@@ -78,8 +78,9 @@ abaixo dele volta a não-rated e refaz as 5 partidas para ter rating de novo.
 contém uma estimativa feita com 5 partidas: em 2000 ele já está acima de 88,1% da lista;
 em 2200, uma estimativa de cinco partidas poderia estrear acima de 96,7% dela. O K=10 em
 2400 alcançaria **um único jogador** da federação, contra 29 em 2200 — seria letra morta.
-E o teto do K=40 de sub-18 marca onde o jogador jovem deixa de receber o fator acelerado:
-em 2100 ficam acima dele 56 jogadores; em 2300, dez.
+E o teto do K=40 de sub-18 marca onde o jogador jovem deixa de receber o fator acelerado
+— o K=40 vale enquanto o rating está *abaixo* do teto, então quem está nele ou acima fica
+de fora: com o teto em 2100 são 56 jogadores; em 2300, dez.
 
 **Os dois parâmetros não adaptados.** O teto de 400 pontos vale sempre porque a exceção da
 FIDE é para jogadores de 2650 ou mais, e o maior rating da lista é 2496 — ela não
