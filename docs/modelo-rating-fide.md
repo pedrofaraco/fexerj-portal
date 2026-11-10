@@ -18,6 +18,11 @@ para: daqui em diante cada anexo é revisado com a federação por conta própri
 ter mudado uma vírgula: ele ficou no 1 até 26/08/2026, quando ganhou a seção 1. Os três
 estarem hoje no 2 é coincidência — o próximo a mudar sobe sozinho.
 
+**O rascunho 2 dos três anexos foi aprovado pela FEXERJ, sem alteração** — aprovação
+comunicada em 09/11/2026. O texto aprovado é o dos `anexo-*-rascunho-2.docx` deste
+diretório, idêntico às fontes: nada mudou entre o envio e a aprovação. Daqui em diante,
+mudar uma fonte é mudar texto aprovado — abre o rascunho 3 e pede nova aprovação.
+
 **O rascunho 1 dos três foi enviado em 13/08/2026 e o rascunho 2 em 01/10/2026**, para
 apresentação ao presidente da federação. Os `.docx` de cada rascunho enviado ficam neste
 diretório, gerados da fonte como ela estava no envio: é o que permite responder ao que eles
