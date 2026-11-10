@@ -28,6 +28,9 @@ entre os `.docx`. Os arquivos são `anexo-normativo.docx`,
 que foi aprovado. Mudar o corpo de uma fonte agora é mudar texto aprovado, e pede nova
 aprovação.
 
+**A versão final foi enviada à federação em 09/11/2026, em PDF** exportado pelo Word. Os
+PDFs não são versionados (`docs/**/*.pdf` é ignorado); os `.docx` de onde saíram, sim.
+
 Todas as regras dos anexos estão no programa. A última — as partidas do jogador ativo
 valendo na virada (Anexo de Transição, seção 1.1) — entra pela conversão, que roda uma vez:
 `scripts/converter-lista.py`, com a lista da virada e a publicada 2 anos antes.

@@ -65,7 +65,8 @@ The deploy fetches, checks out and `reset --hard`s whatever branch is named, so 
 
 - The mode selector on the run form defaults to the current model. The per-game model is `Modelo FIDE (por partida)`.
 - `tournaments.csv` needs the extra `TimeControl` column (`STD`, `RPD` or `BLZ`) and a readable `EndDate` on every row.
-- `players.csv` may be either the federation's 12-column file — converted on read — or the 42-column one the model writes. **`Birthday` is required in both**: 298 rows of the current list have none, and 2 carry an Excel serial number; the validator rejects the file until those are filled.
+- `players.csv` may be either the federation's 12-column file — converted on read — or the 42-column one the model writes. **`Birthday` is required only where it decides the K factor** (30 games or more, rated below 2100, never reached 2200). On the current list that is **one row, id 3000**, which carries an Excel serial number instead of a date: the validator rejects the file until that one cell is fixed. The other 297 missing or unreadable dates do not block a run.
+- Uploading the 12-column file converts it without the cut-over rule for active players: their old games carry over only through `scripts/converter-lista.py`, which runs once, at the real cut-over, against the list published two years earlier. Fine for a trial; the numbers for players with fewer than 5 games will differ from the real cut-over.
 - The interval selected is the **period**, not a chain of tournaments: every game is calculated against the rating at the start of it.
 - The ZIP comes back with `RatingList.csv`, `Audit_Games.csv`, `Audit_Period.csv` and `Audit_Checks.csv`. The last one lists the cases that want a human look; empty means none.
 
