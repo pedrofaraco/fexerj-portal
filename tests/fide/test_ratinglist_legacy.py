@@ -1,9 +1,19 @@
 """Conversion from the 12-column legacy format — spec §2.2."""
+import pathlib
+import subprocess
+import sys
 from decimal import Decimal
+
+import pytest
 
 from calculator.fide.model import Game
 from calculator.fide.period import compute_unrated_period
-from calculator.fide.ratinglist import LEGACY_HEADER, read_rating_list
+from calculator.fide.ratinglist import (
+    FIDE_HEADER,
+    LEGACY_HEADER,
+    carry_over_active_accumulations,
+    read_rating_list,
+)
 
 _MONTH = "2026-01"
 
@@ -343,3 +353,123 @@ class TestConversionOfTheCadastralColumns:
     def test_last_played_starts_empty(self):
         """The legacy format never recorded when a player last played."""
         assert _std(read_rating_list(_LEGACY_CSV)[1]).last_played == ""
+
+
+# The list as it stands at the cut-over, and the one published two years
+# before it. Comparing the two is how the operator's check at the cut-over
+# (Anexo de Transição §1.1) tells who played in between.
+_CUTOVER_CSV = (
+    LEGACY_HEADER + "\n"
+    # active: three games now, one of them already there two years ago
+    "20;;;Jogador A1;1450;CLUB A;01/01/1990;M;BRA;3;4500;1.5\n"
+    # inactive: the same three games two years ago
+    "21;;;Jogador A2;1450;CLUB A;01/01/1990;M;BRA;3;4500;1.5\n"
+    # not on the earlier list at all: every game is from the last two years
+    "22;;;Jogador A3;1450;CLUB A;01/01/1990;M;BRA;2;3000;1\n"
+    # rated: nothing accumulated to carry
+    "23;;;Jogador A4;1800;CLUB A;01/01/1990;M;BRA;50;0;0\n"
+    # played since, but not the rule's player: no published rating, ten games
+    "24;;;Jogador A5;0;CLUB A;01/01/1990;M;BRA;10;8500;1.5\n"
+)
+_TWO_YEARS_EARLIER_CSV = (
+    LEGACY_HEADER + "\n"
+    "20;;;Jogador A1;1400;CLUB A;01/01/1990;M;BRA;1;1500;0.5\n"
+    "21;;;Jogador A2;1450;CLUB A;01/01/1990;M;BRA;3;4500;1.5\n"
+    "23;;;Jogador A4;1790;CLUB A;01/01/1990;M;BRA;40;0;0\n"
+    "24;;;Jogador A5;0;CLUB A;01/01/1990;M;BRA;4;3000;1\n"
+)
+_CUTOVER = "2027-03"
+
+
+class TestConversionOfTheActivePlayersGames:
+    """Decided by FEXERJ on 2026-09-30, about the player decision C zeroes:
+    "se ele está ativo (2025), conta. Se ele inativou (antes) não conta."
+    The games of a player who played in the two years before the cut-over
+    carry over toward the five; an inactive player's do not. The unit is
+    the player, not the game — an active player keeps all of them."""
+
+    def _converted(self):
+        players = read_rating_list(_CUTOVER_CSV)
+        carried = carry_over_active_accumulations(players, _TWO_YEARS_EARLIER_CSV, _CUTOVER)
+        return players, carried
+
+    def test_an_active_player_has_the_accumulation_dated_at_the_cutover(self):
+        players, _ = self._converted()
+        accumulator = _std(players[20]).accumulator
+        assert accumulator.since == _CUTOVER
+        assert (accumulator.games, accumulator.sum_opponents, accumulator.points) == (
+            3, 4500, Decimal("1.5"),
+        )
+
+    def test_an_inactive_player_is_left_undated(self):
+        players, _ = self._converted()
+        assert _std(players[21]).accumulator.since == ""
+
+    def test_a_player_absent_from_the_earlier_list_is_active(self):
+        """An id that did not exist two years ago played every one of its
+        games since then."""
+        players, _ = self._converted()
+        assert _std(players[22]).accumulator.since == _CUTOVER
+
+    def test_only_the_player_decision_c_zeroed_is_touched(self):
+        """Player 24 played in between, but holds ten games and no published
+        rating: not "rating publicado e menos de 5 partidas". Player 23 is
+        rated and has no accumulation to date."""
+        players, _ = self._converted()
+        assert _std(players[24]).accumulator.since == ""
+        assert _std(players[23]).accumulator.since == ""
+
+    def test_it_reports_who_was_carried_over(self):
+        _, carried = self._converted()
+        assert sorted(carried) == [20, 22]
+
+    def test_the_active_player_reaches_five_games_with_the_old_ones(self):
+        """Three carried games plus two new ones are five: a first rating.
+        The calculation itself is untouched — it already honours a dated
+        accumulator."""
+        players, _ = self._converted()
+        games = [Game(1, "STD", 20, 900, Decimal("1")), Game(1, "STD", 20, 901, Decimal("0.5"))]
+        result = compute_unrated_period(
+            20, "STD", _std(players[20]), games, {900: 1500, 901: 1500}, period_month=_CUTOVER,
+        )
+        assert result.path == "INITIAL_RATING"
+        assert result.final_rating == 1579
+
+    def test_the_inactive_player_starts_over_with_the_same_two_games(self):
+        players, _ = self._converted()
+        games = [Game(1, "STD", 21, 900, Decimal("1")), Game(1, "STD", 21, 901, Decimal("0.5"))]
+        result = compute_unrated_period(
+            21, "STD", _std(players[21]), games, {900: 1500, 901: 1500}, period_month=_CUTOVER,
+        )
+        assert result.path == "ACCUMULATING"
+        assert result.accumulator.games == 2
+
+    def test_the_earlier_list_must_be_in_the_legacy_format(self):
+        players = read_rating_list(_CUTOVER_CSV)
+        with pytest.raises(ValueError, match="12 colunas"):
+            carry_over_active_accumulations(players, "Id;Nome\n1;X\n", _CUTOVER)
+
+
+class TestTheCutoverConversionScript:
+    """`scripts/converter-lista.py` is what runs the conversion once, at the
+    cut-over: both lists in, the 42-column list out."""
+
+    def test_it_writes_the_42_column_list_with_the_active_players_dated(self, tmp_path):
+        current = tmp_path / "atual.csv"
+        earlier = tmp_path / "antiga.csv"
+        out = tmp_path / "nova.csv"
+        current.write_text(_CUTOVER_CSV, encoding="utf-8")
+        earlier.write_text(_TWO_YEARS_EARLIER_CSV, encoding="utf-8")
+        script = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "converter-lista.py"
+
+        done = subprocess.run(
+            [sys.executable, str(script), str(current), str(earlier), _CUTOVER, str(out)],
+            capture_output=True, text=True,
+        )
+
+        assert done.returncode == 0, done.stderr
+        written = out.read_text(encoding="utf-8")
+        assert written.splitlines()[0] == FIDE_HEADER
+        players = read_rating_list(written)
+        assert _std(players[20]).accumulator.since == _CUTOVER
+        assert _std(players[21]).accumulator.since == ""

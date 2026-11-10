@@ -5,6 +5,7 @@ format (spec §2.2).
 """
 import csv
 import io
+from dataclasses import replace
 from decimal import Decimal
 
 from .model import COLUMN_SUFFIX, MODALITIES, Accumulator, ModalityState, PlayerState
@@ -264,6 +265,58 @@ def _read_legacy_rows(rows: list[list[str]]) -> dict[int, PlayerState]:
         )
         players[player.id_fexerj] = player
     return players
+
+
+def carry_over_active_accumulations(
+    players: dict[int, PlayerState], earlier_list_csv: str, since: str
+) -> list[int]:
+    """Date the accumulation of the active players decision C zeroed.
+
+    Decided by FEXERJ on 2026-09-30 (Anexo de Transição §1.1): a player with
+    a published rating and fewer than five games is zeroed either way, but
+    the games already played carry over toward the five if the player is
+    active — played in the two years before the cut-over — and do not if
+    inactive. The unit is the player, not the game: an active player keeps
+    all of them.
+
+    Who played is read the way §1.1 names: against the list published two
+    years earlier, in the same 12-column format. A lifetime count that grew
+    means games in between, and an id that list does not have played every
+    one of its games since.
+
+    Nothing is calculated here. A dated accumulator is one the engine
+    already honours, and an undated one it already drops on the player's
+    first period (`compute_unrated_period`) — which is what "não conta" asks
+    for, so the inactive are left exactly as the conversion made them.
+    `since` is the cut-over period: that is when the 26-month window (§6.2)
+    starts to run for the games carried over.
+
+    `players` is the converted state from `read_rating_list`, changed in
+    place. The published rating is gone from it by now; what decision C
+    leaves behind is no rating and one to four games. Returns the ids
+    carried over.
+    """
+    rows = _rows(earlier_list_csv)
+    header = _DELIMITER.join(cell.strip() for cell in rows[0]) if rows else ""
+    if header != LEGACY_HEADER:
+        raise ValueError(
+            "lista de 2 anos antes: cabeçalho não reconhecido. Esperado o formato de "
+            f"{LEGACY_COLUMN_COUNT} colunas."
+        )
+    earlier_games = {int(row[0]): int(row[9] or 0) for row in rows[1:]}
+
+    carried = []
+    for player_id, player in players.items():
+        std = player.modalities["STD"]
+        zeroed_by_c = std.rating is None and 0 < std.games < MIN_GAMES_FOR_FIRST_RATING
+        if not zeroed_by_c or std.accumulator.since:
+            continue
+        if std.games > earlier_games.get(player_id, 0):
+            player.modalities["STD"] = replace(
+                std, accumulator=replace(std.accumulator, since=since)
+            )
+            carried.append(player_id)
+    return carried
 
 
 def write_rating_list(players: dict[int, PlayerState], period_year: int) -> str:
