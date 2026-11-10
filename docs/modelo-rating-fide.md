@@ -6,11 +6,11 @@ O modelo de rating **por partida** da FEXERJ está descrito em **três anexos**,
 fontes próprias neste diretório. Este arquivo é só o índice: não vai à federação e não
 tem `.docx`.
 
-| Anexo | Rascunho | Fonte | O que contém |
+| Anexo | Versão | Fonte | O que contém |
 |---|---|---|---|
-| **Normativo** | 2 | [`anexo-normativo.md`](anexo-normativo.md) | As regras do modelo: modalidades e transpasse, parâmetros, cálculo por partida, período, fator K, rating inicial, rating vindo da FIDE, piso, e as duas tabelas da FIDE. |
-| **Transição** | 2 | [`anexo-transicao.md`](anexo-transicao.md) | A conversão da lista atual, os formatos dos arquivos, e as regras do modelo antigo que são aposentadas. |
-| **Testes** | 2 | [`anexo-testes.md`](anexo-testes.md) | Os parâmetros conferidos contra a lista da federação, a validação contra uma consulta oficial da FIDE e a simulação sobre o ciclo real de 2026. |
+| **Normativo** | final | [`anexo-normativo.md`](anexo-normativo.md) | As regras do modelo: modalidades e transpasse, parâmetros, cálculo por partida, período, fator K, rating inicial, rating vindo da FIDE, piso, e as duas tabelas da FIDE. |
+| **Transição** | final | [`anexo-transicao.md`](anexo-transicao.md) | A conversão da lista atual, os formatos dos arquivos, e as regras do modelo antigo que são aposentadas. |
+| **Testes** | final | [`anexo-testes.md`](anexo-testes.md) | Os parâmetros conferidos contra a lista da federação, a validação contra uma consulta oficial da FIDE e a simulação sobre o ciclo real de 2026. |
 
 Os três nascem da **versão 1.5** do documento único, que é onde a numeração de versões
 para: daqui em diante cada anexo é revisado com a federação por conta própria e leva o
@@ -19,9 +19,16 @@ ter mudado uma vírgula: ele ficou no 1 até 26/08/2026, quando ganhou a seção
 estarem hoje no 2 é coincidência — o próximo a mudar sobe sozinho.
 
 **O rascunho 2 dos três anexos foi aprovado pela FEXERJ, sem alteração** — aprovação
-comunicada em 09/11/2026. O texto aprovado é o dos `anexo-*-rascunho-2.docx` deste
-diretório, idêntico às fontes: nada mudou entre o envio e a aprovação. Daqui em diante,
-mudar uma fonte é mudar texto aprovado — abre o rascunho 3 e pede nova aprovação.
+comunicada em 09/11/2026 —, e as três fontes passaram a **versão final** na mesma data. A
+versão final difere do rascunho 2 aprovado em uma linha por anexo, a do cabeçalho; o corpo
+é o mesmo, conferido linha a linha entre os `.docx`. Os arquivos são `anexo-normativo.docx`,
+`anexo-transicao.docx` e `anexo-testes.docx`; os `-rascunho-2.docx` ficam, como registro do
+que foi aprovado. Mudar o corpo de uma fonte agora é mudar texto aprovado, e pede nova
+aprovação.
+
+Todas as regras dos anexos estão no programa. A última — as partidas do jogador ativo
+valendo na virada (Anexo de Transição, seção 1.1) — entra pela conversão, que roda uma vez:
+`scripts/converter-lista.py`, com a lista da virada e a publicada 2 anos antes.
 
 **O rascunho 1 dos três foi enviado em 13/08/2026 e o rascunho 2 em 01/10/2026**, para
 apresentação ao presidente da federação. Os `.docx` de cada rascunho enviado ficam neste
@@ -53,10 +60,11 @@ mantido o teto de 700 do fator K.
 
 Sem argumento, constrói os três. Com um caminho, constrói só aquele.
 
-**O número do rascunho fica no nome do arquivo** —
+**O nome do arquivo sai de um lugar só: a linha de status no topo da fonte.** Com
+`**Versão final — DD/MM/AAAA.**`, que é o estado de hoje, o arquivo sai sem sufixo —
+`anexo-normativo.docx`. Com `**Rascunho N — DD/MM/AAAA.**`, o número vai para o nome —
 `anexo-normativo-rascunho-1.docx` —, para que o arquivo que a federação abre diga qual
-rascunho é. Ele sai de um lugar só: a linha `**Rascunho N — DD/MM/AAAA.**` no topo da
-fonte. **Para revisar: mude a linha, rode o script.** O nome acompanha, e o rascunho
+rascunho é. **Para revisar: mude a linha, rode o script.** O nome acompanha, e o rascunho
 anterior continua onde estava, com o nome dele — que é o que permite responder "no
 rascunho 2 a regra dizia outra coisa".
 

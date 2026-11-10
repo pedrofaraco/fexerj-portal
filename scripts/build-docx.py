@@ -42,8 +42,10 @@ ANNEXES = ("anexo-normativo", "anexo-transicao", "anexo-testes")
 # Each annex is revised with the federation on its own, so each carries its own
 # draft number. The number lives in one place — the "**Rascunho N**" line of the
 # source — and the built filename follows it, so what they are reading is named
-# in the file they were sent. Bump the line; the name follows.
+# in the file they were sent. Bump the line; the name follows. Once approved,
+# the line reads "**Versão final**" and the file drops the suffix.
 DRAFT = re.compile(r"^\*\*Rascunho (\d+)", re.M)
+FINAL = re.compile(r"^\*\*Versão final", re.M)
 SOFFICE = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
 # US Letter, as LibreOffice's HTML import sets it, with symmetric margins.
@@ -184,14 +186,17 @@ def set_margins(xml: str) -> str:
                   f'<w:pgMar w:left="{MARGIN}" w:right="{MARGIN}"', xml, count=1)
 
 
-def draft_number(md: pathlib.Path) -> str:
-    match = DRAFT.search(md.read_text())
+def docx_name(md: pathlib.Path) -> str:
+    text = md.read_text()
+    if FINAL.search(text):
+        return f"{md.stem}.docx"
+    match = DRAFT.search(text)
     if match is None:
         raise SystemExit(
-            f"{md.name}: falta a linha '**Rascunho N — DD/MM/AAAA.**'. "
-            "É dela que sai o número no nome do arquivo."
+            f"{md.name}: falta a linha '**Rascunho N — DD/MM/AAAA.**' ou '**Versão final — "
+            "DD/MM/AAAA.**'. É dela que sai o nome do arquivo."
         )
-    return match.group(1)
+    return f"{md.stem}-rascunho-{match.group(1)}.docx"
 
 
 def build(md: pathlib.Path, out: pathlib.Path) -> None:
@@ -244,7 +249,7 @@ def main() -> None:
         return
     for name in ANNEXES:
         md = REPO / "docs" / f"{name}.md"
-        build(md, md.with_name(f"{name}-rascunho-{draft_number(md)}.docx"))
+        build(md, md.with_name(docx_name(md)))
 
 
 if __name__ == "__main__":
