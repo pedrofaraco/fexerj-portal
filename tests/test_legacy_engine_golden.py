@@ -1,7 +1,14 @@
-"""Golden test for the current engine: the output must not change by a single byte.
+"""Golden test for the current engine: the output must not change.
 
 The engine in `calculator/classes.py` generates the official FEXERJ rating and
 is not touched by the migration. This test fails if someone changes it by accident.
+
+The rating lists — the published ratings — are compared byte for byte. The
+audit files are compared cell by cell, text exactly and numbers to twelve
+digits: the engine writes its floats in full, and the last digit of a few of
+them depends on the platform's maths library. The golden files were written
+on macOS and CI runs on Linux, which kept this test red there for as long as
+the audits were compared as bytes.
 
 Four binary fixtures are covered, each exercising a different engine path:
   - round_robin_6players.TURX: round robin, 6 players (all with a FEXERJ id).
@@ -15,6 +22,7 @@ Four binary fixtures are covered, each exercising a different engine path:
     the engine raises ValueError. The locked behavior here is the exception
     and its message, not a byte-identical output file.
 """
+import math
 import pathlib
 
 import pytest
@@ -41,6 +49,23 @@ _TOURNAMENTS_CSV = (
 )
 
 
+def _assert_same_audit(actual: str, expected: str) -> None:
+    """Cell by cell: text exactly, numbers to twelve digits (see the module docstring)."""
+    actual_lines, expected_lines = actual.splitlines(), expected.splitlines()
+    assert len(actual_lines) == len(expected_lines)
+    for number, (actual_line, expected_line) in enumerate(zip(actual_lines, expected_lines, strict=True), 1):
+        actual_cells, expected_cells = actual_line.split(";"), expected_line.split(";")
+        assert len(actual_cells) == len(expected_cells), f"line {number}"
+        for actual_cell, expected_cell in zip(actual_cells, expected_cells, strict=True):
+            if actual_cell == expected_cell:
+                continue
+            try:
+                close = math.isclose(float(actual_cell), float(expected_cell), rel_tol=1e-12, abs_tol=1e-12)
+            except ValueError:
+                close = False
+            assert close, f"line {number}: {actual_cell!r} != {expected_cell!r}"
+
+
 def _run_legacy_cycle():
     data = (BINARY_DIR / 'round_robin_6players.TURX').read_bytes()
     cycle = FexerjRatingCycle(
@@ -59,10 +84,10 @@ def test_legacy_rating_list_is_byte_identical():
     assert output["RatingList_after_1.csv"] == expected
 
 
-def test_legacy_audit_is_byte_identical():
+def test_legacy_audit_matches_the_golden_file():
     output = _run_legacy_cycle()
     expected = (GOLDEN_DIR / 'legacy_rr_1_audit.csv').read_text(encoding='utf-8')
-    assert output["Audit_of_Tournament_1.csv"] == expected
+    _assert_same_audit(output["Audit_of_Tournament_1.csv"], expected)
 
 
 _SS_TOURNAMENTS_CSV = (
@@ -90,10 +115,10 @@ def test_ss_rating_list_is_byte_identical():
     assert output["RatingList_after_1.csv"] == expected
 
 
-def test_ss_audit_is_byte_identical():
+def test_ss_audit_matches_the_golden_file():
     output = _run_ss_cycle()
     expected = (GOLDEN_DIR / 'legacy_ss_1_audit.csv').read_text(encoding='utf-8')
-    assert output["Audit_of_Tournament_1.csv"] == expected
+    _assert_same_audit(output["Audit_of_Tournament_1.csv"], expected)
 
 
 _ST_TOURNAMENTS_CSV = (
@@ -121,10 +146,10 @@ def test_st_rating_list_is_byte_identical():
     assert output["RatingList_after_1.csv"] == expected
 
 
-def test_st_audit_is_byte_identical():
+def test_st_audit_matches_the_golden_file():
     output = _run_st_cycle()
     expected = (GOLDEN_DIR / 'legacy_st_1_audit.csv').read_text(encoding='utf-8')
-    assert output["Audit_of_Tournament_1.csv"] == expected
+    _assert_same_audit(output["Audit_of_Tournament_1.csv"], expected)
 
 
 _MISSING_ID_TOURNAMENTS_CSV = (
@@ -160,3 +185,29 @@ def test_missing_fexerj_id_raises_value_error():
     message = str(exc_info.value)
     assert "(starting rank 18) has no FEXERJ ID in the binary file." in message
     assert "Please fix the Swiss Manager file and re-export before uploading." in message
+
+
+_GOLDEN_AUDIT = (
+    "# audit_v1\n"
+    "Id_Fexerj;Name;We;Rn\n"
+    "3541;Lucas Carvalho;0.32749035666501497;1648\n"
+)
+
+
+def test_the_audit_comparison_forgives_the_last_digit_of_a_float():
+    """The exact pair that kept CI red: macOS wrote the golden file, and
+    Linux computes the same number one digit shorter."""
+    on_linux = _GOLDEN_AUDIT.replace("0.32749035666501497", "0.3274903566650149")
+    _assert_same_audit(on_linux, _GOLDEN_AUDIT)
+
+
+@pytest.mark.parametrize("changed", [
+    _GOLDEN_AUDIT.replace("0.32749035666501497", "0.3274903566"),   # a float, tenth digit
+    _GOLDEN_AUDIT.replace(";1648", ";1649"),                        # the rating itself
+    _GOLDEN_AUDIT.replace("Carvalho", "Carvalha"),                  # a text cell
+    _GOLDEN_AUDIT + "5400;Bruno Teixeira;0.5;1600\n",               # a row too many
+    _GOLDEN_AUDIT.replace(";1648", ""),                             # a cell too few
+])
+def test_the_audit_comparison_forgives_nothing_else(changed):
+    with pytest.raises(AssertionError):
+        _assert_same_audit(changed, _GOLDEN_AUDIT)
