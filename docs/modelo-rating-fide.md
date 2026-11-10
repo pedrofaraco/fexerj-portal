@@ -1,6 +1,6 @@
 # Modelo de rating FEXERJ — índice dos anexos
 
-Vigência prevista a partir de 01/03/2027.
+Vigência prevista a partir de 01/01/2027.
 
 O modelo de rating **por partida** da FEXERJ está descrito em **três anexos**, gerados de
 fontes próprias neste diretório. Este arquivo é só o índice: não vai à federação e não
@@ -20,8 +20,10 @@ estarem hoje no 2 é coincidência — o próximo a mudar sobe sozinho.
 
 **O rascunho 2 dos três anexos foi aprovado pela FEXERJ, sem alteração** — aprovação
 comunicada em 09/11/2026 —, e as três fontes passaram a **versão final** na mesma data. A
-versão final difere do rascunho 2 aprovado em uma linha por anexo, a do cabeçalho; o corpo
-é o mesmo, conferido linha a linha entre os `.docx`. Os arquivos são `anexo-normativo.docx`,
+versão final difere do rascunho 2 aprovado em uma linha por anexo, a do cabeçalho — e, no
+normativo, também na vigência, corrigida de 01/03/2027 para **01/01/2027**: todo torneio a
+partir de 2027 já é calculado pelo modelo novo. O corpo é o mesmo, conferido linha a linha
+entre os `.docx`. Os arquivos são `anexo-normativo.docx`,
 `anexo-transicao.docx` e `anexo-testes.docx`; os `-rascunho-2.docx` ficam, como registro do
 que foi aprovado. Mudar o corpo de uma fonte agora é mudar texto aprovado, e pede nova
 aprovação.

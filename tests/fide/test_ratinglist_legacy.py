@@ -378,7 +378,7 @@ _TWO_YEARS_EARLIER_CSV = (
     "23;;;Jogador A4;1790;CLUB A;01/01/1990;M;BRA;40;0;0\n"
     "24;;;Jogador A5;0;CLUB A;01/01/1990;M;BRA;4;3000;1\n"
 )
-_CUTOVER = "2027-03"
+_CUTOVER = "2027-01"
 
 
 class TestConversionOfTheActivePlayersGames:
